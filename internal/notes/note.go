@@ -45,11 +45,11 @@ type Note struct {
 
 // HistoryEntry は履歴 1 件（ER §2.4）。Note の全項目に閉じたときの情報を足したもの。
 type HistoryEntry struct {
-	PaneID   string `json:"pane_id"`
-	Pos      string `json:"pos"`
-	Agent    string `json:"agent"` // "" は null（MarshalJSON を実装側で）
-	Title    string `json:"title"`
-	ClosedAt string `json:"closed_at"`
-	ClosedBy string `json:"closed_by"`
+	PaneID   string  `json:"pane_id"`
+	Pos      string  `json:"pos"`
+	Agent    *string `json:"agent"` // nil は null
+	Title    string  `json:"title"`
+	ClosedAt string  `json:"closed_at"`
+	ClosedBy string  `json:"closed_by"`
 	Note
 }

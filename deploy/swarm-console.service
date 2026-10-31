@@ -1,0 +1,13 @@
+[Unit]
+Description=swarm-console (MCP console for tmux agents)
+After=network-online.target tailscaled.service
+
+[Service]
+ExecStart=%h/bin/swarm-console/swarm-console serve --config %h/.config/swarm-console/config.toml
+Restart=always
+RestartSec=2
+TimeoutStopSec=15
+UMask=0077
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,26 @@
+# 実画面から派生（TODO 表示の本文をダミー文に置換）
+
+ Please build the parser and its tests.
+
+
+╭───  Todo 4 tasks ───────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ I. Setup  1/1                                                                                                        │
+│   └─  Create the work branch                                                                                        │
+│ II. Build  1/3                                                                                                       │
+│   ├─  Write the parser                                                                                              │
+│   ├─  Add the tests                                                                                                 │
+│   └─  Update the docs                                                                                               │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ waiting on 1 job
+
+ TODO
+  ├─ II. Build · 1/3
+  │  ├─  Write the parser
+  │  ├─  Add the tests
+  │  └─  Update the docs
+  └─────
+
+  󱊷 Writing the parser                                                                             󱁂 FRUIT: Ask Me to Pick a Fruit
+ ⠼ 2s   devbox  󰪣 Sonnet 5.5    sc-probe/wd  󰁑 01a1927c ─3%──󰕝󰁨────1M─  10   296   78K   4.7K
+╰─
