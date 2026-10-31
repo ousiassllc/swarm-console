@@ -48,6 +48,8 @@ type Card struct {
 	Options      []Option
 	Cursor       int // 現在のカーソル番号（1 始まり、不明なら 0）
 	AllowsCustom bool
+	// Truncated は pane が上限（選択肢 20・質問 1000 字・ラベル 300 字）で切ったとき true にする。アダプタは設定しない。
+	Truncated bool
 }
 
 // Key は send-keys に渡す 1 キー。Name は tmux のキー名（"Up"・"Down"・"Enter"）か数字 "1".."9"。

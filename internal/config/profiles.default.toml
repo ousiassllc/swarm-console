@@ -1,0 +1,24 @@
+# 条件のひな形の組み込み初期値（ER §6）。~/.config/swarm-console/profiles.toml が無いときに使う。
+[common]
+rules = [
+  "コミットは必ず `git commit -s` で行う（cherry-pick も `-s`）。マージは `git merge --signoff`。",
+  "force push・rebase・amend・squash・reset・`--no-verify` はしない。フックが落ちたら止めて報告する。",
+  "リモートブランチは作業用でも消さない（削除はローカルだけ）。",
+  "マージ・Issue の close・デプロイはしない。",
+  "トークン・パスワードなどの秘密をコード・ログ・PR・Issue に書かない。",
+  "オーナーの checkout と `~/dotfiles` には触らず、worktree で作業する。",
+  "CI が緑になったら止める。",
+  "最終報告（PR・head・CI・Issue 番号・残りの判断）を {report_path} にも書く。",
+]
+
+[profile.sweep]
+rules = ["PR は 1 本まで（`--single-pr`）。PR を出して CI が緑になったら止まる。"]
+
+[profile.fix]
+rules = ["PR は 1 本まで。バグの再現確認と回帰テストを含める。PR を出して CI が緑になったら止まる。"]
+
+[profile.investigate]
+rules = [
+  "調査だけを行い、ファイルの変更・コミット・push・PR 作成はしない。",
+  "分かったこと・根拠・残りの判断を報告する。",
+]

@@ -1,0 +1,11 @@
+/issue-sweep #982 --single-pr --base main
+
+## やること
+Issue #982 を実装する。
+詳細は指示ファイルを見る。
+
+## 条件
+- コミットは必ず `git commit -s`（cherry-pick も `-s`）、マージは `git merge --signoff`
+- マージ・Issue の close・デプロイはしない
+- 最終報告を `/tmp/swarm-console/reports/B4.md` にも書く
+- PR は 1 本まで。バグの再現確認と回帰テストを含める。PR を出して CI が緑になったら止まる

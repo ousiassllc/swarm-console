@@ -1,0 +1,20 @@
+# 実画面ではない（推定）: Claude Code の公開された画面の知識から組んだ。ログイン切れで実画面を採取できなかった
+ ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   /tmp/sc-probe/wd
+
+❯ Ask me which fruit I like.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ☐ Fruit
+
+ Pick a fruit?
+
+   1. Apple
+   2. Banana (Recommended)
+   3. Cherry
+ ❯ 4. Type something.
+   5. Chat about this
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Enter to select · ↑/↓ to navigate · Esc to cancel
