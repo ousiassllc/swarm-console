@@ -25,7 +25,7 @@ type expiry struct {
 // トークン文字列・メールなど期限以外は読み取っても保持・返却しない。
 type parser func(data []byte) (e expiry, ok bool)
 
-// AuthStatus は agent の認証期限を読む。authFile が空なら既定の場所（P-16、AUTH.md）。
+// AuthStatus は agent の認証期限を読む。authFile が空なら既定の場所（P-16、docs/architecture/agent-auth.md）。
 // ファイルが無い・読めない・形式が違うときは AuthUnknown（エラーにしない）。期限以外の中身は返さない。
 func (r *Reader) AuthStatus(agent, authFile string, now time.Time) Auth {
 	unknown := Auth{Agent: agent, Status: AuthUnknown}
@@ -132,7 +132,7 @@ func parseClaude(data []byte) (expiry, bool) {
 }
 
 // parseCodex は ~/.codex/auth.json の tokens.access_token（JWT）の payload から exp（epoch 秒）だけを読む。
-// last_refresh は読まない（期限は exp が正。AUTH.md）。JWT でない・exp が無いときは不明。
+// last_refresh は読まない（期限は exp が正。docs/architecture/agent-auth.md）。JWT でない・exp が無いときは不明。
 func parseCodex(data []byte) (expiry, bool) {
 	var f struct {
 		Tokens *struct {

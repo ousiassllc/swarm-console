@@ -15,9 +15,8 @@ fmt:
 fmt-check:
 	golangci-lint fmt --diff ./...
 
-# docs/ は仕様書（markdown）で、手書きソースの行数管理の対象外にする（docs/environment/setup.md の Linterly 節）。
 linterly:
-	linterly check --ignore 'docs/**'
+	linterly check
 
 test:
 	go test -race ./...

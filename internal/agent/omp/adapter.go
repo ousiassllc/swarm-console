@@ -1,4 +1,4 @@
-// Package omp は omp（Oh My Pi）の画面を読むアダプタ。判定の根拠は internal/agent/PATTERNS.md を参照。
+// Package omp は omp（Oh My Pi）の画面を読むアダプタ。判定の根拠は docs/architecture/agent-patterns.md を参照。
 package omp
 
 import (
@@ -8,7 +8,7 @@ import (
 // Name はアダプタ名。
 const Name = "omp"
 
-// 画面の目印のうち、正規表現の上書きの対象にしない固定の記号（PATTERNS.md）。
+// 画面の目印のうち、正規表現の上書きの対象にしない固定の記号（docs/architecture/agent-patterns.md）。
 const (
 	cursorGlyph = '\uf054' // 選択肢の行頭のカーソル（Nerd Font の chevron-right）
 	statusCap   = '\ue0b6' // ステータス行の左端（powerline の丸い端）

@@ -1,4 +1,4 @@
-// Package claude は Claude Code の画面を読むアダプタ。判定の根拠は internal/agent/PATTERNS.md を参照。
+// Package claude は Claude Code の画面を読むアダプタ。判定の根拠は docs/architecture/agent-patterns.md を参照。
 package claude
 
 import (
@@ -8,7 +8,7 @@ import (
 // Name はアダプタ名。
 const Name = "claude"
 
-// defaults は組み込みの既定値。idle・信頼確認・/model メニューは実画面、作業中・許可確認・質問は推定（PATTERNS.md）。
+// defaults は組み込みの既定値。idle・信頼確認・/model メニューは実画面、作業中・許可確認・質問は推定（docs/architecture/agent-patterns.md）。
 var defaults = agent.Spec{
 	Name:  Name,
 	Start: "claude",

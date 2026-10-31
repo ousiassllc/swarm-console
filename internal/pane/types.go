@@ -32,7 +32,7 @@ type Layout struct {
 }
 
 // PaneState は 1 ペインのスナップショット上の状態（ER §4）。作ったあと変更しない。
-type PaneState struct {
+type PaneState struct { //nolint:revive // render・tools が使う公開契約の名前
 	ID        string // %12
 	Pos       string // T1 / work:B2 / w1.T2（固定名があればそれ）
 	Session   string
