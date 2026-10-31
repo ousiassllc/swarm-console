@@ -68,6 +68,7 @@ swarm-console/
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
 │   ├── tools/                ツールごとのハンドラ（引数検証・エラー整形）
 │   ├── pane/                 ペイン台帳、位置解決、スナップショット、サンプラー、ロック、操作の実行
+│   │   └── ops/              操作の実行（`pane.Ops` の実装。Linterly のディレクトリ上限のため分離）
 │   ├── agent/                Adapter インターフェース、レジストリ、共通ヘルパー
 │   │   ├── omp/
 │   │   ├── claude/
@@ -78,10 +79,14 @@ swarm-console/
 │   ├── tmux/                 tmux コマンド実行（Runner インターフェース）
 │   ├── host/                 負荷・メモリ・ディスク・/proc・認証期限の読み取り
 │   ├── store/                原子的ファイル書き込み、権限検査
-│   └── clock/                時計インターフェース（テストで固定）
+│   ├── clock/                時計インターフェース（テストで固定）
+│   ├── apperr/               エラーコードと固定メッセージ（API 仕様 §3）
+│   └── app/                  配線（設定・アダプタ・tmux・pane・tools・mcpapi・server の組み立て）
 ├── templates/                report.ja.md・report.en.md・dispatch.md（go:embed の既定）
 ├── testdata/screens/         実画面サンプル（omp/ claude/ codex/）
 ├── test/fakeagent/           擬似エージェント（サンプル画面を出し、キーに反応する）
+├── test/integration/         実 tmux ＋ fakeagent ＋ MCP クライアントの統合・受け入れテスト
+├── deploy/                   swarm-console.service（systemd ユーザーサービス）
 ├── docs/                     仕様書
 └── .github/workflows/        ci.yml・release.yml
 ```
