@@ -112,7 +112,7 @@ stateDiagram-v2
 | FR-AD-5 | エージェントの特定は、まずペインのプロセス木（`/proc`）で行い、取れなければ画面の特徴で補う（P-06） |
 | FR-AD-6 | `stalled` 判定の画面ハッシュは、スピナー・経過時間など毎回変わる部分を除いた本文で計算する（P-05） |
 
-具体的な正規表現の値は実画面サンプル（`testdata/screens/`）から実装時に確定する（P-22）。
+具体的な正規表現の値は [agent-patterns.md](../architecture/agent-patterns.md)（P-22。実画面サンプルは `testdata/screens/`）。
 
 ## 4. 機能一覧
 

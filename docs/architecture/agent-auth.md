@@ -1,5 +1,7 @@
 # 認証期限の読み先（P-16）
 
+[アーキテクチャ設計 §9](overview.md#9-提案した既定値と実装時確認事項) の P-16 の確定値。
+
 読むのは **期限だけ**。トークン文字列・メールなどは返り値・ログ・エラーに出さない。ファイルが無い・壊れている・形式違いは `unknown`（エラーにしない）。`ExpiresAt` が 48 時間以内なら `expiring_soon`、過ぎていれば `expired`、それ以外 `valid`。
 
 | agent | 読み先 | 読むキー | 判断 |
@@ -14,7 +16,3 @@
 
 - `~/.claude/.credentials.json`（権限 600）: `claudeAiOauth` に `accessToken`・`refreshToken`（どちらも空文字列）・`expiresAt`（数値）・`refreshTokenExpiresAt`（数値）ほか。`expiresAt` は **0**、`refreshTokenExpiresAt` は過去（2026-10-14）。トークンが空なのでログアウト状態＝**`expired`**（`unknown` ではない。`expiresAt: 0` は「1970 年に切れた」を意味し、期限不明ではなく失効の値のため）。
 - `~/.codex/auth.json`: `tokens.access_token` は JWT で `exp`（数値）が過去（2026-09-05）＝**`expired`**。`last_refresh` は ISO 8601 文字列（期限ではなく最終更新）。
-
-## 仕様書への反映案
-
-P-16 の「実装時（実ファイル形式）」を確定にし、上の表の読み先・判断を書く。

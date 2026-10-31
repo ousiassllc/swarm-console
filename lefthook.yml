@@ -9,7 +9,7 @@ pre-commit:
       glob: "*.go"
       run: golangci-lint run --new-from-rev=HEAD ./...
     linterly:
-      run: linterly check --ignore 'docs/**'
+      run: linterly check
 
 pre-push:
   parallel: false

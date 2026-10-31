@@ -30,6 +30,6 @@ jobs:
         with:
           version: v2.12
       - name: Linterly
-        run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check --ignore 'docs/**'
+        run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check
       - name: Test
         run: go test -race ./...

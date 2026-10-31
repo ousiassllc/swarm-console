@@ -1,5 +1,5 @@
 // Package codex は Codex CLI の画面を読むアダプタ。この機に codex が無く実画面で確かめていないため、
-// 既定値は公開されている TUI の知識による推定（P-22 は未確定。internal/agent/PATTERNS.md）。
+// 既定値は公開されている TUI の知識による推定（P-22 は未確定。docs/architecture/agent-patterns.md）。
 package codex
 
 import (

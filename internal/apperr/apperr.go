@@ -37,7 +37,8 @@ const (
 	Internal             Code = "internal"
 )
 
-var messages = map[Code]string{
+// messages は固定の日本語メッセージ表。認証の失敗文を含むだけで秘密の値ではない。
+var messages = map[Code]string{ //nolint:gosec // G101 の誤検知（unauthorized などのエラー文）
 	Unauthorized:         "認証に失敗しました",
 	ForbiddenScope:       "このトークンではこの窓口を使えません",
 	NotFound:             "見つかりません",

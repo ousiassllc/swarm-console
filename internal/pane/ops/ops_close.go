@@ -1,0 +1,130 @@
+package ops
+
+import (
+	"context"
+	"strings"
+
+	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/notes"
+	"github.com/ousiassllc/swarm-console/internal/pane"
+)
+
+// 閉じる手順の名前（API 仕様 §5.2 の steps）。
+const (
+	stepCD    = "cd ~"
+	stepClear = "clear"
+	stepTitle = "title"
+)
+
+// promptSuffixes はシェルのプロンプトらしい行の末尾。
+var promptSuffixes = []string{"$", "#", "%", ">", "❯", "➜", "»"}
+
+// Close はエージェントを終了してシェルを片付け、画面を確かめる。idle・shell のみ（P-19）。
+// 確かめられたときだけメモを履歴へ、最終報告を archive/ へ移す。
+func (o *Operator) Close(ctx context.Context, ref pane.Ref) (pane.CloseResult, error) {
+	unlock, p, err := o.begin(ctx, ref, true)
+	if err != nil {
+		return pane.CloseResult{}, err
+	}
+	defer unlock()
+	if err := allow(p, agent.StateIdle, agent.StateShell); err != nil {
+		return pane.CloseResult{}, err
+	}
+	type step struct{ name, text string }
+	var plan []step
+	if p.State == agent.StateIdle {
+		ad, err := o.adapterFor(p)
+		if err != nil {
+			return pane.CloseResult{}, err
+		}
+		plan = append(plan, step{ad.ExitCommand(), ad.ExitCommand()})
+	}
+	plan = append(plan, step{stepCD, stepCD}, step{stepClear, stepClear})
+	res := pane.CloseResult{Steps: []string{}}
+	for _, s := range plan {
+		if err := o.typeLine(ctx, p.ID, s.text); err != nil {
+			return res, err
+		}
+		res.Steps = append(res.Steps, s.name)
+	}
+	if err := o.deps.Tmux.SetTitle(ctx, p.ID, ""); err != nil {
+		return res, pane.TmuxError(err)
+	}
+	res.Steps = append(res.Steps, stepTitle)
+
+	clean, err := o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, pollStep, func(ctx context.Context) bool {
+		text, err := o.deps.Tmux.Capture(ctx, p.ID, pane.CaptureLines)
+		return err == nil && o.promptOnly(pane.SplitLines(text))
+	})
+	if err != nil {
+		return res, err
+	}
+	res.State = o.stateOf(ctx, p.ID)
+	if !clean {
+		return res, nil
+	}
+	res.OK = true
+	o.archiveClosed(ctx, p, &res)
+	return res, nil
+}
+
+// typeLine は「文字列 → 1 秒 → Enter → 1 秒」を送る。
+func (o *Operator) typeLine(ctx context.Context, id, text string) error {
+	if err := o.deps.Tmux.SendLiteral(ctx, id, text); err != nil {
+		return pane.TmuxError(err)
+	}
+	if err := o.sleep(ctx, fixedWait); err != nil {
+		return err
+	}
+	if err := o.sendKeys(ctx, id, "Enter"); err != nil {
+		return err
+	}
+	return o.sleep(ctx, fixedWait)
+}
+
+// archiveClosed は確認できたペインのメモと最終報告を履歴・archive/ へ移す。失敗は結果を変えずログに残す。
+func (o *Operator) archiveClosed(ctx context.Context, p pane.PaneState, res *pane.CloseResult) {
+	now := o.deps.Clock.Now()
+	meta := notes.ArchiveMeta{PaneID: p.ID, Pos: p.Pos, Agent: p.Agent, Title: p.Title, At: now}
+	moved, err := o.deps.Notes.Archive(context.WithoutCancel(ctx), meta, notes.ClosedByPaneClose)
+	if err != nil {
+		o.deps.Logger.Warn("メモを履歴へ移せませんでした", "pane", p.ID, "err", err)
+	}
+	res.NoteArchived = err == nil && moved
+	if _, err := pane.ArchiveReport(o.deps.FS, o.deps.Cfg.ReportDir, p.Pos, now); err != nil {
+		o.deps.Logger.Warn("最終報告を archive へ移せませんでした", "pane", p.ID, "err", err)
+	}
+}
+
+// promptOnly は画面が「エージェントが消え、シェルのプロンプトだけ」か。
+// 非空行が 1 行以下で、あるならプロンプトらしい行（~ を含むか、$ # % > などで終わる）。
+func (o *Operator) promptOnly(lines []string) bool {
+	var nonBlank []string
+	for _, l := range lines {
+		if t := strings.TrimSpace(l); t != "" {
+			nonBlank = append(nonBlank, t)
+		}
+	}
+	if len(nonBlank) > 1 {
+		return false
+	}
+	scr := agent.NewScreen(lines)
+	for _, ad := range o.deps.Adapters {
+		if ad != nil && ad.MatchScreen(scr) {
+			return false
+		}
+	}
+	if len(nonBlank) == 0 {
+		return true
+	}
+	l := nonBlank[0]
+	if strings.Contains(l, "~") {
+		return true
+	}
+	for _, s := range promptSuffixes {
+		if strings.HasSuffix(l, s) {
+			return true
+		}
+	}
+	return false
+}
