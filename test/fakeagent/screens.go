@@ -68,7 +68,7 @@ func (m *machine) Frame() ([]string, error) {
 		return nil, err
 	}
 	lines = append([]string(nil), lines...)
-	if m.mode == modeCustom {
+	if m.mode == modeCustom || m.inlineCustom() {
 		lines = m.withTyped(lines)
 	}
 	if len(lines) > 0 && (strings.TrimSpace(lines[0]) == "" || len(lines) >= frameRows) {
@@ -80,7 +80,7 @@ func (m *machine) Frame() ([]string, error) {
 
 // withTyped は自由入力中の本文を入力欄に出す（omp は `> ` の行、Claude Code は「Type something.」の項）。
 func (m *machine) withTyped(lines []string) []string {
-	text := string(m.typed)
+	text := strings.NewReplacer("\r", " ", "\n", " ").Replace(string(m.typed)) // 画面は 1 行に収める
 	for i, l := range lines {
 		switch {
 		case m.agent == "omp" && strings.HasPrefix(l, "│ >"):

@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -28,6 +30,10 @@ type Reader struct {
 	proc   string // /proc の場所（テストで差し替える）
 	home   string // 認証ファイルの既定の場所の基準（"" なら os.UserHomeDir）
 	statfs func(path string, st *syscall.Statfs_t) error
+
+	tblMu sync.Mutex // 親子表の更新を 1 つにまとめる（単一飛行）
+	tbl   *procTable
+	scans atomic.Int64 // /proc を走査した回数（テスト用）
 }
 
 var _ Host = (*Reader)(nil)

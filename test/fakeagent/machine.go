@@ -156,7 +156,17 @@ func (m *machine) move(delta int) {
 	if m.mode != modeAsk {
 		return
 	}
+	before := m.cursor
 	m.cursor = min(max(m.cursor+delta, 1), m.lastRow())
+	if m.cursor != before {
+		m.typed = nil
+	}
+}
+
+// inlineCustom は、カーソルが「その他」の項にあるとき入力・貼り付けがその行の本文になる画面（Claude Code の
+// `Type something.`）か。omp は Enter で別の入力枠（modeCustom）が開くのでこちらではない。
+func (m *machine) inlineCustom() bool {
+	return m.mode == modeAsk && m.agent == "claude" && m.rows.customRow > 0 && m.cursor == m.rows.customRow
 }
 
 func (m *machine) interrupt() {
@@ -173,6 +183,10 @@ func (m *machine) backspace() {
 		m.line = trimLastRune(m.line)
 	case modeCustom:
 		m.typed = trimLastRune(m.typed)
+	case modeAsk:
+		if m.inlineCustom() {
+			m.typed = trimLastRune(m.typed)
+		}
 	}
 }
 
@@ -189,10 +203,15 @@ func (m *machine) char(c []byte) {
 	case modeCustom:
 		m.typed = append(m.typed, c...)
 	case modeAsk:
-		// 数字キーで直接選べるのは Claude Code と Codex（omp は ↑/↓ と Enter だけ）。
+		if m.inlineCustom() {
+			m.typed = append(m.typed, c...)
+			return
+		}
+		// 数字キーは Claude Code と Codex でカーソルをその番号へ動かすだけで、確定は Enter
+		// （仕様: カーソルを n へ → 再読み取りで確認 → Enter。omp は ↑/↓ と Enter だけ）。
+		// Codex の実画面は未確認で、この動きは仮定（internal/agent/PATTERNS.md）。
 		if n := int(c[0] - '0'); len(c) == 1 && n >= 1 && n <= m.lastRow() && m.agent != "omp" {
 			m.cursor = n
-			m.enter()
 		}
 	}
 }
@@ -211,6 +230,13 @@ func (m *machine) enter() {
 			m.mode = modeWorking
 		}
 	case modeAsk:
+		if m.inlineCustom() {
+			if len(m.typed) > 0 { // 本文が空の Enter は何も起きない
+				m.record(event{kind: "CUSTOM", text: string(m.typed)})
+				m.mode, m.typed = modeWorking, nil
+			}
+			return
+		}
 		if m.cursor == m.rows.customRow {
 			m.mode, m.typed = modeCustom, nil
 			return
@@ -231,7 +257,7 @@ func (m *machine) finishPaste() {
 	m.paste = nil
 	m.record(event{kind: "PASTE", text: body})
 	m.pasted = true
-	if m.mode == modeCustom {
+	if m.mode == modeCustom || m.inlineCustom() {
 		m.typed = append(m.typed, body...)
 	}
 }

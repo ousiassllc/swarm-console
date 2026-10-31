@@ -66,7 +66,7 @@ omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左�
 | working | 下から 12 行以内の `esc to interrupt`（`• Working (12s • esc to interrupt)`） | 推定 |
 | idle | 下から 12 行以内に `›` の入力欄（番号なし） | 推定 |
 | カード | 選択肢の末尾の `(y)`・`(a)`・`(esc)` を文言から外す。自由入力の項はないので AllowsCustom は常に false | 実際の承認カードの形が違えば `ask_re`・`idle_re` を上書きする |
-| キー | `PickKeys` は数字キー 1 つ（Enter は含めない）。`CustomKeys` は常に `custom_not_allowed` | |
+| キー | `PickKeys` は数字キー 1 つ（Enter は含めない）。`CustomKeys` は常に `custom_not_allowed` | 数字キーで確定するか／カーソル移動だけかは実画面で未確認。fakeagent は「カーソル移動＋Enter 確定」と仮定している |
 | Clean | 起動枠（`╭…╰`）・入力欄（画面の最後の `› `）・ステータス行（`N% context left`）・作業中の行を除く。履歴の `› <指示>` は残す | |
 
 ## 共通の取り決め
