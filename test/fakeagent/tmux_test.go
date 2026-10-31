@@ -20,7 +20,8 @@ import (
 
 const (
 	waitLimit = 20 * time.Second
-	pollEvery = 20 * time.Millisecond
+	pollFirst = 10 * time.Millisecond
+	pollMax   = 250 * time.Millisecond
 )
 
 var (
@@ -99,24 +100,30 @@ func (s *tmuxSession) must(args ...string) string {
 	return out
 }
 
-func (s *tmuxSession) screen() agent.Screen {
-	out, _ := s.run("capture-pane", "-p", "-t", "t")
-	return agent.NewScreen(strings.Split(out, "\n"))
+// screen は画面を取る。tmux のサーバー（＝擬似エージェントのプロセス）が消えていれば ok=false。
+func (s *tmuxSession) screen() (scr agent.Screen, ok bool) {
+	out, err := s.run("capture-pane", "-p", "-t", "t")
+	return agent.NewScreen(strings.Split(out, "\n")), err == nil
 }
 
-// waitFor は cond が真になるまで上限付きで画面を取り直す。
+// waitFor は cond が真になるまで画面を取り直す。待ちの間隔は短く始めて徐々に伸ばし（高負荷のホストで
+// 自分の tmux 呼び出しが負荷を増やさない）、擬似エージェントが先に終わっていたら上限を待たずに失敗する。
+// 上限（waitLimit）は「準備完了の READY が出る」ための待ちで、キーは READY を確かめてから送る。
 func (s *tmuxSession) waitFor(what string, cond func(agent.Screen) bool) agent.Screen {
 	s.t.Helper()
 	deadline := time.Now().Add(waitLimit)
-	for {
-		scr := s.screen()
+	for step := pollFirst; ; step = min(step*2, pollMax) {
+		scr, alive := s.screen()
+		if !alive {
+			s.t.Fatalf("%s を待っている間に擬似エージェントが終わりました", what)
+		}
 		if cond(scr) {
 			return scr
 		}
 		if time.Now().After(deadline) {
 			s.t.Fatalf("%s を待ちましたが現れません。画面:\n%s", what, strings.Join(scr.Lines, "\n"))
 		}
-		time.Sleep(pollEvery)
+		time.Sleep(step)
 	}
 }
 
@@ -172,7 +179,7 @@ func waitGone(t *testing.T, s *tmuxSession) {
 		if time.Now().After(deadline) {
 			t.Fatal("終了コマンドのあとプロセスが終わりません")
 		}
-		time.Sleep(pollEvery)
+		time.Sleep(pollFirst)
 	}
 }
 
@@ -193,11 +200,9 @@ func TestRealTmuxAskPick(t *testing.T) {
 			for _, k := range keys {
 				s.must("send-keys", "-t", "t", k.Name)
 			}
-			// 数字キーは押した時点で選んで閉じる。Up/Down は動かしてから Enter で確定する。
-			if len(keys) != 1 || len(keys[0].Name) != 1 {
-				s.waitFor("カーソルが 3 番へ", cursorAt(a, 3))
-				s.must("send-keys", "-t", "t", "Enter")
-			}
+			// 数字キーも Up/Down も、カーソルを動かしてから Enter で確定する。
+			s.waitFor("カーソルが 3 番へ", cursorAt(a, 3))
+			s.must("send-keys", "-t", "t", "Enter")
 			s.waitFor("working", inState(a, agent.StateWorking))
 			assertEvents(t, logPath, fakeagenttest.Event{Kind: "PICK", N: 3})
 			s.must("send-keys", "-t", "t", "Escape")
@@ -222,7 +227,12 @@ func TestRealTmuxCustomAnswer(t *testing.T) {
 				s.must("send-keys", "-t", "t", k.Name)
 			}
 			s.waitFor("カーソルが「その他」へ", cursorAt(a, len(card.Options)+1))
-			s.must("send-keys", "-t", "t", "Enter")
+			if c.agent == "omp" { // omp は Enter で自由入力の枠が開く。claude は「その他」の行へそのまま入る。
+				s.must("send-keys", "-t", "t", "Enter")
+				s.waitFor("自由入力の枠", func(sc agent.Screen) bool {
+					return hasReady(sc) && strings.Contains(strings.Join(sc.Lines, "\n"), "Custom answer")
+				})
+			}
 			s.must("send-keys", "-t", "t", "-l", "Mango")
 			s.must("send-keys", "-t", "t", "Enter")
 			s.waitFor("working", inState(a, agent.StateWorking))
