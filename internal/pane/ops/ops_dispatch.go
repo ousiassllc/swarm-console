@@ -50,7 +50,8 @@ func (o *Operator) Dispatch(ctx context.Context, ref pane.Ref, a pane.DispatchAr
 	if _, err := pane.ArchiveReport(o.deps.FS, o.deps.Cfg.ReportDir, p.Pos, o.deps.Clock.Now()); err != nil {
 		o.deps.Logger.Warn("古い最終報告を archive へ移せませんでした", "pane", p.ID, "err", err)
 	}
-	accepted, err := o.pasteAndAccept(ctx, p.ID, ad, a.Text, agent.StateIdle)
+	sent, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, a.Text, agent.StateIdle)
+	res.Sent = sent
 	if err != nil {
 		return res, err
 	}

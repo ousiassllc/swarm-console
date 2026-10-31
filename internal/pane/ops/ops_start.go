@@ -72,9 +72,14 @@ func (o *Operator) startLocked(ctx context.Context, p pane.PaneState, name strin
 	if err := tm.SetTitle(ctx, p.ID, full); err != nil {
 		return pane.StartResult{}, pane.TmuxError(err)
 	}
-	for _, cmd := range []string{"cd '" + cwd + "'", ad.StartCommand()} {
+	for i, cmd := range []string{"cd '" + cwd + "'", ad.StartCommand()} {
 		if err := tm.SendLiteral(ctx, p.ID, cmd); err != nil {
 			return pane.StartResult{}, pane.TmuxError(err)
+		}
+		if i == 0 {
+			// 最初の送信に成功した後は、クライアントの切断・キャンセルで途中にならないよう ctx から切り離して
+			// 起動まで（start_timeout で上限）やりきる（コマンドを入力行に残さない。NFR-AVL-7）。
+			ctx = context.WithoutCancel(ctx)
 		}
 		if err := o.sendKeys(ctx, p.ID, "Enter"); err != nil {
 			return pane.StartResult{}, err

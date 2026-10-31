@@ -68,11 +68,13 @@ func (o *Operator) Close(ctx context.Context, ref pane.Ref) (pane.CloseResult, e
 	return res, nil
 }
 
-// typeLine は「文字列 → 1 秒 → Enter → 1 秒」を送る。
+// typeLine は「文字列 → 1 秒 → Enter → 1 秒」を送る。文字列を送った後は、ctx がキャンセルされても
+// Enter まで（と最後の 1 秒）送りきる（入力行に半端な文字列を残さない。NFR-AVL-7）。
 func (o *Operator) typeLine(ctx context.Context, id, text string) error {
 	if err := o.deps.Tmux.SendLiteral(ctx, id, text); err != nil {
 		return pane.TmuxError(err)
 	}
+	ctx = context.WithoutCancel(ctx)
 	if err := o.sleep(ctx, fixedWait); err != nil {
 		return err
 	}

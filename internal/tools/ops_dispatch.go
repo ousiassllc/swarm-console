@@ -77,8 +77,7 @@ func (e *env) dispatch(ctx context.Context, _ auth.Client, raw json.RawMessage) 
 		return Result{}, apperr.As(err)
 	}
 	args := pane.DispatchArgs{Agent: *a.Agent, Text: text}
-	wasShell := false
-	if args.Cwd, args.Title, wasShell, err = e.dispatchTarget(ctx, ref, &a); err != nil {
+	if args.Cwd, args.Title, err = e.dispatchTarget(ctx, ref, &a); err != nil {
 		return Result{}, err
 	}
 	res, err := e.Ops.Dispatch(ctx, ref, args)
@@ -86,9 +85,9 @@ func (e *env) dispatch(ctx context.Context, _ auth.Client, raw json.RawMessage) 
 		return Result{}, apperr.As(err)
 	}
 	out := dispatchJSON{OK: res.OK, State: string(res.State), Accepted: res.Accepted, Started: res.Started}
-	// 送信が行われたのは、idle のペインへ貼ったとき、または shell から起動できたとき。
+	// 送信が行われたのは、指示文を実際に貼ったとき（Ops が事実で埋める）。
 	// shell で起動に失敗したときは何も送っていない（指示文もメモも残さない）。
-	if res.Started || !wasShell {
+	if res.Sent {
 		out.Sent, out.NoteSaved = text, e.saveNote(ctx, ref.ID, a.Note)
 	}
 	return marshalResult(out)
@@ -135,19 +134,18 @@ func (e *env) checkDispatchArgs(a *dispatchArgs) (render.DispatchInput, error) {
 	return in, nil
 }
 
-// dispatchTarget はペインの状態が shell のときだけ必要な cwd・title を検証して返す（shell なら wasShell）。
+// dispatchTarget はペインの状態が shell のときだけ必要な cwd・title を検証して返す。
 // idle のペインでは無視する。ほかの状態は Ops.Dispatch が invalid_state にする。
-func (e *env) dispatchTarget(ctx context.Context, ref pane.Ref, a *dispatchArgs) (cwd, title string, wasShell bool, err error) {
+func (e *env) dispatchTarget(ctx context.Context, ref pane.Ref, a *dispatchArgs) (cwd, title string, err error) {
 	snap, err := e.Registry.Current(ctx)
 	if err != nil {
-		return "", "", false, apperr.Wrap(apperr.Internal, err)
+		return "", "", apperr.Wrap(apperr.Internal, err)
 	}
 	p, ok := snap.Find(ref.ID)
 	if !ok || p.State != agent.StateShell {
-		return "", "", false, nil
+		return "", "", nil
 	}
-	cwd, title, err = e.checkStartTarget(a.Cwd, a.Title)
-	return cwd, title, err == nil, err
+	return e.checkStartTarget(a.Cwd, a.Title)
 }
 
 // saveNote は送信後にメモを保存する。失敗しても送信は済んでいるのでエラーにせず false を返す。

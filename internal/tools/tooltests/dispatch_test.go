@@ -22,7 +22,7 @@ func wantSent(f *toolstest.Fixture, pos string) string {
 
 func TestDispatchIdle(t *testing.T) {
 	f := toolstest.New(t)
-	f.Ops.DispatchRes = pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true}
+	f.Ops.DispatchRes = pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Sent: true}
 	m := mustCall(t, f, "dispatch", `{"pane":"T1",`+dispatchOK+`,"cwd":"/ignored/for/idle","note":{"from":"ふみ","items":["#982"]}}`)
 	if m["sent"] != wantSent(f, "T1") || m["ok"] != true || m["started"] != false || m["accepted"] != true || m["note_saved"] != true {
 		t.Errorf("dispatch = %v", m)
@@ -41,7 +41,7 @@ func TestDispatchShellStartsPane(t *testing.T) {
 	if err := os.Mkdir(cwd, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	f.Ops.DispatchRes = pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Started: true}
+	f.Ops.DispatchRes = pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Started: true, Sent: true}
 	m := mustCall(t, f, "dispatch", `{"pane":"B1",`+dispatchOK+`,"cwd":"`+cwd+`","title":"funid #982"}`)
 	if m["started"] != true || m["note_saved"] != false {
 		t.Errorf("dispatch = %v", m)
@@ -103,7 +103,7 @@ func TestDispatchNoteSavedOnlyAfterSending(t *testing.T) {
 		t.Fatalf("拒否されたのにメモが保存されました: %v", ids)
 	}
 	f.Ops.Err = nil
-	f.Ops.DispatchRes = pane.DispatchResult{OK: false, State: agent.StateIdle, Accepted: false}
+	f.Ops.DispatchRes = pane.DispatchResult{OK: false, State: agent.StateIdle, Accepted: false, Sent: true}
 	m := mustCall(t, f, "dispatch", `{"pane":"T1",`+dispatchOK+`,"note":{"from":"x"}}`)
 	if m["ok"] != false || m["accepted"] != false || m["note_saved"] != true {
 		t.Errorf("受理されなかった dispatch = %v", m)
@@ -115,7 +115,7 @@ func TestDispatchNoteSavedOnlyAfterSending(t *testing.T) {
 
 func TestDispatchKeyOrder(t *testing.T) {
 	f := toolstest.New(t)
-	f.Ops.DispatchRes = pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true}
+	f.Ops.DispatchRes = pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Sent: true}
 	text, err := call(t, f, "dispatch", `{"pane":"T1","agent":"omp","task":"x","profile":"fix"}`)
 	if err != nil {
 		t.Fatal(err)
@@ -140,5 +140,23 @@ func TestDispatchShellStartFailureSendsNothing(t *testing.T) {
 	}
 	if ids := f.Notes.ActiveIDs(); len(ids) != 0 {
 		t.Errorf("送っていないのにメモが保存されました: %v", ids)
+	}
+}
+
+// スナップショットは shell と見ていたが、実際は idle で貼り付けられたとき（Started=false・Sent=true）も、
+// sent を返しメモを保存する（P-23）。
+func TestDispatchStaleShellSnapshotButSent(t *testing.T) {
+	f := toolstest.New(t)
+	cwd := filepath.Join(f.Root, "wt")
+	if err := os.Mkdir(cwd, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	f.Ops.DispatchRes = pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Started: false, Sent: true}
+	m := mustCall(t, f, "dispatch", `{"pane":"B1",`+dispatchOK+`,"cwd":"`+cwd+`","title":"t","note":{"from":"x"}}`)
+	if m["sent"] != wantSent(f, "B1") || m["note_saved"] != true || m["started"] != false {
+		t.Errorf("dispatch = %v", m)
+	}
+	if n, ok := f.Notes.Get("%3"); !ok || n.From != "x" {
+		t.Errorf("メモが保存されていません: %+v", n)
 	}
 }

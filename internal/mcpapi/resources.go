@@ -37,7 +37,7 @@ func parseURI(uri string) (kind, pos string, ok bool) {
 			if err != nil || pos == "" {
 				return p.kind, "", false
 			}
-			return p.kind, clip(pos, 40), true
+			return p.kind, pos, true
 		}
 	}
 	return "", "", false

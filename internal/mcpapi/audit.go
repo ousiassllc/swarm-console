@@ -22,13 +22,14 @@ func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		start := time.Now()
 		ev := Event{Endpoint: b.endpoint, Method: method}
-		ev.Target, ev.Pane = describe(req)
+		name, paneArg := describe(req)
+		ev.Target, ev.Pane = b.auditTarget(method, name), paneArg
 		var (
 			res mcp.Result
 			err error
 		)
 		switch {
-		case method == "tools/call" && !b.hasTool(ev.Target):
+		case method == "tools/call" && !b.hasTool(name):
 			res = unknownToolResult()
 		case method == "resources/read" && !validResourceRequest(req):
 			err = resourceNotFound(apperr.New(apperr.PaneNotFound))
@@ -51,7 +52,35 @@ func (b *builder) hasTool(name string) bool {
 	return ok
 }
 
-// describe は監査ログに載せる対象（ツール名・prompt 名・resource 名）と pane を要求から取り出す。
+// unknownTarget は登録されていないツール名・prompt 名の代わりに監査ログへ記録する固定値。
+// クライアントが付けた文字列（最大 256 KiB）をそのまま残さない。
+const unknownTarget = "unknown"
+
+// auditTarget は監査ログに載せるツール名・prompt 名。この窓口に登録されたものだけ記録し、ほかは unknown にする。
+// resources/read の種別（report|pane|notes）は parseURI が決める固定値なのでそのまま。
+func (b *builder) auditTarget(method, name string) string {
+	switch method {
+	case "tools/call":
+		if b.hasTool(name) {
+			return name
+		}
+		return unknownTarget
+	case "prompts/get":
+		if b.hasPrompt(name) {
+			return name
+		}
+		return unknownTarget
+	}
+	return name
+}
+
+// hasPrompt は name がこの窓口に登録された prompt か（/report は report のみ、/ops は report と dispatch）。
+func (b *builder) hasPrompt(name string) bool {
+	return name == "report" || (name == "dispatch" && b.endpoint == tools.EndpointOps)
+}
+
+// describe は要求からツール名・prompt 名・resource 種別と pane（短く切ったもの）を取り出す。
+// 名前はクライアントの入力のままなので、記録の前に auditTarget を通す。
 // 引数の本文・メモの内容など、pane 以外の値は見ない。
 func describe(req mcp.Request) (target, paneArg string) {
 	switch r := req.(type) {
@@ -61,12 +90,12 @@ func describe(req mcp.Request) (target, paneArg string) {
 		}
 	case *mcp.GetPromptRequest:
 		if r.Params != nil {
-			return r.Params.Name, r.Params.Arguments["pane"]
+			return r.Params.Name, clip(r.Params.Arguments["pane"], 40)
 		}
 	case *mcp.ReadResourceRequest:
 		if r.Params != nil {
 			kind, pos, _ := parseURI(r.Params.URI)
-			return kind, pos
+			return kind, clip(pos, 40)
 		}
 	}
 	return "", ""

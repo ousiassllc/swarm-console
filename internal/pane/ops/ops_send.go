@@ -65,7 +65,7 @@ func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pan
 	if err != nil {
 		return pane.SendResult{}, err
 	}
-	accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State)
+	_, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State)
 	if err != nil {
 		return pane.SendResult{}, err
 	}
@@ -74,21 +74,25 @@ func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pan
 
 // pasteAndAccept は Paste → 1 秒 → Enter → 受理待ち。prior は送る前の状態。
 // 受理 = working になった。すでに working・stalled だったペインは、貼った本文の末尾が画面から消えたことも条件にする。
-func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapter, text string, prior agent.State) (bool, error) {
+// 貼り付けに成功した後は、クライアントの切断・キャンセルで途中にならないよう ctx から切り離して Enter まで送る
+// （入力欄に半端な本文を残さない。NFR-AVL-7）。sent は貼り付けに成功したか。
+func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapter, text string, prior agent.State) (sent, accepted bool, err error) {
 	if err := o.deps.Tmux.Paste(ctx, id, text); err != nil {
-		return false, pane.TmuxError(err)
+		return false, false, pane.TmuxError(err)
 	}
+	ctx = context.WithoutCancel(ctx)
 	if err := o.sleep(ctx, fixedWait); err != nil {
-		return false, err
+		return true, false, err
 	}
 	if err := o.sendKeys(ctx, id, "Enter"); err != nil {
-		return false, err
+		return true, false, err
 	}
 	wasWorking := prior == agent.StateWorking || prior == agent.StateStalled
-	return o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, pollStep, func(ctx context.Context) bool {
+	accepted, err = o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, pollStep, func(ctx context.Context) bool {
 		st, lines := o.look(ctx, id, ad)
 		return st == agent.StateWorking && (!wasWorking || !onScreen(lines, text))
 	})
+	return true, accepted, err
 }
 
 // onScreen は text の最後の非空行の末尾（30 字）が画面の下側（入力欄）にまだ残っているか。

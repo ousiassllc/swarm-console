@@ -27,11 +27,11 @@ type Server struct {
 }
 
 // New は一意なソケット名の Server を作り、終了時に kill-server を登録する。
-// tmux が無ければテストをスキップする。サーバー自体は最初のセッションを作ったときに立ち上がる。
+// tmux が無ければテストを失敗させる（NFR-TEST-8）。サーバー自体は最初のセッションを作ったときに立ち上がる。
 func New(tb testing.TB) *Server {
 	tb.Helper()
 	if _, err := exec.LookPath("tmux"); err != nil {
-		tb.Skip("tmux が無いためスキップ")
+		tb.Fatalf("tmux が見つかりません。tmux を使うテストには tmux が必要です（NFR-TEST-8）: %v", err)
 	}
 	var r [6]byte
 	if _, err := rand.Read(r[:]); err != nil {
