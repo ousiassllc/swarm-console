@@ -3,3 +3,4 @@
 /swarm-console
 *.test
 *.out
+/bin/

@@ -27,7 +27,7 @@ swarm-console/
 ├── .github/workflows/release.yml   タグ v* でバイナリを GitHub Releases へ
 ├── .golangci.yml                   lint / format 設定
 ├── .linterly.yml                   行数管理設定
-├── .linterlyignore                 行数管理の除外（基本は空）
+├── .linterlyignore                 行数管理の除外（`docs/**` のみ。P-31）
 ├── lefthook.yml                    Git Hooks
 ├── Makefile                        タスクランナー
 ├── go.mod / go.sum
@@ -242,9 +242,11 @@ language: ja
 #   - "internal/generated/**"
 ```
 
-`.linterlyignore`（基本は空。手書きのソースコードは除外しない）：
+`.linterlyignore`（`docs/**` のみ除外する。手書きのソースコードは除外しない）：
 
 ```
+# 仕様書（markdown）は行数管理の対象外（P-31。分割は別 Issue）
+docs/**
 # 自動生成コード（必要になった場合のみ追加する）
 # *.generated.go
 # *.pb.go
@@ -274,7 +276,7 @@ pre-commit:
       glob: "*.go"
       run: golangci-lint run --new-from-rev=HEAD ./...
     linterly:
-      run: linterly check {staged_files}
+      run: linterly check
 
 pre-push:
   parallel: false

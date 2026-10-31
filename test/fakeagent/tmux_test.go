@@ -63,7 +63,7 @@ type tmuxSession struct {
 func startTmux(t *testing.T, binDir, cmdline string) *tmuxSession {
 	t.Helper()
 	if _, err := exec.LookPath("tmux"); err != nil {
-		t.Skip("tmux がありません")
+		t.Fatalf("tmux が見つかりません。統合テストには tmux が必要です（NFR-TEST-8）: %v", err)
 	}
 	s := &tmuxSession{t: t, socket: fmt.Sprintf("fakeagent-%d-%d", os.Getpid(), time.Now().UnixNano())}
 	shell := fmt.Sprintf("PATH=%s:$PATH exec %s", binDir, cmdline)

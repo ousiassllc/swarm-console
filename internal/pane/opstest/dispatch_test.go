@@ -53,7 +53,7 @@ func TestDispatchShellStartsThenSends(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Started: true}
+	want := pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Started: true, Sent: true}
 	if res != want {
 		t.Fatalf("res = %+v", res)
 	}
@@ -82,7 +82,7 @@ func TestDispatchIdleSendsDirectly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := (pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true}); res != want {
+	if want := (pane.DispatchResult{OK: true, State: agent.StateWorking, Accepted: true, Sent: true}); res != want {
 		t.Fatalf("res = %+v", res)
 	}
 	if got := opStrings(f); len(got) != 2 || got[1] != "keys %0 Enter" {

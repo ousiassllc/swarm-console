@@ -114,11 +114,12 @@ func (c *Client) bufferName() (string, error) {
 }
 
 // SetTitle は select-pane -T でペインのタイトルを設定する。
+// tmux はタイトルを書式展開する（#{...}・#(...)）ので、"#" を "##" にして文字どおりに設定する。
 func (c *Client) SetTitle(ctx context.Context, id, title string) error {
 	if err := checkPane(id); err != nil {
 		return err
 	}
-	_, err := c.run(ctx, subSelectPane, "", "-t", id, "-T", title)
+	_, err := c.run(ctx, subSelectPane, "", "-t", id, "-T", strings.ReplaceAll(title, "#", "##"))
 	return err
 }
 

@@ -191,6 +191,22 @@ func TestSetTitle(t *testing.T) {
 	}
 }
 
+// タイトルは tmux に書式展開されず、文字どおり設定される（書式・コマンドの差し込み防止）。
+func TestSetTitleIsLiteral(t *testing.T) {
+	srv, c := setup(t)
+	ctx := context.Background()
+	id := srv.NewSession("lit", 80, 20, sleepCmd)
+	for _, title := range []string{"a #{pane_id} b", "k #(echo injected) z", "x ## y", "#{session_name}#", "#982 #S"} {
+		if err := c.SetTitle(ctx, id, title); err != nil {
+			t.Fatal(err)
+		}
+		ps, err := c.ListPanes(ctx, []string{"lit"})
+		if err != nil || len(ps) != 1 || ps[0].Title != title {
+			t.Fatalf("タイトル %q が文字どおりに出ていない: %v %+v", title, err, ps)
+		}
+	}
+}
+
 func TestServerStartAndVersion(t *testing.T) {
 	srv, c := setup(t)
 	srv.NewSession("v", 80, 20, sleepCmd)

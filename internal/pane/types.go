@@ -149,6 +149,9 @@ type DispatchResult struct {
 	State    agent.State
 	Accepted bool
 	Started  bool
+	// Sent は指示文を実際に貼り付けて Enter を送ったか。呼び出し側はこれでメモの保存と sent を決める
+	// （スナップショットが古くて shell と見た idle のペインでも、貼ったなら true）。
+	Sent bool
 }
 
 // Ops は操作側（機能要件 §4.2）。どの操作も同じペインについて排他（lock_timeout 超過で apperr.BusyTimeout）。
