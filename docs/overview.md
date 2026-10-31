@@ -98,6 +98,7 @@ graph TD
 | ER / データモデル | `docs/architecture/er.md` | notes.json・tokens.toml・config.toml・profiles.toml・実行時ペイン状態のスキーマと制約 |
 | API 仕様 | `docs/api/endpoints.md` | 窓口・認証・エラー形式・全ツールの引数と返り値・prompts・resources |
 | コンポーネント設計 | `docs/components/overview.md` | Go パッケージ構成、アダプタ IF、責務、依存関係、テスト構成 |
+| 環境構築 | `docs/environment/setup.md` | 開発環境、CI/CD（ci・release）、golangci-lint、Linterly、Lefthook、Makefile（Swagger は対象外） |
 
 ## マイルストーン / リリース計画
 
@@ -132,3 +133,4 @@ graph TD
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成（元仕様 v1.1 を仕様書に展開） | 初版 |
+| 1.1 | 2026-10-31 | ドキュメントマップに環境構築を追加 | 環境構築ドキュメントの作成に伴い |
