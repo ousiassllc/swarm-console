@@ -8,6 +8,3 @@ rules:
 count_mode: all               # 変更しない
 default_excludes: true
 language: ja
-ignore:
-  # docs/ は仕様書（markdown）で、手書きソースではない。仕様書の分割は別 Issue とする。
-  - "docs/**"
