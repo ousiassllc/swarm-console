@@ -162,18 +162,13 @@ type Ops interface {
 	Dispatch(ctx context.Context, ref Ref, a DispatchArgs) (DispatchResult, error)
 }
 
-// NoteStore は pane が使うメモ側の口（notes.Store が実装する）。
+// NoteStore は pane が使うメモ側の口（notes.Store のうち pane が使う部分）。
 type NoteStore interface {
-	// Summaries は現行メモの要約（キー: tmux ID）。
 	Summaries() map[string]notes.Summary
-	// ActiveIDs は現行メモを持つ tmux ID。
-	ActiveIDs() []string
-	// Archive は現行メモを履歴へ移す。メモが無ければ false。
 	Archive(ctx context.Context, meta notes.ArchiveMeta, closedBy string) (bool, error)
-	// Log は note_log と同じ検証で 1 行足す（send_escape の自動記録）。メモが無くても作る。
-	Log(ctx context.Context, paneID, text string) error
-	TmuxServerStart() string
-	SetTmuxServerStart(ctx context.Context, v string) error
+	// Log は note_log と同じ検証で 1 行足す（send_escape の自動記録）。
+	Log(ctx context.Context, paneID, text string) (int, error)
+	ReconcileServer(ctx context.Context, start string) (int, error)
 }
 
 // Tmux は pane が使う tmux 側の口（tmux.Client が実装する）。
