@@ -198,6 +198,31 @@ func TestSetupHandwrittenOneChange(t *testing.T) {
 	}
 }
 
+// default_session の選択では絞り込み（/）を使わないので、ヘルプ行に filter が出ない。選択と Enter での確定は変わらない。
+func TestSetupDefaultSessionHasNoFilterHelp(t *testing.T) {
+	tm := tmuxtest.New(t)
+	home := newHome(t)
+	p := startSetup(t, tm, home, filepath.Join(home, "config.toml"), "")
+	p.listenManual()
+	p.typeText("127.0.0.1:1")
+	p.keys("Enter")
+	p.text("sessions（カンマ区切り）")
+	p.keys("End")
+	p.typeText(", work")
+	p.keys("Enter")
+	p.text("default_session")
+	screen := p.text("work") // 選択肢の読み込み後の画面（読み込みでキーの割り当てが戻らないことも確かめる）
+	if strings.Contains(screen, "filter") {
+		t.Fatalf("default_session の画面に filter が出ています:\n%s", screen)
+	}
+	p.keys("Down", "Enter")
+	p.text("allowed_roots（1 行 1 パス）")
+	p.keys("C-c")
+	if code := p.exitCode(); code != 1 {
+		t.Fatalf("終了コード = %d", code)
+	}
+}
+
 // 中止（Esc・Ctrl+C）では何も書かず、終了コード 1。
 func TestSetupAbortWritesNothing(t *testing.T) {
 	for _, key := range []string{"Escape", "C-c"} {
