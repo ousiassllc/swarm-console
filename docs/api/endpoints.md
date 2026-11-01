@@ -139,3 +139,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.5 | 2026-11-01 | `report` の JSON に `host`（CPU・スワップ・ディスクの使用率）・`usage`・`omp`・`update`・`auth`、`kind` の `auth_expired`・`auth_expiring` を追加（`attention[]` のキー・型は変えない）。`host_status` に同じ値を追加 | Issue #21〜#25 |
 | 1.6 | 2026-11-02 | `report` の `pane` 指定の JSON でも、ログインの要対応・`usage`・`omp`・`update`・`auth`・`host` は絞らず常に入れると明記（ペインの項目だけ絞る）。例の `used` を JSON の数値表記（`48`）にそろえた | Issue #21〜#25（実装時の確認） |
 | 1.7 | 2026-11-02 | `pane_close` が終了コマンドのあと `shell` に戻るまで待つと明記し、エラーコード `exit_timeout` を追加（戻らなければ `cd ~` 以降は送らない） | Issue #30 |
+| 1.8 | 2026-11-02 | `pane_close` の `exit_timeout` はエラーだけを返す（`ok`・`steps`・`note_archived` は返らない）、終了コマンドは送ってあり呼び直してよい、`shell` に戻ったかの判定は `panes_status` と同じで `/proc` に依ると明記 | Issue #30 |

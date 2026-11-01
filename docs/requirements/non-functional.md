@@ -9,7 +9,7 @@
 | NFR-PERF-1 | `panes_status` の応答時間 | 8 ペインで p95 500 ms 以内（スナップショットが新しい場合は 50 ms 以内） | tmux 呼び出しはペイン並列。P-05 |
 | NFR-PERF-2 | `report` の応答時間 | `panes_status` と同等 + 描画 20 ms 以内 | 同じスナップショットを使う |
 | NFR-PERF-3 | 応答サイズ（文字量削減） | `panes_status` 8 ペインで 8 KB 以内、`report`（markdown）で 6 KB 以内、`ask_card` で 2 KB 以内 | 元仕様の目的 1。画面全文は返さない |
-| NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着 | 超えたら `ok: false` と現在の `state` |
+| NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着。ただし `pane_close` は待ちが 2 つあるので、上限は 仕様で定めた待ち ＋ `shell` に戻るまでの待ち（`accept_timeout`）＋ 画面確認の待ち（`accept_timeout`） | 超えたら `ok: false` と現在の `state`。例外：`pane_close` で最初の待ち（終了コマンドのあと `shell` に戻るまで）を超えたときは `ok: false` ではなく `exit_timeout` のエラーを返す（機能要件 FR-O5・FR-O-C2） |
 | NFR-PERF-5 | 常駐時の負荷 | ホスト負荷が高い状態（load average が CPU 数を大きく上回る状態）でも劣化しない。サンプラーの CPU は 1 コア未満の数 % | 負荷が高い開発機で確認する |
 | NFR-PERF-6 | メモリ | 常駐 100 MB 以内 | ペインのハッシュ・直近画面のみ保持 |
 | NFR-PERF-7 | 取得量の上限 | `pane_tail` は最大 200 行・20,000 字。`report_read` は 20,000 字 | 上限を超えたら `truncated: true` |
@@ -124,3 +124,4 @@
 | 1.5 | 2026-11-01 | NFR-TEST-11 の成果物をアセット名 `swarm-console_vX.Y.Z_linux_amd64`・`SHA256SUMS` に、NFR-AVL-8 を自己更新（Issue #7）に合わせて更新 | Issue #8（Issue #7 の自己更新で確定） |
 | 1.6 | 2026-11-01 | NFR-SEC-7 に引数固定の 2 コマンド（`omp usage --json`・`omp update --check`）の例外を追加、NFR-OPS-12・NFR-TEST-17 を追加 | Issue #21・#24（レポートの値） |
 | 1.7 | 2026-11-01 | NFR-OPS-13・NFR-TEST-18（`make install`）を追加 | Issue #18 |
+| 1.8 | 2026-11-02 | NFR-PERF-4：`pane_close` の応答時間の上限を、`shell` に戻るまでの待ちと画面確認の待ちの 2 つの `accept_timeout` を含む形にし、最初の待ちを超えたときは `exit_timeout`（`ok: false` ではない）と明記 | Issue #30 |

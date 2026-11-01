@@ -207,7 +207,7 @@ type Registry interface {
 | `SendText(ref, text)` | ロック → 検証 → `load-buffer -`（標準入力・一意なバッファ名）→ `paste-buffer -p -d` → 1 秒 → Enter → 受理を待つ |
 | `Escape(ref)` | ロック → `send-keys Escape` → 状態遷移を待つ → `notes.Log` |
 | `Start(ref, agent, cwd, title)` | ロック → 検証 → `select-pane -T` → `cd <cwd>` → 起動コマンド → `idle` を待つ |
-| `Close(ref)` | ロック → 手順 [終了コマンド, `cd ~`, `clear`] を「文字列 → 1 秒 → Enter → 1 秒」で送る → タイトル消し → 画面確認 → `notes.Archive` |
+| `Close(ref)` | ロック → 終了コマンドを「文字列 → 1 秒 → Enter → 1 秒」で送る → 状態が `shell` に戻るまで待つ（スナップショットを 500 ms ごとに取り直す。上限は `accept_timeout`。超えたら何も送らず `apperr.ExitTimeout`）→ `cd ~`・`clear` を同じ間隔で送る → タイトル消し → 画面確認 → `notes.Archive` |
 | `Dispatch(ref, args)` | ロック → 状態確認 → `render.Dispatch` → 検証 → （`Start`）→ 古い報告を移動 → `SendText` → `notes.Set` |
 
 固定時間の待ち（1 秒）は元仕様の手順どおり。それ以外の待ちは上限付きの条件待ち（ポーリング）で、`clock` を通す。
@@ -269,3 +269,4 @@ type Tool struct {
 | 1.5 | 2026-11-01 | `reportvalues` を追加（レポートに足す値の収集。FR-REP-10〜18） | Issue #21〜#25 |
 | 1.6 | 2026-11-01 | §2 に `scripts/`（`make install` の `install.sh` とそのテスト）を追加 | Issue #18 |
 | 1.7 | 2026-11-02 | `reportvalues` の入出力を実装に合わせた（`Runner`・`Start`、`pane.Values`）。`tools` から `UpdateSource` を除き、`host_status.update` もスナップショットの値を返す | Issue #21〜#25（実装時の確認） |
+| 1.8 | 2026-11-02 | §5.2 `Close(ref)` に、終了コマンドのあと `shell` に戻るまで待つ手順（上限で `apperr.ExitTimeout`）を追加 | Issue #30 |

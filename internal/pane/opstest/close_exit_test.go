@@ -90,6 +90,12 @@ func TestCloseExitTimeoutKeepsNote(t *testing.T) {
 	if code(err) != apperr.ExitTimeout {
 		t.Fatalf("err = %v", err)
 	}
+	if elapsed := f.env.Clock.Now().Sub(panetest.T0); elapsed < f.env.Cfg.AcceptTimeout {
+		t.Fatalf("上限（%v）より前に諦めた: %v", f.env.Cfg.AcceptTimeout, elapsed)
+	}
+	if ae := apperr.As(err); ae.Details["pane"] != "T1" || ae.Details["state"] != string(agent.StateIdle) {
+		t.Fatalf("details = %v", ae.Details)
+	}
 	if res.OK || res.NoteArchived {
 		t.Fatalf("res = %+v", res)
 	}
