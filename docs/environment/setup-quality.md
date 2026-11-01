@@ -10,7 +10,7 @@
 |------|------|
 | ツール | golangci-lint v2（`version: "2"` 形式の設定） |
 | 設定ファイル | `.golangci.yml` |
-| 実行 | `make lint`（`golangci-lint run ./...`） |
+| 実行 | `make lint`（`golangci-lint run ./...`。キャッシュは worktree ごと。下記） |
 | 方針 | standard セットに、安全要件（シェル実行なし・パス検証・制御文字）と相性のよい linter を足す。除外（`//nolint`）は理由コメント必須（`nolintlint`） |
 
 ```yaml
@@ -36,6 +36,14 @@ formatters:
 
 - `gosec` は `os/exec` を使う `internal/tmux`・`internal/host` に対して指摘が出る。引数配列渡し・許可リストで安全が担保される箇所は `//nolint:gosec // 理由` を付ける（理由なしは `nolintlint` が拒否）。
 - linter の追加・除外を変えるときは、このドキュメントと `.golangci.yml` を同じコミットで更新する。
+
+### worktree をまたいだキャッシュの混入（#32）
+
+golangci-lint は、パッケージの中身（モジュールパス・モジュール内の相対パス・ファイルの内容）が同じなら、結果を共有のキャッシュ（既定は `~/.cache/golangci-lint`）から引く。ところが、キャッシュに入る指摘の位置は絶対パスのままなので、同じ親フォルダに別の worktree があると、その worktree のパス（`../swarm-console-xxx/...`）の指摘が、自分の worktree の `golangci-lint run ./...` に混ざる。`//nolint` はそのパスのファイルを読んで判定するため、元の worktree を消した後や編集した後は効かず、本来出ない指摘が出る。逆に、自分の指摘が別 worktree のキャッシュに隠れることもある。
+
+- `make lint`・`make fmt`・`make check` は、キャッシュを worktree ごとの `.cache/golangci-lint`（`.gitignore` 済み）に分ける（`Makefile` の `GOLANGCI_LINT_CACHE`）。pre-commit の lint も同じ置き場を使う。worktree を消せばキャッシュも消える。
+- `golangci-lint run` を直接打つときは、`GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint"` を付ける（絶対パスでないと golangci-lint はキャッシュを切る）。
+- CI は 1 つのチェックアウトだけで動くため、この混入は起きない。`ci.yml` は変えない。`.golangci.yml` の linter・除外も変えない。
 
 ## Format
 
@@ -102,7 +110,7 @@ pre-commit:
       stage_fixed: true
     lint:
       glob: "*.go"
-      run: golangci-lint run --new-from-rev=HEAD ./...
+      run: GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint" golangci-lint run --new-from-rev=HEAD ./...
     linterly:
       run: linterly check
 
@@ -131,7 +139,7 @@ pre-push:
 |-----------|------|
 | `make build` | `go build -o bin/swarm-console ./cmd/swarm-console` |
 | `make vet` | `go vet ./...` |
-| `make lint` | `golangci-lint run ./...` |
+| `make lint` | `golangci-lint run ./...`（キャッシュは `.cache/golangci-lint`。上記「worktree をまたいだキャッシュの混入」） |
 | `make fmt` / `make fmt-check` | 整形 / 整形差分の検査 |
 | `make linterly` | `linterly check` |
 | `make plan-test` | `bash .github/scripts/plan-release_test.sh`（次の版を決める処理のテスト。NFR-TEST-15） |
@@ -139,6 +147,8 @@ pre-push:
 | `make install` | `bash scripts/install.sh`（運用ホストへの導入。最新リリースを取って `SHA256SUMS` で照合し、`~/bin/swarm-console` に置いて systemd のユーザーサービスとして常駐させる。`make check` には入れない。FR-INS） |
 | `make test` | `go test -race ./...` |
 | `make check` | build → vet → lint → linterly → plan-test → install-test → test を別ターゲットとして順に実行 |
+
+Makefile は `GOLANGCI_LINT_CACHE` を worktree ごとに固定して export する。
 
 `make check` は CI の `ci.yml` と同じ順序・同じコマンドにする（差が出たら両方を直す）。
 

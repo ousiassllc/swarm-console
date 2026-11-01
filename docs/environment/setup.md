@@ -35,7 +35,7 @@ swarm-console/
 ├── .linterly.yml                   行数管理設定
 ├── .linterlyignore                 行数管理の除外（自動生成コードが出たときだけ書く。今は何も除外しない。P-31）
 ├── lefthook.yml                    Git Hooks
-├── Makefile                        タスクランナー（`make install` で運用ホストに導入）
+├── Makefile                        タスクランナー（`make install` で運用ホストに導入。golangci-lint のキャッシュは worktree ごと）
 ├── scripts/                        install.sh（`make install`）とそのテスト install_test.sh
 ├── go.mod / go.sum
 └── docs/environment/               このドキュメント（setup.md・setup-ci.md・setup-quality.md）
@@ -124,3 +124,4 @@ make install
 | 1.5 | 2026-11-01 | CI に `plan-release_test.sh` のステップ、Makefile に `plan-test` を追加（NFR-TEST-15 を CI で動かす） | Issue #8 の実装 |
 | 1.6 | 2026-11-01 | 300 行超過ファイルを分割（§CI/CD を setup-ci.md、Lint 以降を setup-quality.md へ移動。`.linterlyignore` の `docs/**` 除外を廃止（P-31）、ほかの内容は変更なし） | Issue #3 |
 | 1.7 | 2026-11-01 | 「運用ホストに入れる（`make install`）」を追加、ディレクトリ構造に `scripts/`、Makefile に `install`・`install-test` を追加 | Issue #18 |
+| 1.8 | 2026-11-02 | golangci-lint のキャッシュを worktree ごとに分ける（Makefile の `GOLANGCI_LINT_CACHE`、lefthook、`.gitignore` の `/.cache/`）。setup-quality.md に混入の原因と直接実行の注意を追加 | Issue #32 |

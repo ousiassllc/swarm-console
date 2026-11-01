@@ -1,3 +1,7 @@
+# golangci-lint のキャッシュは、中身が同じパッケージを worktree をまたいで共有し、指摘の位置を別 worktree の絶対パスのまま返す（#32）。
+# worktree ごとの置き場に分け、自分のファイルだけを対象にする（docs/environment/setup-quality.md）。
+export GOLANGCI_LINT_CACHE := $(CURDIR)/.cache/golangci-lint
+
 .PHONY: build vet lint fmt fmt-check linterly plan-test install-test test check install
 
 build:
