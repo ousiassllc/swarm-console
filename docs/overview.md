@@ -102,6 +102,7 @@ graph TD
 | アーキテクチャ：提案した既定値 | `docs/architecture/decisions.md` | 提案した既定値と実装時確認事項（P-xx）の一覧 |
 | エージェントの画面判定 | `docs/architecture/agent-patterns.md` | 状態判定・質問カードの正規表現（P-22） |
 | エージェントの認証期限 | `docs/architecture/agent-auth.md` | `agent_auth_status` の読み先と判定表（P-16） |
+| レポートに足す値の集め方 | `docs/architecture/report-values.md` | 使用状況・CPU・スワップ・ディスク・omp の版・ログイン期限の取り方、間隔、取れないときの値（P-59〜P-66） |
 | ER / データモデル | `docs/architecture/er.md` | ファイル一覧、全体 ER 図、notes.json |
 | ER：tokens.toml・実行時のペイン状態 | `docs/architecture/er-runtime.md` | tokens.toml、実行時のペイン状態（メモリ） |
 | ER：config.toml・profiles.toml ほか | `docs/architecture/er-config.md` | config.toml、profiles.toml、最終報告ファイル、自己更新のファイル |

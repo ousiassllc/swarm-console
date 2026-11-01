@@ -33,6 +33,8 @@ erDiagram
         string report_dir
         bool update_check "true"
         duration update_check_interval "24h（1h 以上）"
+        bool usage_check "true"
+        duration usage_interval "5m（1m 以上）"
         bool update_auto "true"
     }
     SESSION {
@@ -65,6 +67,8 @@ erDiagram
 | 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h |
 | `update_check` | bool。省略は `true`。`false` なら `serve` は GitHub へ確認しに行かない（`version --check` の手動確認は動く。FR-UPD） |
 | `update_auto` | bool。省略は `true`。`false` なら自己更新だけ止まる（確認と `host_status` は続く）。`update_check = false` のときは無視される（確認も更新もしない。FR-UPD-19） |
+| `usage_check` | bool。省略は `true`。`false` なら `serve` は `omp usage --json` を実行せず、使用状況は `disabled`（FR-REP-12） |
+| `usage_interval` | 期間。省略は `5m`、`1m` 以上。使用状況の取得の間隔。前の実行が終わるまで次を始めない |
 | `agents.<name>` | 書かれたキーだけ組み込みの既定を上書きする。正規表現は起動時にコンパイルできること |
 | 未知のキー | 起動拒否（打ち間違いを検知する） |
 
