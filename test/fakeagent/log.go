@@ -34,3 +34,19 @@ func appendLog(path string, e event) error {
 	}
 	return werr
 }
+
+// appendRaw は受け取った入力のバイト列を --raw のファイルへそのまま追記する（path が空なら何もしない）。
+func appendRaw(path string, b []byte) error {
+	if path == "" {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec // --raw はテストが渡すパス
+	if err != nil {
+		return err
+	}
+	_, werr := f.Write(b)
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	return werr
+}

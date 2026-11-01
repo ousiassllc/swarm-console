@@ -46,6 +46,15 @@ func TestListPanesCoordinatesAndFields(t *testing.T) {
 	id2 := strings.TrimSpace(srv.Run("split-window", "-h", "-d", "-P", "-F", "#{pane_id}", "-t", id1, sleepCmd))
 	srv.NewSession("s2", 80, 24, sleepCmd)
 
+	// new-session・split-window は子プロセスを fork した直後に戻る。chdir と exec sleep が済む前だと
+	// 前面コマンドが tmux 自身・作業フォルダがサーバーの cwd に見える。子は chdir のあとで exec するので、
+	// 前面コマンドが sleep になれば作業フォルダも -c の値になっている。起動しきるまで上限付きで待つ。
+	for _, id := range []string{id1, id2} {
+		tmuxtest.Eventually(t, id+" の子プロセスが sleep になる", func() bool {
+			return strings.TrimSpace(srv.Run("display-message", "-p", "-t", id, "#{pane_current_command}")) == "sleep"
+		})
+	}
+
 	ctx := context.Background()
 	if err := c.SetTitle(ctx, id1, "agent: 日本語 の タイトル"); err != nil {
 		t.Fatal(err)

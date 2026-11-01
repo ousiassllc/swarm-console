@@ -94,7 +94,9 @@ func (o *Operator) sleep(ctx context.Context, d time.Duration) error {
 // waitFor は check が true を返すまで、上限 timeout まで step 間隔で繰り返す（上限付きの条件待ち）。
 // 上限に達したら最後にもう 1 回確認する。条件を満たしたら true。
 func (o *Operator) waitFor(ctx context.Context, timeout, step time.Duration, check func(context.Context) bool) (bool, error) {
-	deadline := o.deps.Clock.After(timeout)
+	// 期限は時計の時刻で持つ。待ち用タイマーを期限のために置くと、check が実時間で終わるのを待つ間も
+	// 「待機中のタイマーがある」と数えられ、テストの偽の時計が先に進んでしまう。待つのは step の間だけにする。
+	deadline := o.deps.Clock.Now().Add(timeout)
 	for {
 		if check(ctx) {
 			return true, nil
@@ -102,11 +104,12 @@ func (o *Operator) waitFor(ctx context.Context, timeout, step time.Duration, che
 		if err := ctx.Err(); err != nil {
 			return false, err
 		}
+		if !o.deps.Clock.Now().Before(deadline) {
+			return false, nil
+		}
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
-		case <-deadline:
-			return check(ctx), ctx.Err()
 		case <-o.deps.Clock.After(step):
 		}
 	}

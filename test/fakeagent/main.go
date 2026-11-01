@@ -4,9 +4,10 @@
 //
 //	omp <scenario>                      （argv[0] が omp・claude・codex のとき。PATH に同名で置く）
 //	fakeagent <agent> <scenario>        （それ以外の名前で起動したとき）
-//	  [--tick 1s] [--log <path>]
+//	  [--tick 1s] [--log <path>] [--raw <path>]
 //
-// scenario は idle・working・ask・ask-custom。画面は 120 桁 × 40 行以上の端末を前提にする。
+// scenario は idle・working・ask・ask-custom・ask-frozen（質問カードを出したまま入力に一切反応しない。
+// --raw に受け取ったバイト列をそのまま追記するので、cursor_mismatch のとき Enter が届かないことを確かめられる）。画面は 120 桁 × 40 行以上の端末を前提にする。
 // 起動して最初の画面を描くと、画面の先頭行に READY を出す（テストは capture-pane で待つ）。
 package main
 
@@ -24,11 +25,12 @@ import (
 
 var (
 	agents    = []string{"omp", "claude", "codex"}
-	scenarios = []string{"idle", "working", "ask", "ask-custom"}
+	scenarios = []string{"idle", "working", "ask", "ask-custom", "ask-frozen"}
 )
 
 type options struct {
 	agent, scenario, log string
+	raw                  string // 受け取った入力をそのまま追記するファイル（空なら記録しない）
 	tick                 time.Duration
 }
 
@@ -45,6 +47,7 @@ func parseArgs(args []string) (options, error) {
 	fs.SetOutput(io.Discard)
 	fs.DurationVar(&o.tick, "tick", time.Second, "working のスピナーのコマを変える間隔")
 	fs.StringVar(&o.log, "log", "", "貼り付け・選択などを追記するファイル")
+	fs.StringVar(&o.raw, "raw", "", "受け取った入力のバイト列をそのまま追記するファイル")
 	// フラグは位置引数の前後どちらにも書ける（`omp ask --tick 50ms`）。
 	var pos []string
 	for rest := args[1:]; ; {
@@ -62,7 +65,7 @@ func parseArgs(args []string) (options, error) {
 		o.agent, pos = pos[0], pos[1:]
 	}
 	if len(pos) != 1 {
-		return o, errors.New("使い方: <omp|claude|codex> <idle|working|ask|ask-custom> [--tick d] [--log path]")
+		return o, errors.New("使い方: <omp|claude|codex> <idle|working|ask|ask-custom|ask-frozen> [--tick d] [--log path] [--raw path]")
 	}
 	o.scenario = pos[0]
 	switch {
@@ -109,6 +112,9 @@ func run(args []string, stdin *os.File, stdout io.Writer) error {
 		case b, ok := <-input:
 			if !ok {
 				return logErr
+			}
+			if err := appendRaw(o.raw, b); err != nil && logErr == nil {
+				logErr = err
 			}
 			m.Feed(b)
 		case <-ticker.C:

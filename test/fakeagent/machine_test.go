@@ -50,6 +50,7 @@ func TestAskArrowsAndEnter(t *testing.T) {
 		{"codex 数字 2 → Enter で確定", "codex", "ask", []string{"2", enter}, 2, []event{{kind: "PICK", n: 2}}, modeWorking},
 		{"codex は application mode の矢印も受ける", "codex", "ask", []string{"\x1bOB", enter}, 2, []event{{kind: "PICK", n: 2}}, modeWorking},
 		{"ESC で質問を取り下げて idle", "omp", "ask", []string{"\x1b"}, 2, []event{{kind: "ESCAPE"}}, modeIdle},
+		{"ask-frozen は矢印・Enter・ESC のどれにも反応しない", "omp", "ask-frozen", []string{up, down, down, enter, "\x1b", "3"}, 2, nil, modeAsk},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
