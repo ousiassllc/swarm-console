@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 )
@@ -22,6 +23,8 @@ const (
 var promptSuffixes = []string{"$", "#", "%", ">", "❯", "➜", "»"}
 
 // Close はエージェントを終了してシェルを片付け、画面を確かめる。idle・shell のみ（P-19）。
+// 終了コマンドのあとは、ペインが shell に戻るまで待ってから cd ~ 以降を送る。accept_timeout までに戻らなければ
+// cd ~ 以降を送らず exit_timeout を返す（エージェントへ cd ~ を入力しない。FR-O5）。
 // 確かめられたときだけメモを履歴へ、最終報告を archive/ へ移す。
 func (o *Operator) Close(ctx context.Context, ref pane.Ref) (pane.CloseResult, error) {
 	unlock, p, err := o.begin(ctx, ref, true)
@@ -32,22 +35,26 @@ func (o *Operator) Close(ctx context.Context, ref pane.Ref) (pane.CloseResult, e
 	if err := allow(p, agent.StateIdle, agent.StateShell); err != nil {
 		return pane.CloseResult{}, err
 	}
-	type step struct{ name, text string }
-	var plan []step
+	res := pane.CloseResult{Steps: []string{}}
 	if p.State == agent.StateIdle {
 		ad, err := o.adapterFor(p)
 		if err != nil {
-			return pane.CloseResult{}, err
-		}
-		plan = append(plan, step{ad.ExitCommand(), ad.ExitCommand()})
-	}
-	plan = append(plan, step{stepCD, stepCD}, step{stepClear, stepClear})
-	res := pane.CloseResult{Steps: []string{}}
-	for _, s := range plan {
-		if err := o.typeLine(ctx, p.ID, s.text); err != nil {
 			return res, err
 		}
-		res.Steps = append(res.Steps, s.name)
+		exit := ad.ExitCommand()
+		if err := o.typeLine(ctx, p.ID, exit); err != nil {
+			return res, err
+		}
+		res.Steps = append(res.Steps, exit)
+		if err := o.waitShell(ctx, p); err != nil {
+			return res, err
+		}
+	}
+	for _, s := range []string{stepCD, stepClear} {
+		if err := o.typeLine(ctx, p.ID, s); err != nil {
+			return res, err
+		}
+		res.Steps = append(res.Steps, s)
 	}
 	if err := o.deps.Tmux.SetTitle(ctx, p.ID, ""); err != nil {
 		return res, pane.TmuxError(err)
@@ -68,6 +75,23 @@ func (o *Operator) Close(ctx context.Context, ref pane.Ref) (pane.CloseResult, e
 	res.OK = true
 	o.archiveClosed(ctx, p, &res)
 	return res, nil
+}
+
+// waitShell は終了コマンドを送ったペインが shell に戻るまで、スナップショットを取り直して待つ。
+// accept_timeout までに戻らなければ apperr.ExitTimeout（details.state は最後に見た状態）。
+func (o *Operator) waitShell(ctx context.Context, p pane.PaneState) error {
+	last := p.State
+	back, err := o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, refreshStep, func(ctx context.Context) bool {
+		last = o.stateOf(ctx, p.ID)
+		return last == agent.StateShell
+	})
+	if err != nil {
+		return err
+	}
+	if !back {
+		return apperr.New(apperr.ExitTimeout, "pane", p.Pos, "state", string(last))
+	}
+	return nil
 }
 
 // typeLine は「文字列 → 1 秒 → Enter → 1 秒」を送る。文字列を送った後は、ctx がキャンセルされても

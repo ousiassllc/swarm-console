@@ -33,6 +33,7 @@ const (
 	FileUnreadable       Code = "file_unreadable"
 	SecretDetected       Code = "secret_detected"
 	BusyTimeout          Code = "busy_timeout"
+	ExitTimeout          Code = "exit_timeout"
 	TmuxError            Code = "tmux_error"
 	Internal             Code = "internal"
 )
@@ -60,6 +61,7 @@ var messages = map[Code]string{ //nolint:gosec // G101 の誤検知（unauthoriz
 	FileUnreadable:       "ファイルを読めません",
 	SecretDetected:       "秘密に見える文字列が含まれているため拒否しました",
 	BusyTimeout:          "同じペインの前の操作が終わりませんでした",
+	ExitTimeout:          "エージェントが時間内に終了せず、shell に戻りませんでした（cd ~ 以降は送っていません）",
 	TmuxError:            "tmux の呼び出しに失敗しました",
 	Internal:             "内部エラーが発生しました",
 }
