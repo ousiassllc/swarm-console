@@ -8,6 +8,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/pane"
 )
 
 // maxTitleRunes は title の上限（API 仕様 §7）。
@@ -35,7 +36,7 @@ func (e *env) paneStartTool() Tool {
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane", "agent", "cwd", "title"}, props{
 			"pane":  strProp("shell のペイン。" + panePropDesc),
-			"agent": enumProp("起動するエージェント", agentNames...),
+			"agent": enumProp("起動するエージェント", pane.Agents...),
 			"cwd":   strProp("作業フォルダの絶対パス（許可されたフォルダの下の既存ディレクトリ）"),
 			"title": strProp("タイトル（80 字まで、制御文字なし）。設定の接頭辞が付く"),
 		}),
@@ -73,7 +74,7 @@ func checkAgent(p *string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !slices.Contains(agentNames, name) {
+	if !slices.Contains(pane.Agents, name) {
 		return "", invalidArg("agent")
 	}
 	return name, nil

@@ -64,7 +64,7 @@ type Snapshot struct {
 	Usage    reportvalues.Usage
 	Omp      reportvalues.Omp
 	Update   UpdateInfo
-	Auth     []host.Auth // AuthAgents の順
+	Auth     []host.Auth // Agents の順
 	Layout   Layout
 	Panes    []PaneState // 位置順（セッション順 → ウィンドウ → 段 → 列）
 	Warnings []Warning
