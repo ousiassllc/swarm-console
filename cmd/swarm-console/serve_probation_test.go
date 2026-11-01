@@ -141,6 +141,36 @@ func TestServeProbationDoesNotStartApply(t *testing.T) {
 	}
 }
 
+// 試運転中に見送った入れ替えは、試運転の確定（60 秒）で次の周期（24 時間後）を待たずに再試行する（FR-UPD-12。Issue #15）。
+func TestServeProbationRetriesDeferredApplyWhenConfirmed(t *testing.T) {
+	g := newServeRig(t, "v0.1.5", "")
+	env := updateEnv
+	env.FirstDelay = 30 * time.Second // 確認（30 秒）を、試運転の確定（60 秒）より先にする
+	useVersion(t, "v0.1.5", env)
+	g.release("v0.1.6", newBin)
+	g.writeFile(filepath.Join(g.binDir, "swarm-console.old"), oldBin, 0o755)
+	g.writeMarker("v0.1.4", "v0.1.5", 0)
+	g.start()
+	g.untilWaiting(2) // 確認の待ち（30 秒）と試運転の待ち（60 秒）
+	g.clk.Advance(30 * time.Second)
+	g.untilUpdate("update_available")
+	g.untilWaiting(2) // 見送って、次の周期の待ちに戻った
+	if g.read("swarm-console") != oldBin {
+		t.Fatalf("試運転中に入れ替わりました: %q", g.read("swarm-console"))
+	}
+	g.clk.Advance(30 * time.Second) // 試運転の確定（次の周期の 24 時間後ではなく）
+	if code := g.wait(); code != 0 {
+		t.Fatalf("終了コード = %d\n%s", code, g.stderr.String())
+	}
+	if g.read("swarm-console") != newBin || g.read("swarm-console.old") != oldBin {
+		t.Errorf("確定後に入れ替わっていません: bin=%q old=%q", g.read("swarm-console"), g.read("swarm-console.old"))
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(g.read(pendingFile)), &m); err != nil || m["from"] != "v0.1.5" || m["to"] != "v0.1.6" || m["boots"] != float64(0) {
+		t.Errorf("マーカー = %q (%v)", g.read(pendingFile), err)
+	}
+}
+
 // 60 秒より前に終了（SIGTERM）すれば、マーカーは残る。
 func TestServeProbationMarkerRemainsWhenStoppedEarly(t *testing.T) {
 	g := newServeRig(t, "v0.1.5", "update_check = false\n")
