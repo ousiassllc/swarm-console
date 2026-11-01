@@ -1,4 +1,4 @@
-package render
+package rendertest
 
 import (
 	"flag"
@@ -12,6 +12,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/host"
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/render"
 	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 )
 
@@ -89,7 +90,7 @@ func unavailableSnapshot() *pane.Snapshot {
 // golden は testdata/golden/<name> と got が 1 文字違わず一致することを確かめる。-update で書き直す。
 func golden(t *testing.T, name, got string) {
 	t.Helper()
-	path := filepath.Join("testdata", "golden", name)
+	path := filepath.Join("..", "testdata", "golden", name)
 	if *update {
 		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 			t.Fatal(err)
@@ -164,8 +165,8 @@ func calmSnapshot() *pane.Snapshot {
 	return s
 }
 
-func fixedDetail() *PaneDetail {
-	return &PaneDetail{
+func fixedDetail() *render.PaneDetail {
+	return &render.PaneDetail{
 		Note: &notes.Note{
 			From: "agent-b", ReportTo: &notes.ReportTo{Kind: "agent", Name: "agent-b", Priority: true},
 			Repo: "ousiassllc/funid", Items: []string{"#982"}, Worktree: "/mnt/nvme/ousiassllc/funid-sweep-982",
@@ -180,7 +181,7 @@ func fixedDetail() *PaneDetail {
 			Options: []agent.Option{{N: 1, Label: "TS 仕様どおり", Recommended: true}, {N: 2, Label: "ライブラリ関数として拡張"}},
 		},
 		Tail:   []string{"go test ./...", "ok  	example	0.5s", "``` を含む行"},
-		Report: ReportFile{Exists: true, UpdatedAt: time.Date(2026, 10, 31, 22, 1, 0, 0, jst)},
+		Report: render.ReportFile{Exists: true, UpdatedAt: time.Date(2026, 10, 31, 22, 1, 0, 0, jst)},
 	}
 }
 

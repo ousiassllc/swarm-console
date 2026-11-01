@@ -1,4 +1,4 @@
-package render
+package rendertest
 
 import (
 	"errors"
@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/render"
 )
 
 func TestDispatchGolden(t *testing.T) {
 	for _, profile := range []string{"sweep", "fix", "investigate"} {
 		for _, withCmd := range []bool{true, false} {
 			for _, withExtra := range []bool{true, false} {
-				in := DispatchInput{
+				in := render.DispatchInput{
 					Task: "Issue #982 を実装する。\n詳細は指示ファイルを見る。", Profile: profile,
 					Profiles: testProfiles(), ReportDir: reportDir, Pos: "B4",
 				}
@@ -26,7 +27,7 @@ func TestDispatchGolden(t *testing.T) {
 					name += ".extra"
 				}
 				t.Run(name, func(t *testing.T) {
-					got, err := Dispatch(in)
+					got, err := render.Dispatch(in)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -38,7 +39,7 @@ func TestDispatchGolden(t *testing.T) {
 }
 
 func TestDispatchShape(t *testing.T) {
-	got, err := Dispatch(DispatchInput{
+	got, err := render.Dispatch(render.DispatchInput{
 		Command: "/x", Task: "T", Profile: "fix", ExtraRules: []string{"E"},
 		Profiles: testProfiles(), ReportDir: "/r", Pos: "work:B2",
 	})
@@ -61,7 +62,7 @@ func TestDispatchShape(t *testing.T) {
 
 func TestDispatchUnknownProfile(t *testing.T) {
 	for _, p := range []string{"nope", "", "SWEEP"} {
-		_, err := Dispatch(DispatchInput{Task: "t", Profile: p, Profiles: testProfiles()})
+		_, err := render.Dispatch(render.DispatchInput{Task: "t", Profile: p, Profiles: testProfiles()})
 		var ae *apperr.Error
 		if !errors.As(err, &ae) || ae.Code != apperr.InvalidArgs || ae.Details["field"] != "profile" {
 			t.Errorf("%q: %v", p, err)
@@ -70,10 +71,10 @@ func TestDispatchUnknownProfile(t *testing.T) {
 }
 
 func TestDispatchDeterministic(t *testing.T) {
-	in := DispatchInput{Task: "t", Profile: "sweep", Profiles: testProfiles(), ReportDir: reportDir, Pos: "T1"}
-	first, _ := Dispatch(in)
+	in := render.DispatchInput{Task: "t", Profile: "sweep", Profiles: testProfiles(), ReportDir: reportDir, Pos: "T1"}
+	first, _ := render.Dispatch(in)
 	for i := 0; i < 100; i++ {
-		if got, _ := Dispatch(in); got != first {
+		if got, _ := render.Dispatch(in); got != first {
 			t.Fatal("出力が変わった")
 		}
 	}
