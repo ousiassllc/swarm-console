@@ -17,7 +17,7 @@ func TestCheckListenAddr(t *testing.T) {
 		{"[::ffff:100.64.0.1]:48120", "100.64.0.1:48120"},
 	}
 	for _, tt := range ok {
-		got, err := checkListenAddr(tt.in)
+		got, err := CheckListenAddr(tt.in)
 		if err != nil || got != tt.want {
 			t.Errorf("%q → %q, %v（%q のはず）", tt.in, got, err, tt.want)
 		}
@@ -50,15 +50,15 @@ func TestCheckListenAddr(t *testing.T) {
 		{"http://100.64.0.1:48120", "ホスト名"},
 	}
 	for _, tt := range bad {
-		if got, err := checkListenAddr(tt.in); err == nil {
+		if got, err := CheckListenAddr(tt.in); err == nil {
 			t.Errorf("%q は拒否のはずが %q", tt.in, got)
 		}
 	}
 	// 理由の代表（メッセージが違う拒否理由を指していること）。
-	if _, err := checkListenAddr("0.0.0.0:1"); err == nil || !strings.Contains(err.Error(), "0.0.0.0") {
+	if _, err := CheckListenAddr("0.0.0.0:1"); err == nil || !strings.Contains(err.Error(), "0.0.0.0") {
 		t.Errorf("0.0.0.0 の理由: %v", err)
 	}
-	if _, err := checkListenAddr("192.168.1.1:1"); err == nil || !strings.Contains(err.Error(), "tailnet") {
+	if _, err := CheckListenAddr("192.168.1.1:1"); err == nil || !strings.Contains(err.Error(), "tailnet") {
 		t.Errorf("範囲外の理由: %v", err)
 	}
 }

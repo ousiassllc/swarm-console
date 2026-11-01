@@ -16,8 +16,8 @@ var manageMu sync.Mutex
 // Add は新しいトークンを発行して tokens.toml に追記し、平文を返す。
 // 平文は保存しない（返すだけ）。name は一意で、失効済みの名前も再利用できない。
 func Add(path, name string, scope Scope, now time.Time) (string, error) {
-	if !namePattern.MatchString(name) {
-		return "", fmt.Errorf("名前は %s に合う必要があります", namePattern)
+	if err := ValidateName(name); err != nil {
+		return "", err
 	}
 	if !validScope(scope) {
 		return "", fmt.Errorf("scope は %s か %s にしてください", ScopeReport, ScopeOps)
@@ -71,4 +71,12 @@ func Revoke(path, name string, now time.Time) error {
 		return writeRecords(path, recs)
 	}
 	return fmt.Errorf("名前 %s のトークンはありません", name)
+}
+
+// ValidateName は token add の名前の形式を検査する（Add と同じ規則。`setup` が入力中に確かめるために使う）。
+func ValidateName(name string) error {
+	if !namePattern.MatchString(name) {
+		return fmt.Errorf("名前は %s に合う必要があります", namePattern)
+	}
+	return nil
 }

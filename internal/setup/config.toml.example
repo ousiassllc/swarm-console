@@ -1,0 +1,80 @@
+# swarm-console の設定（config.toml）。
+#
+# 手で書いても、`swarm-console setup` で対話的に作っても同じファイルになる。
+# 行頭の # を外すとその値が効く。書かなかったキーは、各行に書いた既定値で動く。
+# 書いた値が正しいかは `swarm-console serve` の起動時に検査される（未知のキーは起動を拒否する）。
+
+# --- 必須 ---
+
+# 待ち受けるアドレス（IP:ポート）。tailnet の範囲（100.64.0.0/10・fd7a:115c:a1e0::/48）かループバックだけ。
+# 0.0.0.0・::・ホスト名・ポート無しは使えない。実機では `tailscale ip -4` の値を書く。
+# listen_addr = "100.x.y.z:48120"
+
+# --- tmux ---
+
+# tmux -L のソケット名。書かなければ tmux の既定のソケット。
+# tmux_socket = "default"
+
+# 監視する tmux セッション（1 つ以上・重複なし）。既定 ["0"]
+# sessions = ["0"]
+
+# 既定のセッション（sessions のどれか）。sessions が 1 つなら省略できる。
+# default_session = "0"
+
+# レポートなどの言語（ja か en）。既定 "ja"
+# default_lang = "ja"
+
+# --- 期間（5s・2m のような書き方） ---
+
+# poll_interval = "5s"          # ペインを見に行く間隔（1s 以上）
+# snapshot_ttl = "2s"           # スナップショットを使い回す時間（100ms 以上）
+# stalled_after = "15m"         # 作業中のまま動かないと stalled にするまでの時間
+# layout_warning_ttl = "10m"    # 並びの変化の警告を出し続ける時間
+# accept_timeout = "10s"        # 起動したエージェントが応答するまでの待ち
+# start_timeout = "30s"         # エージェントの起動を待つ時間
+# lock_timeout = "60s"          # ペインの操作ロックを待つ時間
+
+# --- 表示・パス ---
+
+# ペインのタイトルに付ける接頭辞。既定 "agent: "
+# title_prefix = "agent: "
+
+# 作業フォルダ（cwd）に使ってよい根。絶対パス（先頭の ~/ は展開）。既定は下の 2 つ。
+# allowed_roots = ["/mnt/nvme/", "~/projects/"]
+
+# 作業フォルダ・ファイルにしてはいけないパス。書いたら既定と入れ替わる（足されない）。
+# ~/dotfiles も守るなら一緒に書く。既定 ["~/dotfiles"]
+# denied_paths = ["~/dotfiles"]
+
+# ファイルを読んでよい根。既定は "/tmp/" と allowed_roots。
+# file_roots = ["/tmp/", "/mnt/nvme/", "~/projects/"]
+
+# host_status が見るマウント。既定 ["/", "/mnt/nvme"]
+# disk_mounts = ["/", "/mnt/nvme"]
+
+# 最終報告ファイルを置くフォルダ。既定 "/tmp/swarm-console/reports"
+# report_dir = "/tmp/swarm-console/reports"
+
+# --- ペインの固定名（"セッション:ウィンドウ.ペイン番号" = "名前"） ---
+
+# [pane_names]
+# "0:1.2" = "build"
+
+# --- エージェントごとの上書き（書いたキーだけ組み込みの既定を上書きする。omp・claude・codex） ---
+# command・exit_command・auth_file のほかに、process_match・working_re・ask_re・idle_re・
+# spinner_chars・status_line_re・border_re も書ける（正規表現は Go の regexp 構文）。
+
+# [agents.omp]
+# command = "omp"
+# exit_command = "/exit"
+
+# [agents.claude]
+# command = "claude"
+# exit_command = "/exit"
+# auth_file = "~/.claude/.credentials.json"
+
+# [agents.codex]
+# command = "codex"
+# exit_command = "/quit"
+# auth_file = "~/.codex/auth.json"
+

@@ -1,6 +1,7 @@
 // swarm-console は tmux 上のエージェントを MCP（Streamable HTTP）で見て操作するサーバー。
 //
 //	swarm-console serve [--config <path>]
+//	swarm-console setup [--config <path>]
 //	swarm-console token add <名前> --scope ops|report [--config <path>]
 //	swarm-console token revoke <名前> [--config <path>]
 //	swarm-console version
@@ -22,6 +23,7 @@ var version = "dev"
 
 const usage = `使い方:
   swarm-console serve [--config <path>]
+  swarm-console setup [--config <path>]
   swarm-console token add <名前> --scope ops|report [--config <path>]
   swarm-console token revoke <名前> [--config <path>]
   swarm-console version
@@ -44,6 +46,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "serve":
 		err = runServe(ctx, args[1:], stderr)
+	case "setup":
+		err = runSetup(ctx, args[1:], stdout, stderr, os.Stdin, os.Stdout, os.Getenv("TERM"))
 	case "token":
 		err = runToken(args[1:], stdout, stderr)
 	case "version":
@@ -59,6 +63,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 0
 	case errors.Is(err, flag.ErrHelp):
 		return 0
+	case errors.Is(err, errSilent):
+		return 1
 	case errors.Is(err, errUsage):
 		_, _ = fmt.Fprintf(stderr, "%v\n%s", err, usage)
 		return 2
@@ -66,6 +72,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	_, _ = fmt.Fprintf(stderr, "エラー: %v\n", err)
 	return 1
 }
+
+// errSilent は理由を表示済みで、終了コード 1 で終わる印。
+var errSilent = errors.New("終了")
 
 // errUsage は引数の誤り（使い方を添えて終了コード 2）。
 var errUsage = errors.New("引数が正しくありません")

@@ -37,7 +37,7 @@ func checkOverrides(name string, ov *agent.Overrides, home string) error {
 		if *p == "" {
 			return fmt.Errorf("agents.%s.%s は空にできません", name, key)
 		}
-		if err := checkPlainLine(fmt.Sprintf("agents.%s.%s", name, key), *p); err != nil {
+		if err := CheckPlainLine(fmt.Sprintf("agents.%s.%s", name, key), *p); err != nil {
 			return err
 		}
 	}
@@ -59,7 +59,7 @@ func checkOverrides(name string, ov *agent.Overrides, home string) error {
 		}
 	}
 	if ov.AuthFile != nil {
-		p, err := expandPath(fmt.Sprintf("agents.%s.auth_file", name), *ov.AuthFile, home)
+		p, err := ExpandPath(fmt.Sprintf("agents.%s.auth_file", name), *ov.AuthFile, home)
 		if err != nil {
 			return err
 		}
