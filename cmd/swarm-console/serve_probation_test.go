@@ -96,6 +96,51 @@ func TestServeProbationApplyStateWithAutoOn(t *testing.T) {
 	g.wait()
 }
 
+// 試運転中に確認が update_available でも、入れ替えを始めない（通信しない・.old とマーカーを書かない・警告も出さない。FR-UPD-12）。
+func TestServeProbationDoesNotStartApply(t *testing.T) {
+	g := newServeRig(t, "v0.1.5", "")
+	env := updateEnv
+	env.FirstDelay = 30 * time.Second // 確認（30 秒）を、試運転の確定（60 秒）より先にする
+	useVersion(t, "v0.1.5", env)
+	g.release("v0.1.6", newBin)
+	g.writeFile(filepath.Join(g.binDir, "swarm-console.old"), oldBin, 0o755)
+	g.writeMarker("v0.1.4", "v0.1.5", 0)
+	g.start()
+	g.untilWaiting(2) // 確認の待ち（30 秒）と試運転の待ち（60 秒）
+	g.clk.Advance(30 * time.Second)
+	u := g.untilUpdate("update_available")
+	g.untilWaiting(2) // 確認の結果の処理（入れ替えの判断）が済み、次の周期の待ちに戻った
+	if a := g.apply(u); a["state"] != "probation" || a["from"] != "v0.1.4" {
+		t.Errorf("apply = %v, want probation（from v0.1.4）", a)
+	}
+	if a := g.apply(g.hostUpdate()); a["state"] != "probation" {
+		t.Errorf("確認の処理のあとの apply = %v", a)
+	}
+	for _, r := range g.origin.Requests() {
+		if r.Host != "api.github.com" {
+			t.Errorf("確認以外の通信をしました: %+v", r)
+		}
+	}
+	if g.read("swarm-console") != oldBin || g.read("swarm-console.old") != oldBin || g.boots() != 1 {
+		t.Errorf("置き場が変わりました: bin=%q old=%q marker=%q", g.read("swarm-console"), g.read("swarm-console.old"), g.read(pendingFile))
+	}
+	if got := g.files(); len(got) != 3 {
+		t.Errorf("置き場のファイル = %v", got)
+	}
+	select {
+	case code := <-g.done:
+		t.Fatalf("試運転中に serve が終了しました (exit %d)", code)
+	default:
+	}
+	g.cancel()
+	g.wait()
+	for _, bad := range []string{"自己更新を始めます", "自己更新できませんでした", "自己更新を行えませんでした"} {
+		if strings.Contains(g.stderr.String(), bad) {
+			t.Errorf("ログに %q が出ています:\n%s", bad, g.stderr.String())
+		}
+	}
+}
+
 // 60 秒より前に終了（SIGTERM）すれば、マーカーは残る。
 func TestServeProbationMarkerRemainsWhenStoppedEarly(t *testing.T) {
 	g := newServeRig(t, "v0.1.5", "update_check = false\n")
