@@ -21,7 +21,6 @@ type words struct {
 	account, window, used          string // 使用状況の表頭
 	none                           string
 	lastSuccess                    string // 「取得できず（最後の成功: …）」
-	cpu, swap                      string
 	listSep                        string // 更新の行の区切り
 	partSep                        string // かっこの中・ディスクの区切り
 	remPrefix                      string // 「あと」「in」
@@ -39,7 +38,7 @@ var jaWords = words{
 	fiveHour: "5 時間枠", sevenDay: "7 日枠",
 	account: "アカウント", window: "枠", used: "使用",
 	none: "なし", lastSuccess: "最後の成功: ",
-	cpu: "CPU", swap: "スワップ", listSep: "／ ", partSep: "、",
+	listSep: "／ ", partSep: "、",
 	remPrefix: "あと ", unitDay: " 日", unitHour: " 時間", unitMin: " 分",
 	parenOpen: "（", parenClose: "）", freePre: "空き ", freePost: "",
 }
@@ -53,7 +52,7 @@ var enWords = words{
 	fiveHour: "5-hour", sevenDay: "7-day",
 	account: "Account", window: "Window", used: "Used",
 	none: "None", lastSuccess: "last success: ",
-	cpu: "CPU", swap: "Swap", listSep: " / ", partSep: ", ",
+	listSep: " / ", partSep: ", ",
 	remPrefix: "in ", unitDay: " d", unitHour: " h", unitMin: " min",
 	parenOpen: " (", parenClose: ")", freePre: "", freePost: " free",
 }

@@ -2,6 +2,7 @@ package registrytest
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -89,4 +90,19 @@ func TestSnapshotWithoutValuesIsPendingAndDoesNotSampleCPU(t *testing.T) {
 	}
 	cancel()
 	<-done
+}
+
+// ホストの状態を読めなかったとき、ディスクは設定したマウントを残して「取得できず」にする（空の一覧にしない。FR-REP-11）。
+func TestSnapshotKeepsDiskMountsWhenHostUnreadable(t *testing.T) {
+	env := panetest.NewEnv()
+	twoRows(env)
+	env.Cfg.DiskMounts = []string{"/", "/mnt/nvme"}
+	env.Host.StatusErr = errors.New("読めない")
+	s := mustRefresh(t, newTestRegistry(t, env))
+	if len(s.Host.Disk) != 2 || s.Host.Disk[0].Mount != "/" || s.Host.Disk[1].Mount != "/mnt/nvme" || s.Host.Disk[0].Available || s.Host.Disk[1].Available {
+		t.Fatalf("disk = %+v", s.Host.Disk)
+	}
+	if s.Host.CPU.Available || s.Host.Swap.Available {
+		t.Fatalf("CPU・スワップも取得できず: %+v", s.Host)
+	}
 }

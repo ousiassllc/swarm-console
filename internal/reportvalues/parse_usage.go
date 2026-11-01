@@ -68,16 +68,20 @@ func ParseUsage(out []byte) (Usage, error) {
 		u.FetchedAt = epochMillis(*doc.GeneratedAt)
 	}
 	byProvider := map[string][]usageReport{}
-	seen := map[string]bool{} // provider + email（accountsWithoutUsage が reports と重なったら 1 つにする）
-	for _, r := range append(doc.Reports, doc.Without...) {
-		if r.Provider != providerClaude && r.Provider != providerCodex && r.Provider != providerCursor {
+	seen := map[string]bool{} // reports にあった provider + email（accountsWithoutUsage の同じものは 1 つにする）
+	known := func(r usageReport) bool {
+		return r.Provider == providerClaude || r.Provider == providerCodex || r.Provider == providerCursor
+	}
+	for _, r := range doc.Reports { // omp が返したアカウントは全部残す（FR-REP-12。同じメールの別の認証も落とさない）
+		if !known(r) {
 			continue
 		}
-		if k := r.Provider + "\x00" + r.Metadata.Email; r.Metadata.Email != "" {
-			if seen[k] {
-				continue
-			}
-			seen[k] = true
+		seen[r.Provider+"\x00"+r.Metadata.Email] = r.Metadata.Email != ""
+		byProvider[r.Provider] = append(byProvider[r.Provider], r)
+	}
+	for _, r := range doc.Without {
+		if !known(r) || seen[r.Provider+"\x00"+r.Metadata.Email] {
+			continue
 		}
 		byProvider[r.Provider] = append(byProvider[r.Provider], r)
 	}
@@ -134,7 +138,11 @@ func buildCursor(name string, r usageReport) CursorAccount {
 	c := CursorAccount{Name: name}
 	for _, l := range r.Limits {
 		if l.Label == cursorLabel {
-			c.Window, c.Models = l.Window.ID, toWindow(l)
+			// 枠の名前は出力の文字列なので、決まった形（monthly・weekly など）に合うものだけ出す（FR-REP-18）。
+			if labelRE.MatchString(l.Window.ID) {
+				c.Window = l.Window.ID
+			}
+			c.Models = toWindow(l)
 			break
 		}
 	}

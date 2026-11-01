@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ousiassllc/swarm-console/internal/host"
 	"github.com/ousiassllc/swarm-console/internal/tmux"
 )
 
@@ -20,6 +21,10 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 	snap.Auth = r.deps.authStatuses(now)
 	if st, err := r.deps.Host.Status(ctx, cfg.DiskMounts); err != nil {
 		r.log.Warn("ホストの状態を読めませんでした", "err", err)
+		// CPU・スワップはゼロ値が「取得できず」。ディスクは設定したマウントを残して取得できずにする（FR-REP-11）。
+		for _, m := range cfg.DiskMounts {
+			snap.Host.Disk = append(snap.Host.Disk, host.Disk{Mount: m})
+		}
 	} else {
 		snap.Host = st
 	}
