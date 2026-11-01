@@ -29,7 +29,7 @@ func (f *fakeValues) UpdateInfo() pane.UpdateInfo {
 }
 
 // スナップショットは、作るときの最後の結果を持つ。収集器が結果を更新しても、作ったスナップショットは変わらない（FR-REP-7・10）。
-// ログイン期限は Agents の順に、作るときに 1 回読んで入れる（FR-REP-16）。
+// ログイン期限は agent.Builtin の順に、作るときに 1 回読んで入れる（FR-REP-16）。
 func TestSnapshotCarriesValuesAtBuildTime(t *testing.T) {
 	env := panetest.NewEnv()
 	twoRows(env)
