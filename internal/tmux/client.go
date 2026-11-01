@@ -73,7 +73,10 @@ func (c *Client) run(ctx context.Context, sub, stdin string, args ...string) (st
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	argv := make([]string, 0, len(args)+3)
+	// -u は UTF-8 の強制。LANG・LC_ALL が無い環境（systemd のユーザーサービスなど）でも
+	// 日本語のタイトル・パスが "_" に化けないよう、全呼び出しの argv を作るここで必ず付ける。
+	argv := make([]string, 0, len(args)+4)
+	argv = append(argv, "-u")
 	if c.socket != "" {
 		argv = append(argv, "-L", c.socket)
 	}

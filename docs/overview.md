@@ -50,7 +50,7 @@ tmux の中で動く AI コーディングエージェント（omp・Claude Code
 | agent-b・agent-a ほか依頼元エージェント | メモの `from`・`report_to` に現れる依頼元・報告先 | 本サーバーを直接呼ぶとは限らない |
 | パソコンの AI ツール（Claude Code・Codex・Cursor など） | MCP クライアント。レポート表示や操作を行う | クライアントを決め打ちしない |
 | ルーティン（定期レポート） | `/report` のみに接続して `report` を取る | `report` スコープのトークン |
-| 運用者（オーナー兼任） | トークン発行、バイナリ入れ替え、`systemctl --user restart` | example-host 上で実施 |
+| 運用者（オーナー兼任） | トークン発行、`update_auto = false` のときのバイナリ入れ替えと `systemctl --user restart`（既定は `serve` が自己更新する。機能要件 §12.4） | example-host 上で実施 |
 
 ## システム全体像
 
@@ -88,17 +88,31 @@ graph TD
 
 ## ドキュメントマップ
 
-このプロジェクトの仕様は以下のドキュメントで構成される。実装時はそれぞれ参照すること。
+このプロジェクトの仕様は以下のドキュメントで構成される。実装時はそれぞれ参照すること。仕様書も 1 ファイル 300 行以内（Linterly の上限）にするため、長い文書は責務ごとに複数のファイルへ分けてある（節番号は通し）。
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | `docs/requirements/functional.md` | ユースケース、機能一覧（17 ツール・レポート・指示文・メモ）、状態遷移、操作フロー、受け入れ確認 |
+| 機能要件 | `docs/requirements/functional.md` | ユースケース、ペイン位置、状態遷移、機能一覧（17 ツール） |
+| 機能要件：レポート・質問カード・指示 | `docs/requirements/functional-report.md` | レポート、質問カードの操作、指示文の組み立て、受け入れ確認 |
+| 機能要件：メモ・安全・設定 | `docs/requirements/functional-note.md` | メモ、安全のための決まり、対話型の設定（`setup`） |
+| 機能要件：新しい版の確認と自己更新 | `docs/requirements/functional-update.md` | 新しい版の確認（`version --check`）と自己更新 |
 | 非機能要件 | `docs/requirements/non-functional.md` | 性能目標、セキュリティ（tailnet 限定・認証・拒否規則）、可用性、運用、テスト・CI 要件 |
-| アーキテクチャ設計 | `docs/architecture/overview.md` | 全体構成、技術選定、レイヤー構造、スナップショット方式、通信フロー、デプロイ、提案した既定値の一覧 |
-| ER / データモデル | `docs/architecture/er.md` | notes.json・tokens.toml・config.toml・profiles.toml・実行時ペイン状態のスキーマと制約 |
-| API 仕様 | `docs/api/endpoints.md` | 窓口・認証・エラー形式・全ツールの引数と返り値・prompts・resources |
+| アーキテクチャ設計 | `docs/architecture/overview.md` | 全体構成、技術選定、レイヤー構造、スナップショット方式、通信フロー、認証と窓口 |
+| アーキテクチャ：デプロイ構成・設定ファイル | `docs/architecture/deployment.md` | デプロイ構成、設定ファイルの全体像 |
+| アーキテクチャ：提案した既定値 | `docs/architecture/decisions.md` | 提案した既定値と実装時確認事項（P-xx）の一覧 |
+| エージェントの画面判定 | `docs/architecture/agent-patterns.md` | 状態判定・質問カードの正規表現（P-22） |
+| エージェントの認証期限 | `docs/architecture/agent-auth.md` | `agent_auth_status` の読み先と判定表（P-16） |
+| ER / データモデル | `docs/architecture/er.md` | ファイル一覧、全体 ER 図、notes.json |
+| ER：tokens.toml・実行時のペイン状態 | `docs/architecture/er-runtime.md` | tokens.toml、実行時のペイン状態（メモリ） |
+| ER：config.toml・profiles.toml ほか | `docs/architecture/er-config.md` | config.toml、profiles.toml、最終報告ファイル、自己更新のファイル |
+| API 仕様 | `docs/api/endpoints.md` | 窓口・認証・エラー形式・共通の決まり |
+| API 仕様：ペインを見る・操作する | `docs/api/endpoints-pane.md` | `panes_status`・`pane_tail`・`ask_card`・`report_read`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close` |
+| API 仕様：サーバーの状態・メモ | `docs/api/endpoints-state.md` | `host_status`・`agent_auth_status`・`note_*` |
+| API 仕様：レポート・指示・prompts・上限 | `docs/api/endpoints-report.md` | `report`・`dispatch`・prompts・resources・上限一覧 |
 | コンポーネント設計 | `docs/components/overview.md` | Go パッケージ構成、アダプタ IF、責務、依存関係、テスト構成 |
-| 環境構築 | `docs/environment/setup.md` | 開発環境、CI/CD（ci・release）、golangci-lint、Linterly、Lefthook、Makefile（Swagger は対象外） |
+| 環境構築 | `docs/environment/setup.md` | 概要、ディレクトリ構造、開発環境セットアップ |
+| 環境構築：CI/CD | `docs/environment/setup-ci.md` | CI/CD（`ci.yml`・`release.yml`・自動タグ付きリリース・デプロイ） |
+| 環境構築：Lint・Format・Linterly・Git Hooks・Makefile | `docs/environment/setup-quality.md` | golangci-lint、Linterly、Lefthook、Makefile（Swagger は対象外） |
 
 ## マイルストーン / リリース計画
 
@@ -134,3 +148,5 @@ graph TD
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成（元仕様 v1.1 を仕様書に展開） | 初版 |
 | 1.1 | 2026-10-31 | ドキュメントマップに環境構築を追加 | 環境構築ドキュメントの作成に伴い |
+| 1.2 | 2026-11-01 | 運用者の役割を自己更新に合わせて更新 | Issue #7（自己更新で確定） |
+| 1.3 | 2026-11-01 | 300 行超過ファイルを分割し、ドキュメントマップを新しいファイルに合わせて更新。内容の変更なし | Issue #3 |

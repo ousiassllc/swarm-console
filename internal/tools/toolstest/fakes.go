@@ -11,6 +11,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/host"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/tools"
 )
 
 // Registry は固定のスナップショットを返す pane.Registry。
@@ -163,3 +164,11 @@ func (h *Host) AuthStatus(name, _ string, _ time.Time) host.Auth {
 	}
 	return host.Auth{Agent: name, Status: host.AuthUnknown}
 }
+
+// Update は固定値を返す tools.UpdateSource。
+type Update struct{ Info tools.UpdateInfo }
+
+var _ tools.UpdateSource = (*Update)(nil)
+
+// UpdateInfo は Info。
+func (u *Update) UpdateInfo() tools.UpdateInfo { return u.Info }

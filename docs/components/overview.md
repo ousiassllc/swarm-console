@@ -60,9 +60,11 @@ graph TD
 
 ```
 swarm-console/
-├── cmd/swarm-console/        main.go（serve / token add|revoke / version）
+├── cmd/swarm-console/        main.go（serve / setup / token add|revoke / version [--check]）。setup.go は引数と TTY 判定だけ
 ├── internal/
 │   ├── config/               config.toml・profiles.toml の読み込み・検証・既定値
+│   │   └── tomledit/         config.toml の部分編集（値の範囲の置き換え・キーの追加。I/O なしの純関数）
+│   ├── setup/                `setup` の画面（huh）、tailnet 候補の列挙、入力 → 編集操作の変換、保存（競合・検査・原子的書き込み）
 │   ├── server/               HTTP サーバー、窓口ルーティング、リクエスト上限、監査ログ
 │   ├── auth/                 tokens.toml、Bearer 検証、スコープ、token CLI
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
@@ -80,6 +82,8 @@ swarm-console/
 │   ├── host/                 負荷・メモリ・ディスク・/proc・認証期限の読み取り
 │   ├── store/                原子的ファイル書き込み、権限検査
 │   ├── clock/                時計インターフェース（テストで固定）
+│   ├── updatecheck/          GitHub Releases の最新版の取得・版の比較・結果の保持・定期確認（FR-UPD）
+│   ├── selfupdate/           自己更新（ダウンロード・SHA256SUMS の検証・入れ替え・試運転と戻し。FR-UPD-11〜20）
 │   ├── apperr/               エラーコードと固定メッセージ（API 仕様 §3）
 │   └── app/                  配線（設定・アダプタ・tmux・pane・tools・mcpapi・server の組み立て）
 ├── templates/                report.ja.md・report.en.md・dispatch.md（go:embed の既定）
@@ -88,14 +92,16 @@ swarm-console/
 ├── test/integration/         実 tmux ＋ fakeagent ＋ MCP クライアントの統合・受け入れテスト
 ├── deploy/                   swarm-console.service（systemd ユーザーサービス）
 ├── docs/                     仕様書
-└── .github/workflows/        ci.yml・release.yml
+└── .github/                  workflows/ci.yml・release.yml、scripts/plan-release.sh（次の版を決める）と、そのテスト
 ```
 
 ## 3. コンポーネントの責務
 
 | コンポーネント | 責務 | 主な公開 IF | 依存する要件 |
 |---------------|------|-----------|-------------|
-| `config` | 設定の読み込み・検証（未知キー拒否）、既定値、`~` 展開、`profiles.toml` | `Load(path) (*Config, error)`、`Profiles` | FR-POS-1, FR-AD-2, FR-DIS-3 |
+| `config` | 設定の読み込み・検証（未知キー拒否）、既定値、`~` 展開、`profiles.toml`。`setup` も同じ検証を使えるよう、検証関数と読み込み本体を公開する（コピーしない） | `Load(path) (*Config, error)`、`ParseBytes(data, path)`、`CheckListenAddr`・`CheckSessions`・`ExpandPath`、`Profiles` | FR-POS-1, FR-AD-2, FR-DIS-3, FR-SET-5 |
+| `config/tomledit` | `go-toml/v2` の `unstable.Parser` で値のバイト範囲を取り、変更したキーの値だけを置き換える・無いキーを足す。変更範囲の外を 1 バイトも変えない（ER §5.1） | `Edit(src []byte, ops []Op) ([]byte, error)`、`Op{Key []string, Value any}` | FR-SET-3, NFR-OPS-8 |
+| `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options` は設定パス・入出力・インターフェース列挙・時計の差し替え） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
 | `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(cfg, handlers)`、`Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
 | `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、定数時間照合、スコープ判定、`token add/revoke` | `Authenticate(header) (Client, error)`、`Client{Name, Scope}` | NFR-SEC-3〜6 |
 | `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録 | `NewReportServer(tools)`、`NewOpsServer(tools)` | FR-SAFE-6 |
@@ -107,6 +113,8 @@ swarm-console/
 | `safety` | `cwd`・`file` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン | `CheckCWD`、`CheckFile`、`CheckText`、`DetectSecret` | FR-SAFE, NFR-SEC |
 | `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`・`select-pane -T`・`display -p` の実行と出力の解析 | `Runner` | NFR-SEC-7, NFR-ENV-2 |
 | `host` | `/proc`（負荷・メモリ・稼働時間・プロセス木）、`statfs`、認証ファイルの期限 | `Host`（`Status()`、`ProcTree(pid)`、`AuthStatus()`） | FR-R5, FR-R6, FR-AD-5 |
+| `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Check(ctx) Result`、`Runner{Start(ctx), Status() Status}`（HTTP クライアントと `clock` を差し替え可能） | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
+| `selfupdate` | `updatecheck` が `update_available` を返したときの入れ替え：許可ホスト内のダウンロード（サイズ上限・リダイレクト制限）、`SHA256SUMS` の検証、`~/bin/swarm-console/` の 5 ファイルへの書き込み（`.new` → `.old` ハードリンク → マーカー → `rename`）、起動時の試運転と戻し（`boots`・`.old` の `rename`・`update-failed`）、`apply` の状況の保持。入れ替え後は `serve` に正常終了を要求する（`systemctl` は実行しない） | `Apply(ctx, latest) error`、`Probation(dir, version, clock) Decision`（起動の最初）、`Status() Apply`（HTTP クライアント・実行ファイルのパス・`clock`・ホームを差し替え可能） | FR-UPD-11〜20, NFR-SEC-14・15・16, NFR-AVL-10 |
 | `store` | 一時ファイル → fsync → rename の書き込み、権限検査（600） | `WriteFileAtomic`、`CheckMode` | NFR-AVL-3 |
 | `clock` | `Now()`、`After()` を持つインターフェース。テストでは固定・手動進行 | `Clock` | NFR-TEST-5, NFR-TEST-7 |
 
@@ -228,6 +236,9 @@ type Tool struct {
 | 認証 | `httptest` | 401・403・失効・定数時間の経路・`/report` の `tools/list` |
 | 統合 | 実 tmux（専用ソケット `-L`、一時セッション）＋ `test/fakeagent` | 各ツールの正常系と拒否（NFR-TEST-1〜4）、`pane_close` の画面確認、並び変更の警告 |
 | 受け入れ（自動化分） | MCP クライアント（SDK の client）で `/report`・`/ops` に接続 | AC-1〜AC-5 のうち自動で担保できる範囲 |
+| 設定の編集（`setup`） | `tomledit` の表駆動の単体テスト ＋ 手書きの見本ファイル（`testdata/config/handwritten.toml`）に対する「入力値 → 編集」の検査 ＋ 実 tmux のペインで `setup` を起動して `send-keys` で入力 | 変更範囲の外のバイト列が同一・`serve` と同じ検証・TTY でない起動の拒否・中止で書かない（NFR-TEST-12・13） |
+| 新しい版の確認 | `httptest` で GitHub の応答を差し替え ＋ `clock` を進める | 結果の区別・版の比較・失敗の分類・`serve` が止まらない・`host_status.update`（NFR-TEST-14） |
+| 自己更新 | `httptest` の偽の配信元 ＋ 一時ディレクトリの `HOME` ＋ `clock` を進める。実 systemd は使わない | 入れ替えの成功・検証失敗・各ステップの失敗で本体が残る・許可外のリダイレクト・ダウングレードしない・試運転の `boots` と 60 秒・戻し・`blocked`・`working` でも待たない（NFR-TEST-16）。実機の再起動と戻しは未確認の報告に明記 |
 
 ### 6.1 擬似エージェント `test/fakeagent`
 
@@ -240,10 +251,14 @@ type Tool struct {
 | ワークフロー | トリガー | 内容 |
 |-------------|---------|------|
 | `ci.yml` | push・PR | `go build ./...` → `go vet ./...` → `golangci-lint run` → `go test -race ./...`（tmux を `apt-get install tmux` で入れ、`tmux -V` で確かめる）。各コマンドは別ステップ。`runs-on: ubuntu-latest` |
-| `release.yml` | タグ `v*` | `GOOS=linux GOARCH=amd64` でビルドし、GitHub Releases に載せる（P-20）。`runs-on: ubuntu-latest` |
+| `release.yml` | `ci.yml` の `workflow_run`（main への push の CI が成功）、タグ `v*` の push | `plan`（次の版を決め、main の先頭だけ通す）→ `verify`（main の履歴・CI 成功）→ `build`（`GOOS=linux GOARCH=amd64`）→ `release`（`gh release create --target` でタグとリリースを同時に作り、Releases に載せる）。`release` だけが `contents: write`。`concurrency: release`（P-20・P-48〜P-53。環境構築 CI/CD） |
 
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | `setup`・`config/tomledit` を追加、`config` の公開 IF を拡張、テスト構成に `setup` を追加 | Issue #5 |
+| 1.2 | 2026-11-01 | `updatecheck` を追加、`version --check` を追加 | Issue #7 |
+| 1.3 | 2026-11-01 | `selfupdate` を追加（自己更新の確定。FR-UPD-11〜20）、テスト構成に自己更新を追加 | Issue #7（自己更新で確定） |
+| 1.4 | 2026-11-01 | §2 の `.github/`、§7 の `release.yml` を自動タグ付きに更新 | Issue #8 |

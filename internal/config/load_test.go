@@ -58,6 +58,8 @@ func TestLoadDefaults(t *testing.T) {
 		TemplatesDir:     filepath.Join(conf, "templates"),
 		ProfilesPath:     filepath.Join(conf, "profiles.toml"),
 		NotesPath:        filepath.Join(home, ".local", "share", "swarm-console", "notes.json"),
+
+		UpdateCheck: true, UpdateCheckInterval: 24 * time.Hour, UpdateAuto: true, // FR-UPD-10・19 の既定
 	}
 	// allowed_roots・file_roots はシンボリックリンク解決後（この機の /mnt/nvme の実体）になりうるので別に確かめる。
 	if want.AllowedRoots = cfg.AllowedRoots; len(cfg.AllowedRoots) != 2 {

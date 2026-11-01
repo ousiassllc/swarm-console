@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/auth"
@@ -47,9 +48,11 @@ type Options struct {
 
 // Server は HTTP サーバー。
 type Server struct {
-	o       Options
-	logger  *slog.Logger
-	handler http.Handler
+	o         Options
+	logger    *slog.Logger
+	handler   http.Handler
+	ready     chan struct{}
+	readyOnce sync.Once
 }
 
 // New はサーバーを組み立てる。
@@ -67,10 +70,14 @@ func New(o Options) (*Server, error) {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	s := &Server{o: o, logger: logger}
+	s := &Server{o: o, logger: logger, ready: make(chan struct{})}
 	s.handler = s.routes()
 	return s, nil
 }
+
+// Ready は待ち受けを始めたとき（ServeListener が受け付けを始めた直後）に閉じる channel。
+// 自己更新の試運転は、ここから 60 秒数える（FR-UPD-17）。
+func (s *Server) Ready() <-chan struct{} { return s.ready }
 
 // Handler はルーティング済みのハンドラ（httptest から使える）。
 func (s *Server) Handler() http.Handler { return s.handler }
@@ -100,6 +107,7 @@ func (s *Server) ServeListener(ctx context.Context, ln net.Listener) error {
 	done := make(chan error, 1)
 	go func() { done <- srv.Serve(ln) }()
 	s.logger.Info("待ち受けを開始しました", "addr", ln.Addr().String())
+	s.readyOnce.Do(func() { close(s.ready) })
 
 	select {
 	case err := <-done:

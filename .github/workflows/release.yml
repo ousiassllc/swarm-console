@@ -1,27 +1,140 @@
 name: Release
+
+# 2 つのきっかけ：
+#   workflow_run  main への push の CI（ci.yml）が成功：main の先頭に次のパッチ版（最新の vX.Y.Z のパッチ+1。無ければ v0.1.0）を付ける
+#   tag push      手で打った vX.Y.Z：マイナー・メジャーを上げる
+# ジョブは 4 つ。ビルドが書き込みトークンを持たず、検査を通らないものを載せないための分け方：
+#   plan     リリースするか・タグは何か（main の先頭だけ。古いコミットに新しい版を付けない）
+#   verify   コミットが main の履歴にあり、ci.yml が成功している
+#   build    linux/amd64 のバイナリと SHA256SUMS（contents: read だけ）
+#   release  gh release create（タグもここで作る）。contents: write を持つのはこのジョブだけ
+# PR・フォークの CI では動かない（workflow_run は main の CI だけが対象）。使う action は GitHub 公式（actions/*）だけ。
 on:
   push:
     tags: ["v*"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
+
+# 次の版は既存のタグから決めるので、同時に 2 本動かさない（待ちは 1 つまで。古い待ちはキャンセルされる。P-51）
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # リリースするコミット：CI が通ったもの（workflow_run）か、タグが指すもの（tag push）
+  RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
-  release:
+  plan:
+    # workflow_run は CI の実行ごとに起動する：このリポジトリの main への push の CI が成功のときだけ
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      tag: ${{ steps.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0 # 全タグ（最新の版）と main の先頭
+          persist-credentials: false
+      - id: plan
+        name: Decide the release and its tag
+        env:
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_RUN_EVENT: ${{ github.event.workflow_run.event }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: bash .github/scripts/plan-release.sh
+
+  verify:
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # gh run list（コミットの CI 結果）
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0 # main の履歴（祖先の確認）
+          persist-credentials: false
+      - name: The commit is in main's history
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "::error::$TAG ($RELEASE_SHA) is not in main's history: tag a commit that is merged into main"
+            exit 1
+          fi
+      - name: ci.yml succeeded on the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ok="$(gh run list --workflow ci.yml --commit "$RELEASE_SHA" --json conclusion --jq 'any(.[]; .conclusion == "success")')"
+          if [ "$ok" != "true" ]; then
+            echo "::error::no successful CI run for $RELEASE_SHA: wait for CI to pass on this commit (or fix it) before tagging"
+            exit 1
+          fi
+
+  build:
+    needs: [plan, verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
       - name: Build
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
         run: |
           mkdir -p dist
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
-            -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
-            -o dist/swarm-console ./cmd/swarm-console
-          (cd dist && sha256sum swarm-console > SHA256SUMS)
-      - name: Release
+            -ldflags "-s -w -X main.version=${TAG}" \
+            -o "dist/swarm-console_${TAG}_linux_amd64" ./cmd/swarm-console
+          (cd dist && sha256sum "swarm-console_${TAG}_linux_amd64" > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # このジョブだけ。タグもここで作る
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist
+      - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/swarm-console dist/SHA256SUMS --generate-notes
+          GH_REPO: ${{ github.repository }} # checkout しないジョブ
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          # --target で、リリースするコミットにタグを作る（手で打ったタグは既にあるのでそのまま使う）
+          gh release create "$TAG" --title "$TAG" --generate-notes --target "$RELEASE_SHA" \
+            "dist/swarm-console_${TAG}_linux_amd64" dist/SHA256SUMS

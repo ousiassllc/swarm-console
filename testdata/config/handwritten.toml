@@ -1,0 +1,38 @@
+# 手で書いた config.toml のサンプル（setup が壊さないことの確認用）。
+# 大事なコメント: この行も、下の空行も、並びも、そのまま残る。
+
+listen_addr = "127.0.0.1:48120"   # 行末のコメント（値の前後の空白も残る）
+sessions    = ["0"]
+tmux_socket = "work"
+
+default_lang = 'ja'
+poll_interval = "5s"   # setup が聞かない期間のキー
+
+# 作業フォルダの根（複数行・コメント入りの配列。setup で変えなければそのまま）
+allowed_roots = [
+  "/mnt/nvme/",   # 本命
+  "~/projects/",
+]
+
+file_roots = [
+  "/tmp/",
+  "/mnt/nvme/",
+]
+disk_mounts = ["/"]
+agents.codex.command = "codex --yolo"   # dotted key
+
+[pane_names]
+"0:1.2" = "build"   # 固定名
+"0:1.3" = "test"
+
+# omp の上書き。正規表現などは setup が聞かないので、そのまま残る。
+[agents.omp]
+command = "omp --fast"
+working_re = '(?i)working|thinking'   # リテラル文字列
+process_match = [
+  "omp",
+  "bun .*omp",
+]
+
+[agents.claude]
+exit_command = "/exit"

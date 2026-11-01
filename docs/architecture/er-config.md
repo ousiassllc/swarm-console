@@ -1,0 +1,178 @@
+# ER / データモデル：config.toml・profiles.toml・最終報告・自己更新のファイル
+
+[ER / データモデル](er.md) の続き。§5 config.toml、§6 profiles.toml、§7 最終報告ファイル、§8 自己更新のファイルを定める。
+
+改訂履歴は [ER / データモデル（本書）](er.md#改訂履歴) にまとめてある。
+
+## 5. config.toml
+
+```mermaid
+erDiagram
+    CONFIG ||--o{ SESSION : "sessions"
+    CONFIG ||--o{ PANE_NAME : "pane_names"
+    CONFIG ||--o{ AGENT_CONFIG : "agents"
+
+    CONFIG {
+        string listen_addr PK "tailnet IP:48120（必須）"
+        string tmux_socket "tmux -L のソケット名"
+        array sessions "既定 [0]"
+        string default_session
+        string default_lang "ja | en"
+        duration poll_interval "5s"
+        duration snapshot_ttl "2s"
+        duration stalled_after "15m"
+        duration layout_warning_ttl "10m"
+        duration accept_timeout "10s"
+        duration start_timeout "30s"
+        duration lock_timeout "60s"
+        string title_prefix "agent: "
+        array allowed_roots
+        array denied_paths
+        array file_roots
+        array disk_mounts "host_status が見るマウント"
+        string report_dir
+        bool update_check "true"
+        duration update_check_interval "24h（1h 以上）"
+        bool update_auto "true"
+    }
+    SESSION {
+        string name
+    }
+    PANE_NAME {
+        string target PK "session:window.pane_index"
+        string name "^[A-Za-z][A-Za-z0-9_-]*$"
+    }
+    AGENT_CONFIG {
+        string name PK "omp | claude | codex"
+        string command "起動コマンド"
+        string exit_command "終了コマンド"
+        array process_match "プロセス名・引数の正規表現"
+        string working_re "作業中の目印"
+        string ask_re "質問カードの判定"
+        string idle_re "入力待ちの目印"
+        string spinner_chars
+        string auth_file "認証ファイルのパス"
+    }
+```
+
+| 検証 | 内容 |
+|------|------|
+| `listen_addr` | 必須。`0.0.0.0`・`::`・ホスト名ワイルドカードは拒否。tailnet の範囲またはループバックのみ（P-01） |
+| `sessions` | 1 つ以上。重複なし。`default_session` は `sessions` のどれか |
+| `pane_names` | 名前は `^[A-Za-z][A-Za-z0-9_-]*$`、他の固定名・自動名（`T1` など）・`%` 始まりと衝突しない |
+| `allowed_roots`・`file_roots`・`denied_paths` | 絶対パス。`~` は展開。比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file` の両方） |
+| `denied_paths` の既定 | 既定は `["~/dotfiles"]`。`config.toml` に書いたら既定と**入れ替わる**（足されない。書き方の例は [環境構築](../environment/setup.md#ローカルで動かす)）。P-29 |
+| 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h |
+| `update_check` | bool。省略は `true`。`false` なら `serve` は GitHub へ確認しに行かない（`version --check` の手動確認は動く。FR-UPD） |
+| `update_auto` | bool。省略は `true`。`false` なら自己更新だけ止まる（確認と `host_status` は続く）。`update_check = false` のときは無視される（確認も更新もしない。FR-UPD-19） |
+| `agents.<name>` | 書かれたキーだけ組み込みの既定を上書きする。正規表現は起動時にコンパイルできること |
+| 未知のキー | 起動拒否（打ち間違いを検知する） |
+
+### 5.1 `setup` による書き戻し
+
+`swarm-console setup`（FR-SET）が `config.toml` に書く規則。目的は「手で書いた内容を壊さない」ことで、ファイル全体を作り直さない。設定の読み込み（`config.Load`）は変えない。
+
+| 項目 | 規則 |
+|------|------|
+| 読み方 | `go-toml/v2` の `unstable.Parser` で、キー（表を含む完全なキー）ごとの値のバイト範囲と、各表のヘッダー・最後のキーの位置を取る（`Unmarshal` では位置が取れない）。値の解釈は通常の読み込み（`DisallowUnknownFields`）と別に行い、`setup` が聞かないキー（FR-SET-4）も含めて何も変えない |
+| 何を書くか | 運用者が画面で値を変えたキーだけ。比較は検証・`~` 展開・Clean 後の実効値で行い、ファイルに無く既定のままのキー（例：触らなかった `denied_paths`）は書かない |
+| 既にあるキーを変える | 値のバイト範囲だけを置き換える。キー・`=`・前後の空白・行末コメント・前後の行は 1 バイトも変えない |
+| 複数行の配列 | 変えるなら配列全体（`[` から `]`）を 1 行の配列に置き換える。配列の中にコメントがあるときは「このキーの中のコメントは消える」と確認画面に出し、了承がなければそのキーは元のままにする |
+| 無いキーを足す（最上位） | 最初の表ヘッダーの直前（その直前の空行は保つ）に `key = value` を 1 行足す。表が 1 つも無ければファイルの末尾 |
+| 無いキーを足す（表の中。`[agents.omp]` など） | その表の最後のキーの次の行。表が無ければ、末尾に空行 1 つと表ヘッダー、キーを足す |
+| 挿入先を決められない形 | インラインテーブルへの追加、同じ表が離れて 2 回出てくる、dotted key で別の表に分かれている、などは、何も書かずに中止し、該当キーを手で直すよう案内する（一部だけ書くことはしない） |
+| 値の書き方 | 文字列は `"..."`（基本文字列）、配列は 1 行。足した行にコメントは付けない |
+| 改行・末尾 | 既存ファイルの改行（LF・CRLF）と末尾の改行の有無に合わせる |
+| 新規作成 | 全キーの説明と既定値をコメントで並べたひな形（`config.toml` の見本。`go:embed`）から始め、同じ規則で値を足す。ひな形は `setup` を通さなくても手で使える |
+| 保存前の検査（どれか 1 つでも落ちたら何も書かない） | ① 結果を `serve` と同じ読み込み経路（`config.ParseBytes`）で読み直して通る ② 値を変えていないキーの実効値が読み込み時と同じ ③ 置き換えた範囲・足した行の外のバイト列が元と同一 |
+| 競合 | 読み込み時の内容のハッシュを持ち、書く直前にファイルを読み直して違えば中止する（`serve` や手書きとの競合。上書きしない） |
+| 書き込み | `store.WriteFileAtomic`（一時ファイル → fsync → rename）。既存ファイルの権限は変えない。新規は 600（「644 以下」を満たす） |
+| シンボリックリンク | `config.toml` がシンボリックリンクなら書かずに中止する（rename でリンクが普通のファイルに変わる、リンク先が設定の置き場の外・`~/dotfiles` のことがあるため。NFR-SEC-14）。手で編集してもらう |
+| 手書き専用のキー | 下記が手で書かれていても、`setup` は何も変えずに残す：`tmux_socket`・`default_lang`・期間のキー・`title_prefix`・`file_roots`・`disk_mounts`・`report_dir`・`[pane_names]`・`[agents.<name>]` の `command`・`exit_command`・`auth_file` 以外のキー |
+
+## 6. profiles.toml
+
+```mermaid
+erDiagram
+    PROFILES_FILE ||--|| COMMON : "common"
+    PROFILES_FILE ||--o{ PROFILE : "profile.<name>"
+    COMMON ||--o{ RULE : "rules"
+    PROFILE ||--o{ RULE : "rules"
+
+    PROFILE {
+        string name PK "sweep | fix | investigate（追加可）"
+        array rules "共通の条件に足す条件"
+    }
+    RULE {
+        string text "1 行。{report_path} が使える"
+    }
+```
+
+初期値（元の omp-dispatch の条件そのまま）：
+
+```toml
+[common]
+rules = [
+  "コミットは必ず `git commit -s` で行う（cherry-pick も `-s`）。マージは `git merge --signoff`。",
+  "force push・rebase・amend・squash・reset・`--no-verify` はしない。フックが落ちたら止めて報告する。",
+  "リモートブランチは作業用でも消さない（削除はローカルだけ）。",
+  "マージ・Issue の close・デプロイはしない。",
+  "トークン・パスワードなどの秘密をコード・ログ・PR・Issue に書かない。",
+  "オーナーの checkout と `~/dotfiles` には触らず、worktree で作業する。",
+  "CI が緑になったら止める。",
+  "最終報告（PR・head・CI・Issue 番号・残りの判断）を {report_path} にも書く。",
+]
+
+[profile.sweep]
+rules = ["PR は 1 本まで（`--single-pr`）。PR を出して CI が緑になったら止まる。"]
+
+[profile.fix]
+rules = ["PR は 1 本まで。バグの再現確認と回帰テストを含める。PR を出して CI が緑になったら止まる。"]
+
+[profile.investigate]
+rules = [
+  "調査だけを行い、ファイルの変更・コミット・push・PR 作成はしない。",
+  "分かったこと・根拠・残りの判断を報告する。",
+]
+```
+
+| 検証 | 内容 |
+|------|------|
+| 必須 | `common` と、`sweep`・`fix`・`investigate` の 3 プロファイルが存在する（追加は可） |
+| 規則 | 各 `rules` は空でない 1 行の文字列（改行不可）。プレースホルダーは `{report_path}` だけ。他の `{...}` は起動時エラー |
+| 不在 | ファイルが無ければ、上記の初期値を組み込みで使う |
+
+## 7. 最終報告ファイル
+
+| 項目 | 内容 |
+|------|------|
+| パス | `<report_dir>/<位置>.md`（位置の `:` は `_`。例 `work:B2` → `work_B2.md`） |
+| 書き手 | エージェント（指示文の最後の条件で書かせる）。サーバーは読むだけ（`report_read`） |
+| 移動 | `dispatch`・`pane_close` が古いファイルを `<report_dir>/archive/<位置>-<unix 秒>.md` へ移す（サーバーが書く唯一の操作） |
+| 読み取り上限 | 20,000 字。超えたら先頭から切って `truncated: true` |
+| 存在判定 | あれば `report_exists: true`。空ファイルは存在扱い |
+
+## 8. 自己更新のファイル
+
+置き場は `~/bin/swarm-console/` に固定（FR-UPD-12・15。NFR-SEC-14・16）。サーバーが書くのは次の 5 つだけ。
+
+| ファイル | 中身 | 書き手・消す人 |
+|---------|------|--------------|
+| `swarm-console` | 動いているバイナリ（権限 755） | 入れ替え（`rename`）と戻し（`rename`） |
+| `swarm-console.new` | ダウンロード中・検証待ちの一時ファイル | 入れ替えが作り、`rename` するか失敗時に消す |
+| `swarm-console.old` | 入れ替え前のバイナリ（ハードリンク。1 世代だけ） | 入れ替えのたびに作り直す。戻しで `swarm-console` に `rename` される |
+| `swarm-console.update-pending` | 試運転中のマーカー | 入れ替えが作る。試運転が済む・戻す・`to` が自分の版でないときに消す |
+| `swarm-console.update-failed` | 起動に失敗して戻した版の記録 | 戻しが書く。運用者が消すと同じ版を再び試す |
+
+```json
+// swarm-console.update-pending（権限 600）
+{"from": "v0.1.3", "to": "v0.1.5", "boots": 0}
+// swarm-console.update-failed（権限 600）
+{"version": "v0.1.5", "at": "2026-11-01T12:30:00+09:00"}
+```
+
+| 項目 | 検証・意味 |
+|------|-----------|
+| `from`・`to`・`version` | `vX.Y.Z`（FR-UPD-3 の形）。読めない・形が違うファイルは無いものとして扱い、消す |
+| `boots` | 0 以上の整数。`serve` が起動の最初に 1 増やして書き戻し、3 以上になる起動で戻す。試運転が済んだらマーカーごと消える |
+| 書き込み | 一時ファイル → `rename`（NFR-AVL-3 と同じ作り）。権限 600 |

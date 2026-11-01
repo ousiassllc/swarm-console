@@ -155,7 +155,12 @@ func TestServeRefusesBadSetup(t *testing.T) {
 	cfg := filepath.Join(dir, "config.toml")
 	write := func(name, body string, mode os.FileMode) {
 		t.Helper()
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), mode); err != nil {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(body), mode); err != nil {
+			t.Fatal(err)
+		}
+		// umask で mode が削られても、検査対象の権限になるようにする。
+		if err := os.Chmod(path, mode); err != nil {
 			t.Fatal(err)
 		}
 	}

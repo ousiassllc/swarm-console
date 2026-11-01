@@ -8,9 +8,9 @@ import (
 	"unicode"
 )
 
-// expandPath は先頭の "~" を home に展開し、絶対パスであることを確かめて Clean する。
+// ExpandPath は先頭の "~" を home に展開し、絶対パスであることを確かめて Clean する。
 // シンボリックリンクの解決はしない（resolvePath）。
-func expandPath(key, p, home string) (string, error) {
+func ExpandPath(key, p, home string) (string, error) {
 	switch {
 	case p == "":
 		return "", fmt.Errorf("%s に空のパスがあります", key)
@@ -40,7 +40,7 @@ func resolvePath(p string) string {
 func expandList(key string, in []string, home string, resolve bool) ([]string, error) {
 	out := make([]string, 0, len(in))
 	for _, p := range in {
-		e, err := expandPath(key, p, home)
+		e, err := ExpandPath(key, p, home)
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func buildPaths(r *rawConfig, c *Config, home string) error {
 	var err error
 	allowed := r.AllowedRoots
 	if allowed == nil {
-		allowed = []string{"/mnt/nvme/", "~/projects/"}
+		allowed = DefaultAllowedRoots()
 	}
 	if len(allowed) == 0 {
 		return errors.New("allowed_roots は 1 つ以上必要です")
@@ -75,7 +75,7 @@ func buildPaths(r *rawConfig, c *Config, home string) error {
 	}
 	denied := r.DeniedPaths
 	if denied == nil {
-		denied = []string{"~/dotfiles"}
+		denied = DefaultDeniedPaths()
 	}
 	if c.DeniedPaths, err = expandList("denied_paths", denied, home, true); err != nil {
 		return err
@@ -92,7 +92,7 @@ func buildPaths(r *rawConfig, c *Config, home string) error {
 	if dir == "" {
 		dir = defaultReportDir
 	}
-	c.ReportDir, err = expandPath("report_dir", dir, home)
+	c.ReportDir, err = ExpandPath("report_dir", dir, home)
 	return err
 }
 

@@ -15,10 +15,10 @@ var (
 	socketRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
 )
 
-// checkListenAddr は P-01 の検証。`IP:ポート` の IP リテラルだけを受け、
+// CheckListenAddr は P-01 の検証。`IP:ポート` の IP リテラルだけを受け、
 // 0.0.0.0・::・ホスト名・ポート無しは拒否する。許可は tailnet の範囲かループバック。
 // 返す文字列は netip で正規化したもの。
-func checkListenAddr(s string) (string, error) {
+func CheckListenAddr(s string) (string, error) {
 	if s == "" {
 		return "", errors.New("listen_addr は必須です（tailnet の IP:ポート）")
 	}
@@ -47,11 +47,11 @@ func checkSocket(s string) error {
 	return nil
 }
 
-// checkSessions は sessions の既定（["0"]）・重複・default_session を検査する。
+// CheckSessions は sessions の既定（["0"]）・重複・default_session を検査する。
 // tmux はセッション名の "." と ":" を "_" に置き換えるため、それを含む名前は一致しないので拒否する。
-func checkSessions(sessions []string, def string) ([]string, string, error) {
+func CheckSessions(sessions []string, def string) ([]string, string, error) {
 	if sessions == nil {
-		sessions = []string{"0"}
+		sessions = DefaultSessions()
 	}
 	if len(sessions) == 0 {
 		return nil, "", errors.New("sessions は 1 つ以上必要です")
@@ -77,8 +77,8 @@ func checkSessions(sessions []string, def string) ([]string, string, error) {
 	return append([]string(nil), sessions...), def, nil
 }
 
-// checkPlainLine は 1 行・制御文字なしの文字列か検査する（タイトル・コマンドなど端末へ流すもの）。
-func checkPlainLine(key, s string) error {
+// CheckPlainLine は 1 行・制御文字なしの文字列か検査する（タイトル・コマンドなど端末へ流すもの）。
+func CheckPlainLine(key, s string) error {
 	if strings.IndexFunc(s, unicode.IsControl) >= 0 {
 		return errors.New(key + " に改行・制御文字は使えません")
 	}
