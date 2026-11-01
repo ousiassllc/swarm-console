@@ -2,7 +2,10 @@ package setup
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/ousiassllc/swarm-console/internal/setup/template"
 )
 
 func loadBody(t *testing.T, body string) *State {
@@ -44,7 +47,7 @@ func TestDiffNewFileWritesOnlyListenAddr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := string(Template()) + "listen_addr = \"127.0.0.1:48120\"\n"
+	want := string(template.Bytes()) + "listen_addr = \"127.0.0.1:48120\"\n"
 	if string(out) != want {
 		t.Fatalf("新規は、ひな形の末尾に足すだけ:\n%s", out)
 	}
@@ -105,5 +108,22 @@ func TestDiffChanges(t *testing.T) {
 				t.Fatalf("keys = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// 値の前後の空白は、画面の答えでは落ちる。ユーザーが触っていない値は書き直さない（FR-SET-3）。
+func TestDiffIgnoresSurroundingSpaceOfUnchangedValue(t *testing.T) {
+	st := loadBody(t, "listen_addr = \"127.0.0.1:1\"\n[agents.omp]\ncommand = \"omp \"\nexit_command = \" /exit\"\n[agents.claude]\nauth_file = \"~/x.json \"\n")
+	ans := answersOf(st)
+	for name, a := range ans.Agents {
+		a.Command, a.ExitCommand, a.AuthFile = strings.TrimSpace(a.Command), strings.TrimSpace(a.ExitCommand), strings.TrimSpace(a.AuthFile)
+		ans.Agents[name] = a
+	}
+	if ops := Diff(st, ans, testHome); len(ops) != 0 {
+		t.Fatalf("ops = %v", Keys(ops))
+	}
+	ans.Agents["omp"] = Agent{Command: "omp --x"}
+	if got := Keys(Diff(st, ans, testHome)); !reflect.DeepEqual(got, []string{"agents.omp.command"}) {
+		t.Fatalf("keys = %v", got)
 	}
 }

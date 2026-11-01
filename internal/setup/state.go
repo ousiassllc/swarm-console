@@ -2,26 +2,14 @@ package setup
 
 import (
 	"crypto/sha256"
-	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 
 	"github.com/ousiassllc/swarm-console/internal/config"
+	"github.com/ousiassllc/swarm-console/internal/setup/template"
 )
-
-//go:embed config.toml.example
-var templateFS embed.FS
-
-// Template は新規作成の出発点（全キーの説明と既定値をコメントで並べたひな形）。値を足すのは書き戻しの規則どおり。
-func Template() []byte {
-	b, err := templateFS.ReadFile("config.toml.example")
-	if err != nil { // go:embed したファイルなので起きない
-		panic(err)
-	}
-	return b
-}
 
 // ErrSymlink は config.toml がシンボリックリンクのとき（書かずに中止する。P-35）。
 var ErrSymlink = errors.New("config.toml がシンボリックリンクです。rename でリンクが普通のファイルに変わり、リンク先が設定の置き場の外のことがあるため、書きません。手で編集してください")
@@ -59,7 +47,7 @@ func Load(path string) (*State, error) {
 	case err == nil:
 		st.Exists, st.Src, st.Hash = true, data, sha256.Sum256(data)
 	case errors.Is(err, fs.ErrNotExist):
-		st.Src = Template()
+		st.Src = template.Bytes()
 		st.Mode = 0o600
 	default:
 		return nil, fmt.Errorf("%s を読めません: %w", path, err)

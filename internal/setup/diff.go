@@ -107,9 +107,10 @@ func (d *differ) agent(name string, ans Agent) {
 		field        string
 		ans, cur, df string
 	}{
-		{"command", ans.Command, cur.Command, def.Command},
-		{"exit_command", ans.ExitCommand, cur.ExitCommand, def.ExitCommand},
-		{"auth_file", ans.AuthFile, cur.AuthFile, def.AuthFile},
+		// 現在値は画面の答え（TrimSpace 済み）と同じ形で比べる。前後の空白だけの違いは変更にしない（FR-SET-3）。
+		{"command", ans.Command, strings.TrimSpace(cur.Command), def.Command},
+		{"exit_command", ans.ExitCommand, strings.TrimSpace(cur.ExitCommand), def.ExitCommand},
+		{"auth_file", ans.AuthFile, strings.TrimSpace(cur.AuthFile), def.AuthFile},
 	}
 	for _, f := range fields {
 		a := strings.TrimSpace(f.ans)

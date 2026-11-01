@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ousiassllc/swarm-console/internal/setup/template"
+
 	"github.com/ousiassllc/swarm-console/internal/config/tomledit"
 )
 
@@ -122,7 +124,7 @@ func TestSaveNewFilePermAndDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := append(Template(), "listen_addr = \"127.0.0.1:1\"\n"...)
+	out := append(template.Bytes(), "listen_addr = \"127.0.0.1:1\"\n"...)
 	if err := Save(st, out); err != nil {
 		t.Fatal(err)
 	}
@@ -213,5 +215,41 @@ func TestSaveRefusesSymlink(t *testing.T) {
 	}
 	if fi, _ := os.Lstat(path); fi.Mode()&os.ModeSymlink == 0 {
 		t.Fatal("リンクが普通のファイルに変わりました")
+	}
+}
+
+// まだ [agents.<name>] が無いエージェントの設定を初めて書いても保存できる。範囲外のバイト列は変わらない。
+func TestRenderFirstAgentSetting(t *testing.T) {
+	tests := []struct {
+		name, src string
+		want      string
+	}{
+		{
+			name: "agents の表が 1 つも無いファイル",
+			src:  "# 手書き\nlisten_addr = \"127.0.0.1:1\"\n",
+			want: "# 手書き\nlisten_addr = \"127.0.0.1:1\"\n\n[agents.omp]\ncommand = \"omp --x\"\n",
+		},
+		{
+			name: "別のエージェントの表だけがあるファイル",
+			src:  "listen_addr = \"127.0.0.1:1\"\n\n[agents.claude]\nexit_command = \"/exit\" # c\n",
+			want: "listen_addr = \"127.0.0.1:1\"\n\n[agents.claude]\nexit_command = \"/exit\" # c\n\n[agents.omp]\ncommand = \"omp --x\"\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := loadBody(t, tt.src)
+			ans := answersOf(st)
+			ans.Agents["omp"] = Agent{Command: "omp --x"}
+			out, err := Render(st, Diff(st, ans, testHome))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(out) != tt.want {
+				t.Fatalf("got %q\nwant %q", out, tt.want)
+			}
+			if err := Save(st, out); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

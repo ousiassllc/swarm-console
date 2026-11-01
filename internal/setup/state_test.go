@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ousiassllc/swarm-console/internal/setup/template"
+
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/ousiassllc/swarm-console/internal/config"
@@ -45,7 +47,7 @@ func TestLoadMissingStartsFromTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Exists || string(st.Src) != string(Template()) {
+	if st.Exists || string(st.Src) != string(template.Bytes()) {
 		t.Fatal("無ければひな形から始める")
 	}
 	if st.Invalid == nil || !strings.Contains(st.Invalid.Error(), "listen_addr") {
@@ -59,10 +61,10 @@ func TestLoadMissingStartsFromTemplate(t *testing.T) {
 // ひな形は全部コメントで、手で使うには listen_addr だけ足せばよい（ER §5.1 新規作成）。
 func TestTemplateIsAllComments(t *testing.T) {
 	var doc map[string]any
-	if err := toml.Unmarshal(Template(), &doc); err != nil || len(doc) != 0 {
+	if err := toml.Unmarshal(template.Bytes(), &doc); err != nil || len(doc) != 0 {
 		t.Fatalf("ひな形に有効なキーがあります: %v %v", doc, err)
 	}
-	if _, err := config.ParseBytes(append(Template(), "listen_addr = \"127.0.0.1:1\"\n"...), "config.toml"); err != nil {
+	if _, err := config.ParseBytes(append(template.Bytes(), "listen_addr = \"127.0.0.1:1\"\n"...), "config.toml"); err != nil {
 		t.Fatalf("ひな形 + listen_addr が読み込みを通りません: %v", err)
 	}
 }

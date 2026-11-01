@@ -64,22 +64,36 @@ func sameUntouched(before, after *config.Config, ops []tomledit.Op) error {
 			maskAgent(&b, &a, op.Key)
 		}
 	}
+	b.Agents, a.Agents = dropEmptyAgents(b.Agents), dropEmptyAgents(a.Agents)
 	if !reflect.DeepEqual(b, a) {
 		return errors.New("変えていないキーの値が読み込み時と変わります（何も書きません）")
 	}
 	return nil
 }
 
-// maskAgent は agents.<name>.<field> の 1 フィールドを比較から外す。
+// dropEmptyAgents は、上書きが 1 つも無い（すべて nil）エントリを外す。
+// 「[agents.omp] が無い」と「空の [agents.omp]」は上書きが無い点で同じなので、比較では区別しない。
+func dropEmptyAgents(in map[string]agent.Overrides) map[string]agent.Overrides {
+	var out map[string]agent.Overrides
+	for k, v := range in {
+		if reflect.DeepEqual(v, agent.Overrides{}) {
+			continue
+		}
+		if out == nil {
+			out = map[string]agent.Overrides{}
+		}
+		out[k] = v
+	}
+	return out
+}
+
+// maskAgent は agents.<name>.<field> の 1 フィールドを比較から外す（エントリが無い側は空の上書きとして扱う）。
 func maskAgent(b, a *config.Config, key []string) {
 	if len(key) != 3 || key[0] != "agents" {
 		return
 	}
 	for _, c := range []*config.Config{b, a} {
-		ov, ok := c.Agents[key[1]]
-		if !ok {
-			continue
-		}
+		ov := c.Agents[key[1]]
 		switch key[2] {
 		case "command":
 			ov.Command = nil
