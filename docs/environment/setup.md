@@ -100,7 +100,7 @@ go run ./cmd/swarm-console setup --config ./my.toml    # 別の場所
 flowchart LR
     T["push / pull_request"] --> J["ci.yml: job test (ubuntu-latest)"]
     J --> S1["checkout"] --> S2["setup-go (go.mod)"] --> S3["apt install tmux"]
-    S3 --> S4["go build ./..."] --> S5["go vet ./..."] --> S6["golangci-lint"] --> S7["linterly check"] --> S8["go test -race ./..."]
+    S3 --> S4["go build ./..."] --> S5["go vet ./..."] --> S6["golangci-lint"] --> S7["linterly check"] --> S7b["plan-release_test.sh"] --> S8["go test -race ./..."]
     S8 --> CIOK["main への push の CI が成功"] --> RP["release.yml: plan（次の版を決める）"]
     TAG["手で打ったタグ vX.Y.Z"] --> RP
     RP --> RV["verify（main の履歴・CI 成功）"] --> RB["build linux/amd64"] --> RR["release（タグを付けて Releases に載せる）"]
@@ -109,7 +109,7 @@ flowchart LR
 - 全ジョブを GitHub ホストのランナー（`runs-on: ubuntu-latest`）で動かす。
 - Go と golangci-lint は `actions/setup-go`（`go-version-file: go.mod`）と `golangci/golangci-lint-action` で入れる。
 - tmux はジョブの中で `apt-get install` して入れ、続く `Check tmux` ステップで `tmux -V` により入ったことを確かめる。
-- 1 ジョブ内で、build・vet・lint・linterly・test を別ステップで順に実行する（失敗したステップで止まり、どのコマンドで落ちたか分かる）。
+- 1 ジョブ内で、build・vet・lint・linterly・release plan test（`plan-release.sh` の表駆動テスト。NFR-TEST-15）・test を別ステップで順に実行する（失敗したステップで止まり、どのコマンドで落ちたか分かる）。
 - ステップ順は lint → test の前に build・vet を置く（コンパイルエラーを先に出す）。
 - `concurrency` で同じ ref の古い実行をキャンセルする。`permissions` は `contents: read`。
 
@@ -151,6 +151,8 @@ jobs:
           version: v2.12
       - name: Linterly
         run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check
+      - name: Release plan test
+        run: bash .github/scripts/plan-release_test.sh
       - name: Test
         run: go test -race ./...
 ```
@@ -449,8 +451,9 @@ pre-push:
 | `make lint` | `golangci-lint run ./...` |
 | `make fmt` / `make fmt-check` | 整形 / 整形差分の検査 |
 | `make linterly` | `linterly check` |
+| `make plan-test` | `bash .github/scripts/plan-release_test.sh`（次の版を決める処理のテスト。NFR-TEST-15） |
 | `make test` | `go test -race ./...` |
-| `make check` | build → vet → lint → linterly → test を別ターゲットとして順に実行 |
+| `make check` | build → vet → lint → linterly → plan-test → test を別ターゲットとして順に実行 |
 
 `make check` は CI の `ci.yml` と同じ順序・同じコマンドにする（差が出たら両方を直す）。
 
@@ -467,3 +470,4 @@ pre-push:
 | 1.2 | 2026-11-01 | release.yml の骨子の成果物名を `swarm-console_vX.Y.Z_linux_amd64` に、デプロイの記述を自己更新に更新 | Issue #7（自己更新で確定） |
 | 1.3 | 2026-11-01 | CI/CD に自動タグ付きリリース（`release.yml` の `plan`・`verify`・`build`・`release`、版の上げ方、手で打ったタグの検査）を追加 | Issue #8 |
 | 1.4 | 2026-11-01 | 成果物名を `swarm-console_<タグ>_linux_amd64`（版・OS・arch 入り）と `SHA256SUMS` の書式に変更、デプロイの記述を自己更新（Issue #7）に合わせて更新 | Issue #8（Issue #7 の自己更新で確定） |
+| 1.5 | 2026-11-01 | CI に `plan-release_test.sh` のステップ、Makefile に `plan-test` を追加（NFR-TEST-15 を CI で動かす） | Issue #8 の実装 |

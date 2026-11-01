@@ -1,4 +1,4 @@
-.PHONY: build vet lint fmt fmt-check linterly test check
+.PHONY: build vet lint fmt fmt-check linterly plan-test test check
 
 build:
 	go build -o bin/swarm-console ./cmd/swarm-console
@@ -18,6 +18,9 @@ fmt-check:
 linterly:
 	linterly check
 
+plan-test:
+	bash .github/scripts/plan-release_test.sh
+
 test:
 	go test -race ./...
 
@@ -27,4 +30,5 @@ check:
 	$(MAKE) vet
 	$(MAKE) lint
 	$(MAKE) linterly
+	$(MAKE) plan-test
 	$(MAKE) test
