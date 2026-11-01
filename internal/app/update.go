@@ -129,7 +129,7 @@ func (u *updateRuntime) onResult(ctx context.Context, r updatecheck.Result) {
 func isExpected(err error) bool {
 	var f *selfupdate.Failure
 	return errors.As(err, &f) || errors.Is(err, selfupdate.ErrBlocked) || errors.Is(err, selfupdate.ErrNotNewer) ||
-		errors.Is(err, context.Canceled)
+		errors.Is(err, selfupdate.ErrProbation) || errors.Is(err, context.Canceled)
 }
 
 // start は確認の goroutine（1 本）と、試運転の確定の待ちを動かす。ctx が終わると通信を中断して止まり、返した関数が両方の終了を待つ。

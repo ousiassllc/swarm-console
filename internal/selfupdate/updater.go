@@ -114,11 +114,15 @@ func (u *Updater) Reset() {
 
 // Apply は latest（updatecheck が update_available と判定した vX.Y.Z）へ入れ替える（FR-UPD-12〜16）。
 // 成功すると RequestExit を呼んで nil を返す。入れ替えない・できないときは本体を旧バイナリのまま残して次を返す：
-// *Failure（reason 付き。apply は failed）、ErrBlocked（apply は blocked）、ErrNotNewer（状況は変えない）、
+// *Failure（reason 付き。apply は failed）、ErrBlocked（apply は blocked）、ErrNotNewer・ErrProbation（状況は変えない）、
 // ErrInvalidVersion、ctx のエラー（SIGTERM での中断。一時ファイルは消してある）。
+// 試運転中（apply = probation）は何も確かめず何も書かず ErrProbation を返す（FR-UPD-12）。
 func (u *Updater) Apply(ctx context.Context, latest string) error {
 	if !updatecheck.ValidTag(latest) {
 		return ErrInvalidVersion
+	}
+	if u.Status().State == StateProbation {
+		return ErrProbation
 	}
 	if err := u.precheck(latest); err != nil {
 		u.record(latest, err)
