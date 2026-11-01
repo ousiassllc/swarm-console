@@ -16,6 +16,21 @@
 
 `expiresAt`・`refreshTokenExpiresAt` が **0・null・欠落のものだけ**（有効な値が 1 つも無い）なら `expired`、期限は無し。`0` は「無期限」ではない。
 
+判定表（`claudeAiOauth` がある場合。「有効な値」は `> 0` の数値。期限は有効な値のうち遅いほう）：
+
+| # | `expiresAt` | `refreshTokenExpiresAt` | 判定 | 備考 |
+|---|-------------|------------------------|------|------|
+| 1 | 0・null・欠落 | 0・null・欠落 | `expired`（期限なし） | ログアウト状態。`expiresAt: 0` ＋トークン空の実ファイルもここ（または下の 2） |
+| 2 | 0 | 過去 | `expired` | この機の実ファイル |
+| 3 | 0 | 未来 | 更新トークンの期限で `valid`／`expiring_soon` | **維持した現行判定**。`expiresAt: 0` 単独では失効としない（更新トークンが生きているため）。厳しくするなら要判断 |
+| 4 | 過去 | 過去 | `expired` | |
+| 5 | 過去 | 未来 | 更新トークンの期限で判定 | アクセストークンは自動更新される |
+| 6 | 未来 | 欠落 | `expiresAt` で判定 | |
+| 7 | 文字列など数値でない | — | `unknown` | JSON 型違い |
+
+- トークン文字列（`accessToken`・`refreshToken`）の空かどうかは読まない（秘密を扱わない）。期限の数値が未来なら、文字列が空でも `valid` になる（行 3・5・6 の延長）。
+- `claudeAiOauth` が無い・JSON が壊れている・空ファイルは `unknown`。
+
 - Claude Code 自身も `expiresAt: 0` を期限切れとして扱う。<https://github.com/anthropics/claude-code/issues/83834>
 - リフレッシュに失敗したあとは、トークンが空・`expiresAt: 0` のログアウト状態になる。<https://github.com/anthropics/claude-code/issues/76561>
 - 長期トークン（`CLAUDE_CODE_OAUTH_TOKEN`）は `.credentials.json` に入らない。そのため `0` が「無期限」を意味することはなく、`claudeAiOauth` ごと無い場合は `unknown`（`expired` にしない）。<https://code.claude.com/docs/en/authentication>

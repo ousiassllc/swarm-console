@@ -51,6 +51,8 @@ func TestAuthStatus(t *testing.T) {
 		{"claude expiresAt・更新とも欠落（空）", "claude", `{"claudeAiOauth":{"accessToken":"dummy"}}`, AuthExpired, 0, true},
 		{"claude expiresAt・更新とも null", "claude", `{"claudeAiOauth":{"expiresAt":null,"refreshTokenExpiresAt":null}}`, AuthExpired, 0, true},
 		{"claude expiresAt 欠落・更新は未来", "claude", `{"claudeAiOauth":{"refreshTokenExpiresAt":` + ms(10*24*h) + `}}`, AuthValid, 10 * 24 * h, false},
+		{"claude expiresAt=0 でも更新トークンが未来なら valid（判定表 ①）", "claude", claude("0", ms(10*24*h)), AuthValid, 10 * 24 * h, false},
+		{"claude トークン文字列が空でも期限が未来なら valid（判定表 ③。文字列は読まない）", "claude", `{"claudeAiOauth":{"accessToken":"","refreshToken":"","expiresAt":` + ms(5*24*h) + `}}`, AuthValid, 5 * 24 * h, false},
 		{"claude expiresAt が文字列", "claude", `{"claudeAiOauth":{"expiresAt":"soon"}}`, AuthUnknown, 0, true},
 		{"claude claudeAiOauth なし", "claude", `{"mcpOAuth":{}}`, AuthUnknown, 0, true},
 		{"claude 壊れた JSON", "claude", `{"claudeAiOauth":`, AuthUnknown, 0, true},
