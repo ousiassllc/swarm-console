@@ -15,22 +15,90 @@
 | `lang` | string | 任意 | `ja`（既定、`default_lang` で変更）・`en` |
 
 - `markdown`：`content[0].text` に機能要件 §5.3 の markdown 本文を入れる（他のキーは足さない）。ツールの説明に「返った markdown に手を加えずそのまま表示する」と書く。
-- `json`：`panes_status` と同じ構造に、要対応の一覧を足す。言語に依存しない。
+- `json`：`panes_status` と同じ構造に、要対応の一覧と、足した値（使用状況・CPU・スワップ・ディスク・更新確認・ログイン期限）を入れる。言語に依存しない。値は全部スナップショットに入った値（FR-REP-10）。
 
 ```json
 {
-  "at": "2026-10-31T22:10:05+09:00", "host": {"load1": 98.2, "mem_free_gb": 41.3}, "layout": {"rows": 2, "cols": [4, 4]},
-  "panes": ["... panes_status と同じ"],
+  "at": "2026-10-31T22:10:05+09:00",
+  "host": {
+    "load1": 98.2, "mem_free_gb": 41.3,
+    "cpu": {"available": true, "used_percent": 42},
+    "swap": {"available": true, "total_gb": 8.0, "used_gb": 0.4, "used_percent": 5},
+    "disk": [
+      {"mount": "/", "available": true, "free_gb": 120, "total_gb": 450, "used_percent": 73},
+      {"mount": "/mnt/nvme", "available": true, "free_gb": 830, "total_gb": 3700, "used_percent": 78}
+    ]
+  },
+  "layout": {"rows": 2, "cols": [4, 4]},
+  "panes": ["... panes_status と同じ（elapsed を含む）"],
   "attention": [
     {"kind": "asking", "pane": "T2", "detail": "(2) の Go での範囲をどうしますか？"},
     {"kind": "stalled", "pane": "B3", "detail": "20m"},
-    {"kind": "report_waiting", "pane": "T1", "detail": "/tmp/swarm-console/reports/T1.md"}
+    {"kind": "report_waiting", "pane": "T1", "detail": "/tmp/swarm-console/reports/T1.md"},
+    {"kind": "auth_expired", "pane": "", "detail": "claude"},
+    {"kind": "auth_expiring", "pane": "", "detail": "codex"}
   ],
+  "usage": {
+    "status": "ok", "reason": null, "fetched_at": "2026-10-31T22:09:30+09:00",
+    "claude": [
+      {"account": "acct-a",
+       "five_hour": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null},
+       "seven_day": {"available": true, "used": 48.0, "unit": "percent", "status": "ok", "resets_at": "2026-11-01T07:00:00+09:00"}}
+    ],
+    "cursor": [
+      {"account": "acct-a", "window": "monthly",
+       "models": {"available": true, "used": 0.0, "unit": "percent", "status": "ok", "resets_at": "2026-12-01T09:00:00+09:00"}},
+      {"account": "acct-b", "window": "weekly",
+       "models": {"available": true, "used": 0.0, "unit": "usd", "status": "ok", "resets_at": "2026-11-02T09:00:00+09:00"}}
+    ],
+    "codex": [
+      {"account": "acct-a",
+       "five_hour": {"available": true, "used": 0.0, "unit": "percent", "status": "ok", "resets_at": "2026-11-02T03:09:00+09:00"},
+       "seven_day": {"available": true, "used": 2.0, "unit": "percent", "status": "ok", "resets_at": "2026-11-04T09:00:00+09:00"}}
+    ]
+  },
+  "omp": {"status": "up_to_date", "current": "18.14.2", "latest": "18.14.2", "reason": null, "checked_at": "2026-10-31T09:00:00+09:00"},
+  "update": {"status": "up_to_date", "current": "v0.1.5", "latest": "v0.1.5", "checked_at": "2026-11-01T12:00:00+09:00", "apply": {"state": "idle"}},
+  "auth": {"agents": [
+    {"agent": "omp", "status": "unknown", "expires_at": null},
+    {"agent": "claude", "status": "expired", "expires_at": null},
+    {"agent": "codex", "status": "expiring_soon", "expires_at": "2026-11-01T08:10:00+09:00"}
+  ]},
   "warnings": []
 }
 ```
 
 同じスナップショットなら、クライアントによらず同じ出力（FR-REP-7）。
+
+#### 足した値の形（`report` の JSON と `host_status` で共通）
+
+| キー | 形 | 取れないとき |
+|------|-----|-------------|
+| `host.cpu` | `{available, used_percent}`（整数 0〜100） | `{"available": false, "used_percent": null}`（起動後の最初のサンプルなど。取り方は [report-values.md §3](../architecture/report-values.md#3-サーバー負荷issue-23)） |
+| `host.swap` | `{available, total_gb, used_gb, used_percent}`（GB は小数 1 位、率は整数）。スワップ無しは `total_gb: 0`・`used_percent: 0` | `available: false`・数値は `null` |
+| `host.disk[]` | 既存の `mount`・`free_gb` に `available`・`total_gb`・`used_percent`（整数）を足す。要素は `disk_mounts` の順 | そのマウントを残し `available: false`・数値は `null` |
+| `usage` | 下の表 | `status` と `reason` で示す |
+| `omp` | 下の表 | `status: unknown` と `reason` |
+| `update` | `host_status.update` と同じ（[§5.3](endpoints-state.md#53-サーバーの状態)） | 同じ |
+| `auth` | `agent_auth_status` と同じ（`agent`・`status`・`expires_at`）。順は `omp`・`claude`・`codex` | `status: unknown`・`expires_at: null` |
+| `attention[]` | 既存の 3 キー `kind`・`pane`・`detail`（どれも文字列）のまま。ログインの項目は `pane` を `""`、`detail` をエージェント名（`omp`・`claude`・`codex`）にする。期限の日時は `auth` の同じエージェントの `expires_at` を見る | — |
+
+- `attention[].kind` は `asking`・`stalled`・`report_waiting`・`auth_expired`・`auth_expiring`。並びは、ペインの項目（質問待ち → 止まってそう → 報告待ち、各ペインの並び順）のあとに `auth_expired` → `auth_expiring`（それぞれ `auth.agents` の順）。`unknown` は入れない（FR-REP-16）。
+- 既存の `attention[]` のキー・型は変えない（`pane` は常に文字列。ログインの項目だけ空文字列）。
+
+`usage` のキー：
+
+| キー | 内容 |
+|------|------|
+| `status` | `ok`（最後の取得が成功）・`stale`（最後の取得が失敗、前の成功分を残す）・`unavailable`（成功が一度も無い。アカウントは空）・`pending`（起動後まだ取得していない。アカウントは空）・`disabled`（`usage_check = false`。アカウントは空） |
+| `reason` | `stale`・`unavailable` のとき `not_found`・`timeout`・`exec`・`parse`。それ以外は `null` |
+| `fetched_at` | 最後に成功した取得の時刻（RFC 3339）。成功が無ければ `null` |
+| `claude[]` | `account`・`five_hour`・`seven_day`。`omp` が返した Claude のアカウントを全部出す（`account` の昇順） |
+| `cursor[]` | `account`・`window`（`monthly`・`weekly` など。枠が無ければ `null`）・`models` |
+| `codex[]` | `account`・`five_hour`・`seven_day` |
+| 枠（`five_hour` など） | `available`・`used`（小数 1 位）・`unit`（`percent`・`usd`）・`status`（`ok`・`exhausted`・`unknown`）・`resets_at`（RFC 3339。無ければ `null`）。取れない枠は `available: false` で残り、ほかは `null` |
+
+`omp` のキー：`status`（`up_to_date`・`update_available`・`unknown`・`pending`・`disabled`）、`current`・`latest`（`X.Y.Z` の形に合うものだけ。無ければ `null`）、`reason`（`unknown` のとき `not_found`・`timeout`・`exec`・`parse`、ほかは `null`）、`checked_at`（最後に確認した時刻。まだなら `null`）。
 
 ### 5.6 `dispatch`（`/ops` のみ）
 

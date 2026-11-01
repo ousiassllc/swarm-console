@@ -84,6 +84,7 @@ swarm-console/
 │   ├── clock/                時計インターフェース（テストで固定）
 │   ├── updatecheck/          GitHub Releases の最新版の取得・版の比較・結果の保持・定期確認（FR-UPD）
 │   ├── selfupdate/           自己更新（ダウンロード・SHA256SUMS の検証・入れ替え・試運転と戻し。FR-UPD-11〜20）
+│   ├── reportvalues/         レポートに足す値の収集（`omp usage --json`・`omp update --check` の実行と読み取り・間隔・最後の結果の保持。FR-REP-10〜18）
 │   ├── apperr/               エラーコードと固定メッセージ（API 仕様 §3）
 │   └── app/                  配線（設定・アダプタ・tmux・pane・tools・mcpapi・server の組み立て）
 ├── templates/                report.ja.md・report.en.md・dispatch.md（go:embed の既定）
@@ -112,9 +113,10 @@ swarm-console/
 | `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(snap, opts)`、`Dispatch(args, profile, pos)` | FR-REP, FR-DIS |
 | `safety` | `cwd`・`file` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン | `CheckCWD`、`CheckFile`、`CheckText`、`DetectSecret` | FR-SAFE, NFR-SEC |
 | `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`・`select-pane -T`・`display -p` の実行と出力の解析 | `Runner` | NFR-SEC-7, NFR-ENV-2 |
-| `host` | `/proc`（負荷・メモリ・稼働時間・プロセス木）、`statfs`、認証ファイルの期限 | `Host`（`Status()`、`ProcTree(pid)`、`AuthStatus()`） | FR-R5, FR-R6, FR-AD-5 |
+| `host` | `/proc`（負荷・メモリ・スワップ・CPU の差・稼働時間・プロセス木）、`statfs`（空きと使用率）、認証ファイルの期限 | `Host`（`Status()`、`ProcTree(pid)`、`AuthStatus()`、`SampleCPU()`） | FR-R5, FR-R6, FR-AD-5, FR-REP-13 |
 | `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Check(ctx) Result`、`Runner{Start(ctx), Status() Status}`（HTTP クライアントと `clock` を差し替え可能） | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
 | `selfupdate` | `updatecheck` が `update_available` を返したときの入れ替え：許可ホスト内のダウンロード（サイズ上限・リダイレクト制限）、`SHA256SUMS` の検証、`~/bin/swarm-console/` の 5 ファイルへの書き込み（`.new` → `.old` ハードリンク → マーカー → `rename`）、起動時の試運転と戻し（`boots`・`.old` の `rename`・`update-failed`）、`apply` の状況の保持。入れ替え後は `serve` に正常終了を要求する（`systemctl` は実行しない） | `Apply(ctx, latest) error`、`Probation(dir, version, clock) Decision`（起動の最初）、`Status() Apply`（HTTP クライアント・実行ファイルのパス・`clock`・ホームを差し替え可能） | FR-UPD-11〜20, NFR-SEC-14・15・16, NFR-AVL-10 |
+| `reportvalues` | `omp usage --json`・`omp update --check` の引数固定の実行（シェルなし・`/dev/null`・打ち切り・出力上限）、出力の読み取りとアカウント名の規則、`status`・`reason` の分類、最後の結果の保持（`stale`・`pending`・`disabled`）、`usage_interval`・`update_check_interval` ごとの収集（前の実行が終わるまで次を始めない）。メール・`accountId` を結果に持たない | `Collector`（`Usage() Usage`、`Omp() OmpStatus`）。実行ファイル・`clock` を差し替え可能 | FR-REP-10〜18, NFR-SEC-7, NFR-TEST-17 |
 | `store` | 一時ファイル → fsync → rename の書き込み、権限検査（600） | `WriteFileAtomic`、`CheckMode` | NFR-AVL-3 |
 | `clock` | `Now()`、`After()` を持つインターフェース。テストでは固定・手動進行 | `Clock` | NFR-TEST-5, NFR-TEST-7 |
 
@@ -239,6 +241,7 @@ type Tool struct {
 | 設定の編集（`setup`） | `tomledit` の表駆動の単体テスト ＋ 手書きの見本ファイル（`testdata/config/handwritten.toml`）に対する「入力値 → 編集」の検査 ＋ 実 tmux のペインで `setup` を起動して `send-keys` で入力 | 変更範囲の外のバイト列が同一・`serve` と同じ検証・TTY でない起動の拒否・中止で書かない（NFR-TEST-12・13） |
 | 新しい版の確認 | `httptest` で GitHub の応答を差し替え ＋ `clock` を進める | 結果の区別・版の比較・失敗の分類・`serve` が止まらない・`host_status.update`（NFR-TEST-14） |
 | 自己更新 | `httptest` の偽の配信元 ＋ 一時ディレクトリの `HOME` ＋ `clock` を進める。実 systemd は使わない | 入れ替えの成功・検証失敗・各ステップの失敗で本体が残る・許可外のリダイレクト・ダウングレードしない・試運転の `boots` と 60 秒・戻し・`blocked`・`working` でも待たない（NFR-TEST-16）。実機の再起動と戻しは未確認の報告に明記 |
+| レポートに足す値 | 録った `omp usage --json`・`omp update --check` の出力と偽の実行ファイル ＋ `/proc` 相当の固定入力 ＋ `clock` を進める | 5 アカウント・枠なし・`usd`・`exhausted`・壊れた JSON・打ち切り・`stale`・`pending`・`disabled`・CPU の 1 回目と 2 回目・スワップ無し・要対応への入り方・収集器の更新で同じスナップショットの出力が変わらない（NFR-TEST-17） |
 
 ### 6.1 擬似エージェント `test/fakeagent`
 
@@ -262,3 +265,4 @@ type Tool struct {
 | 1.2 | 2026-11-01 | `updatecheck` を追加、`version --check` を追加 | Issue #7 |
 | 1.3 | 2026-11-01 | `selfupdate` を追加（自己更新の確定。FR-UPD-11〜20）、テスト構成に自己更新を追加 | Issue #7（自己更新で確定） |
 | 1.4 | 2026-11-01 | §2 の `.github/`、§7 の `release.yml` を自動タグ付きに更新 | Issue #8 |
+| 1.5 | 2026-11-01 | `reportvalues` を追加（レポートに足す値の収集。FR-REP-10〜18） | Issue #21〜#25 |

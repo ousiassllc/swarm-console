@@ -64,6 +64,8 @@ WantedBy=default.target
 | `report_dir` | `/tmp/swarm-console/reports` | 最終報告の置き場 |
 | `update_check` | `true` | `serve` が GitHub Releases で新しい版を確認する（FR-UPD） |
 | `update_check_interval` | `24h`（1h 以上） | 確認の間隔 |
+| `usage_check` | `true` | `serve` が `omp usage --json` で使用状況を取る（FR-REP-12）。`omp` の確認（FR-REP-15）は `update_check` に従う |
+| `usage_interval` | `5m`（1m 以上） | 使用状況の取得の間隔 |
 | `update_auto` | `true` | 新しい版を見つけたら `serve` が自分で入れ替える（FR-UPD-19。`update_check = false` なら無効） |
 | `[pane_names]` | なし | 位置の固定名 |
 | `[agents.<name>]` | 組み込み | アダプタの上書き（コマンド・正規表現・認証ファイル） |

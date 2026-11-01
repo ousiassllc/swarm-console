@@ -14,13 +14,20 @@
 
 ```json
 {"load": [98.2, 95.1, 90.4], "cpus": 32, "mem_total_gb": 128, "mem_free_gb": 41.3,
- "disk": [{"mount": "/", "free_gb": 120}, {"mount": "/mnt/nvme", "free_gb": 830}],
+ "cpu": {"available": true, "used_percent": 42},
+ "swap": {"available": true, "total_gb": 8.0, "used_gb": 0.4, "used_percent": 5},
+ "disk": [{"mount": "/", "available": true, "free_gb": 120, "total_gb": 450, "used_percent": 73},
+          {"mount": "/mnt/nvme", "available": true, "free_gb": 830, "total_gb": 3700, "used_percent": 78}],
  "tmux_session": true, "agents": {"omp": 6, "claude": 0, "codex": 0}, "uptime": "12d 4h",
+ "usage": {"status": "ok", "reason": null, "fetched_at": "2026-10-31T22:09:30+09:00", "claude": ["... report と同じ"], "cursor": [], "codex": []},
+ "omp": {"status": "up_to_date", "current": "18.14.2", "latest": "18.14.2", "reason": null, "checked_at": "2026-10-31T09:00:00+09:00"},
  "update": {"status": "up_to_date", "current": "v0.1.5", "latest": "v0.1.5", "checked_at": "2026-11-01T12:00:00+09:00",
             "apply": {"state": "idle"}}}
 ```
 
-`disk` は設定した監視マウント（既定 `/` と `/mnt/nvme`）。`agents` は種別ごとのペイン数。
+`disk` は設定した監視マウント（既定 `/` と `/mnt/nvme`。SSD 2 台はこの 2 つ）。`agents` は種別ごとのペイン数。
+
+`cpu`・`swap`・`disk`（`available`・`total_gb`・`used_percent`）・`usage`・`omp` は、`report` の JSON と同じ形・同じ値（形と取れないときの値は [API 仕様 §5.5](endpoints-report.md#55-report)、取り方は [report-values.md](../architecture/report-values.md)）。FR-REP-17。値はスナップショットに入っていたもので、呼び出しでコマンドを実行しない。取れない値はキーを残し `available: false` と `null` にする（FR-REP-11）。
 
 `update` は新しい版の確認の結果と、自己更新の状況 `apply`（FR-UPD-9・20）。`serve` が持つ最後の結果を返すだけで、呼び出しで GitHub へは通信しない。
 
