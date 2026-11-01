@@ -16,13 +16,30 @@ import (
 
 // FakeHost は host.Host のフェイク。
 type FakeHost struct {
-	mu    sync.Mutex
-	trees map[int][]host.Proc
-	Load  float64
+	mu      sync.Mutex
+	trees   map[int][]host.Proc
+	samples int
+	Load    float64
+	// StatusErr が非 nil なら Status はこのエラーを返す（/proc が読めない状態）。
+	StatusErr error
 }
 
 // NewHost は空のフェイクを作る。プロセス木が無い pid は ProcTree がエラーを返す（/proc が読めない状態）。
 func NewHost() *FakeHost { return &FakeHost{trees: map[int][]host.Proc{}} }
+
+// SampleCPU は呼ばれた回数を数える（サンプラーだけが呼ぶことの確認用）。
+func (h *FakeHost) SampleCPU() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.samples++
+}
+
+// Samples は SampleCPU が呼ばれた回数。
+func (h *FakeHost) Samples() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.samples
+}
 
 // SetTree は pid のプロセス木を設定する。
 func (h *FakeHost) SetTree(pid int, argvs ...[]string) {
@@ -37,6 +54,9 @@ func (h *FakeHost) SetTree(pid int, argvs ...[]string) {
 
 // Status は固定値。
 func (h *FakeHost) Status(context.Context, []string) (host.Status, error) {
+	if h.StatusErr != nil {
+		return host.Status{}, h.StatusErr
+	}
 	return host.Status{Load: [3]float64{h.Load, 0, 0}, CPUs: 4}, nil
 }
 

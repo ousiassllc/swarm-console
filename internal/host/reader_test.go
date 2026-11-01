@@ -54,7 +54,9 @@ func TestStatusParsesProcFiles(t *testing.T) {
 	if st.Uptime != 3723450*time.Millisecond || st.CPUs < 1 {
 		t.Fatalf("uptime/cpus: %+v", st)
 	}
-	if len(st.Disk) != 2 || st.Disk[0].Mount != "/" || st.Disk[1].Mount != "/mnt/nvme" || math.Abs(st.Disk[0].FreeGB-2) > 1e-9 {
+	// statfs に失敗したマウントは消さず、取得できず（FR-REP-11）。
+	if len(st.Disk) != 3 || st.Disk[0].Mount != "/" || st.Disk[1].Mount != "/bad" || st.Disk[2].Mount != "/mnt/nvme" ||
+		math.Abs(st.Disk[0].FreeGB-2) > 1e-9 || st.Disk[1].Available || !st.Disk[2].Available {
 		t.Fatalf("disk: %+v", st.Disk)
 	}
 }

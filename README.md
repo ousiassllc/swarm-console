@@ -81,6 +81,15 @@ sessions = ["0"]                  # 対象の tmux セッション
 ~/bin/swarm-console/swarm-console token revoke my-pc        # 再起動なしで次のリクエストから効く
 ```
 
+## レポートの使用状況・omp の版
+
+`report` と `host_status` は、Claude・Cursor・Codex の使用状況、CPU・スワップ・ディスクの使用率、omp の新しい版の有無、ログイン期限を返します（[機能要件 FR-REP-10〜18](docs/requirements/functional-report.md)）。値はスナップショットを作るときにまとめて入れるので、同じスナップショットなら出力は同じです。
+
+- `usage_check`（既定 `true`）・`usage_interval`（既定 `5m`、`1m` 以上）：`serve` が `omp usage --json` を実行して使用状況を取ります。`false` なら実行せず、レポートは「無効」と出します
+- omp の更新確認（`omp update --check`）は、下の `update_check`・`update_check_interval` に従います
+- `serve` が実行する外部コマンドは、この引数固定の 2 つだけです（`[agents.omp] command` の先頭の語の実行ファイル。標準入力は `/dev/null`、シェルなし、打ち切り付き。`omp update` は実行しません）
+- メール・`accountId` は出力に出ません。アカウントは名前（メールの `@` 以降の最初のラベル）だけで示します。取れない値は消さずに「取得できず」と出します
+
 ## 更新
 
 既定では、`serve` が自分で更新します（自己更新）。

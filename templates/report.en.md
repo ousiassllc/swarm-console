@@ -1,19 +1,32 @@
 # swarm-console report
 
 - Time: {{.At}}
-- Server load: load1 {{.Load1}} / Mem free {{.MemFree}} GB
+- Server load: load1 {{.Load1}} / CPU {{.CPU}} / Mem free {{.MemFree}} GB / Swap {{.Swap}}
+- Disk: {{.Disk}}
+- Updates: {{.Updates}}
+- Login: {{.Login}}
 
 ## Panes
 
-| Pos | Agent | State | From | Repo / Issue | Doing now | Next |
-|-----|-------|-------|------|--------------|-----------|------|
-{{range .Panes}}| {{.Pos}} | {{.Agent}} | {{.State}} | {{.From}} | {{.Repo}} | {{.Activity}} | {{.Next}} |
+| Pos | Agent | State | Elapsed | From | Repo / Issue | Doing now | Next |
+|-----|-------|-------|---------|------|--------------|-----------|------|
+{{range .Panes}}| {{.Pos}} | {{.Agent}} | {{.State}} | {{.Elapsed}} | {{.From}} | {{.Repo}} | {{.Activity}} | {{.Next}} |
 {{end}}
 ## Needs attention
 
 {{range .Attention}}- {{.}}
 {{else}}- None
 {{end}}
+## Usage
+
+{{with .Usage}}{{if .Line}}- {{.Line}}
+{{else}}{{range $i, $s := .Sections}}{{if $i}}
+{{end}}### {{$s.Name}}
+
+{{$s.Body}}
+{{end}}{{if .Stale}}
+- {{.Stale}}
+{{end}}{{end}}{{end}}
 {{- if .Warnings}}
 ## Warnings
 

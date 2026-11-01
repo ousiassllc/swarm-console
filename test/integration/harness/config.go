@@ -21,6 +21,9 @@ func (h *H) writeConfig(o Options) {
 		"start_timeout":      `"30s"`,
 		"lock_timeout":       `"30s"`,
 		"layout_warning_ttl": `"10m"`,
+		// 実際の omp・GitHub に依らない（PATH の omp は擬似エージェント）。収集器は serve の配線テスト（cmd/swarm-console）で通す。
+		"usage_check":  "false",
+		"update_check": "false",
 	}
 	for k, v := range o.Config {
 		kv[k] = v

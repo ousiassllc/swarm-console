@@ -22,6 +22,7 @@ func buildDurations(r *rawConfig, c *Config) error {
 		{"start_timeout", r.StartTimeout, &c.StartTimeout, defaultStartTimeout, time.Nanosecond},
 		{"lock_timeout", r.LockTimeout, &c.LockTimeout, defaultLockTimeout, time.Nanosecond},
 		{"update_check_interval", r.UpdateCheckInterval, &c.UpdateCheckInterval, defaultUpdateCheckInterval, minUpdateCheckInterval},
+		{"usage_interval", r.UsageInterval, &c.UsageInterval, defaultUsageInterval, minUsageInterval},
 	}
 	for _, it := range items {
 		*it.dst = it.def

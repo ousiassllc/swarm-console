@@ -46,6 +46,16 @@
 # update_check = false のときは無視される。既定 true
 # update_auto = true
 
+# --- レポートの使用状況 ---
+
+# serve が `omp usage --json` で使用状況（Claude・Cursor・Codex）を取るか。false なら実行せず、レポートは「無効」と出す。既定 true
+# usage_check = true
+
+# 取得の間隔（1m 以上）。既定 "5m"
+# usage_interval = "5m"
+
+# omp の更新確認（`omp update --check`）は、上の「新しい版の確認」の update_check・update_check_interval に従う。
+
 # --- 表示・パス ---
 
 # ペインのタイトルに付ける接頭辞。既定 "agent: "

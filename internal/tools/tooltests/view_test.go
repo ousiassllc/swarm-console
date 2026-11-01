@@ -107,8 +107,13 @@ func TestHostStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `{"load":[98.2,95.1,90.4],"cpus":32,"mem_total_gb":128,"mem_free_gb":41.3,` +
-		`"disk":[{"mount":"/","free_gb":120},{"mount":"/mnt/nvme","free_gb":830}],` +
+		`"cpu":{"available":true,"used_percent":42},` +
+		`"swap":{"available":true,"total_gb":8,"used_gb":0.4,"used_percent":5},` +
+		`"disk":[{"mount":"/","available":true,"free_gb":120,"total_gb":450,"used_percent":73},` +
+		`{"mount":"/mnt/nvme","available":true,"free_gb":830,"total_gb":3700,"used_percent":78}],` +
 		`"tmux_session":true,"agents":{"omp":2,"claude":1,"codex":0},"uptime":"12d 4h",` +
+		`"usage":{"status":"pending","reason":null,"fetched_at":null,"claude":[],"cursor":[],"codex":[]},` +
+		`"omp":{"status":"pending","current":null,"latest":null,"reason":null,"checked_at":null},` +
 		`"update":{"status":"pending","current":"v0.1.4","apply":{"state":"idle"}}}`
 	if text != want {
 		t.Errorf("host_status =\n%s\nwant\n%s", text, want)

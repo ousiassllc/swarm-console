@@ -8,6 +8,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/host"
 	"github.com/ousiassllc/swarm-console/internal/notes"
+	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 	"github.com/ousiassllc/swarm-console/internal/tmux"
 )
 
@@ -57,8 +58,13 @@ type PaneState struct { //nolint:revive // render・tools が使う公開契約�
 
 // Snapshot は不変のスナップショット。At が report の時刻になる。
 type Snapshot struct {
-	At       time.Time
-	Host     host.Status
+	At   time.Time
+	Host host.Status
+	// 以下は FR-REP-10 の値。スナップショットを作るときにまとめて入れ、描画はこれだけを使う。
+	Usage    reportvalues.Usage
+	Omp      reportvalues.Omp
+	Update   UpdateInfo
+	Auth     []host.Auth // AuthAgents の順
 	Layout   Layout
 	Panes    []PaneState // 位置順（セッション順 → ウィンドウ → 段 → 列）
 	Warnings []Warning

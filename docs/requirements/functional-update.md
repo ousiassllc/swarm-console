@@ -22,7 +22,7 @@ GitHub Releases（`ousiassllc/swarm-console`）の最新版を見て、動いて
 | FR-UPD-6 | `swarm-console version`（引数なし）は今までどおり版を 1 行出すだけで通信しない。`swarm-console version --check` は 1 回だけ確認する（バイナリは置き換えない）。標準出力：1 行目に現在の版、2 行目に結果（§12.2）。終了コード：`up_to_date` 0、`update_available` 10、`unknown` 1。`config.toml` を読まず、`update_check` が `false` でも動く（手動の確認） |
 | FR-UPD-7 | `serve` は `update_check`（既定 `true`）が `true` のとき、起動の 1 分後に 1 回確認し、以後 `update_check_interval`（既定 24 時間、下限 1 時間）ごとに確認する。結果が `update_available` で `update_auto`（FR-UPD-19）が `true` なら、続けて自己更新（§12.4）に進む。待ちは `clock` を通す（固定時間の `sleep` を使わない）。ツールの呼び出しでは通信しない。確認の結果はメモリだけに持ち、再起動で失ってよい（NFR-AVL-2） |
 | FR-UPD-8 | 確認・ダウンロード・入れ替えが失敗・遅延・拒否されても `serve` は動き続ける（入れ替えが成功して自分で終了するとき、FR-UPD-16 を除く）。確認と自己更新は、バックグラウンドの 1 本の goroutine で、起動・ツールの応答・終了（SIGTERM から 10 秒。NFR-AVL-7）を待たせない。SIGTERM を受けたら通信を中断し、書きかけの一時ファイルを消す。失敗後の再試行は次の周期まで行わない。ログ：新しい版を初めて見つけたとき 1 回（同じ版では出さない）、失敗は `reason` が前回と変わったときだけ警告 |
-| FR-UPD-9 | `host_status` に `update` を足す（`/report` `/ops` の両方。読み取りのみ）。確認の結果に加えて、自己更新の状況 `apply`（FR-UPD-20）も返す。API 仕様 §5.3。`serve` の確認結果を返すだけで、通信はしない。`report`（markdown）には載せない（AC-1 の 1 文字一致・NFR-PERF-3 の文字量に影響させない） |
+| FR-UPD-9 | `host_status` に `update` を足す（`/report` `/ops` の両方。読み取りのみ）。確認の結果に加えて、自己更新の状況 `apply`（FR-UPD-20）も返す。API 仕様 §5.3。`serve` の確認結果を返すだけで、通信はしない。`report` には、同じスナップショットの値として、markdown は見出しの 1 行（「更新」。omp の版とあわせて 1 行）、JSON は `update` として載せる（FR-REP-15。描画はスナップショットに入った値だけを使い、AC-1 の 1 文字一致・NFR-PERF-3 の文字量を崩さない）。`panes_status` には載せない |
 | FR-UPD-10 | 確認の設定は `config.toml` の `update_check`（bool、既定 `true`）と `update_check_interval`（期間、既定 `24h`、`1h` 以上）。自己更新の設定は `update_auto`（FR-UPD-19）。いずれも未知キー拒否の対象に加える（ER §5） |
 
 ### 12.2 `version --check` の表示

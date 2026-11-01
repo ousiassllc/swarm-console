@@ -52,12 +52,25 @@ type jsonStatus struct {
 	Warnings []jsonWarning `json:"warnings"`
 }
 
+// jsonReportHost は report の host（panes_status の host に cpu・swap・disk を足したもの）。
+type jsonReportHost struct {
+	Load1     float64    `json:"load1"`
+	MemFreeGB float64    `json:"mem_free_gb"`
+	CPU       CPUJSON    `json:"cpu"`
+	Swap      SwapJSON   `json:"swap"`
+	Disk      []DiskJSON `json:"disk"`
+}
+
 type jsonReport struct {
 	At        string          `json:"at"`
-	Host      jsonHost        `json:"host"`
+	Host      jsonReportHost  `json:"host"`
 	Layout    jsonLayout      `json:"layout"`
 	Panes     []jsonPane      `json:"panes"`
 	Attention []jsonAttention `json:"attention"`
+	Usage     UsageJSON       `json:"usage"`
+	Omp       OmpJSON         `json:"omp"`
+	Update    UpdateJSON      `json:"update"`
+	Auth      AuthJSON        `json:"auth"`
 	Warnings  []jsonWarning   `json:"warnings"`
 }
 
@@ -116,7 +129,8 @@ func PanesStatusJSON(snap *pane.Snapshot) ([]byte, error) {
 	return marshal(jsonStatus{At: snap.At.Format(rfc3339), Host: host, Layout: layout, Panes: jsonPanes(snap.Panes), Warnings: warns})
 }
 
-// reportJSON は report の json 形式。target があれば panes と attention をその 1 ペインに絞る。
+// reportJSON は report の json 形式。target があれば panes と、ペインの要対応をその 1 ペインに絞る
+// （ログイン期限の要対応・使用状況・更新・auth はペインに属さないので、絞らず常に入れる。FR-REP-16）。
 func reportJSON(in *ReportInput, target *pane.PaneState) ([]byte, error) {
 	snap := in.Snapshot
 	panes := snap.Panes
@@ -125,11 +139,17 @@ func reportJSON(in *ReportInput, target *pane.PaneState) ([]byte, error) {
 	}
 	host, layout, warns := jsonParts(snap)
 	att := make([]jsonAttention, 0)
-	for _, a := range attentionItems(panes, in.ReportDir) {
-		att = append(att, jsonAttention(a))
+	for _, a := range attentionItems(panes, in.ReportDir, snap.Auth) {
+		att = append(att, jsonAttention{Kind: a.Kind, Pane: a.Pane, Detail: a.Detail})
 	}
 	return marshal(jsonReport{
-		At: snap.At.Format(rfc3339), Host: host, Layout: layout, Panes: jsonPanes(panes),
-		Attention: att, Warnings: warns,
+		At: snap.At.Format(rfc3339),
+		Host: jsonReportHost{
+			Load1: host.Load1, MemFreeGB: host.MemFreeGB,
+			CPU: NewCPUJSON(snap), Swap: NewSwapJSON(snap), Disk: NewDiskJSON(snap),
+		},
+		Layout: layout, Panes: jsonPanes(panes), Attention: att,
+		Usage: NewUsageJSON(snap), Omp: NewOmpJSON(snap), Update: NewUpdateJSON(snap), Auth: NewAuthJSON(snap),
+		Warnings: warns,
 	})
 }

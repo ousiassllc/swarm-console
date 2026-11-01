@@ -36,6 +36,15 @@ func TestReportGolden(t *testing.T) {
 		{"report.json", ReportInput{Snapshot: snap, Format: "json"}},
 		{"report.calm.json", ReportInput{Snapshot: calmSnapshot(), Format: "json"}},
 		{"report.pane.json", ReportInput{Snapshot: snap, Format: "json", PaneID: "T2"}},
+		{"report.degraded.ja.md", ReportInput{Snapshot: degradedSnapshot(), Lang: "ja"}},
+		{"report.degraded.en.md", ReportInput{Snapshot: degradedSnapshot(), Lang: "en"}},
+		{"report.degraded.json", ReportInput{Snapshot: degradedSnapshot(), Format: "json"}},
+		{"report.pending.ja.md", ReportInput{Snapshot: pendingSnapshot(), Lang: "ja"}},
+		{"report.pending.json", ReportInput{Snapshot: pendingSnapshot(), Format: "json"}},
+		{"report.disabled.en.md", ReportInput{Snapshot: disabledSnapshot(), Lang: "en"}},
+		{"report.disabled.json", ReportInput{Snapshot: disabledSnapshot(), Format: "json"}},
+		{"report.unavailable.ja.md", ReportInput{Snapshot: unavailableSnapshot(), Lang: "ja"}},
+		{"report.unavailable.json", ReportInput{Snapshot: unavailableSnapshot(), Format: "json"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) { golden(t, c.name, mustReport(t, c.in)) })
@@ -108,7 +117,7 @@ func TestReportUsesSnapshotTimeOnly(t *testing.T) {
 	if !strings.Contains(out, "- 時刻: 2026-10-31 22:10:05 (+09:00)\n") {
 		t.Fatalf("時刻の形式:\n%s", out)
 	}
-	if !strings.Contains(out, "load1 98.2 / メモリ空き 41.3 GB") {
+	if !strings.Contains(out, "load1 98.2 / CPU 42% / メモリ空き 41.3 GB / スワップ 5%") {
 		t.Fatal("負荷の丸め")
 	}
 }

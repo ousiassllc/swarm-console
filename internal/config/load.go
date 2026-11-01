@@ -29,11 +29,13 @@ const (
 	defaultReportDir        = "/tmp/swarm-console/reports"
 
 	defaultUpdateCheckInterval = 24 * time.Hour
+	defaultUsageInterval       = 5 * time.Minute
 
 	minPollInterval = time.Second
 	minSnapshotTTL  = 100 * time.Millisecond
 
 	minUpdateCheckInterval = time.Hour
+	minUsageInterval       = time.Minute
 )
 
 // rawConfig は config.toml のキーそのまま。未指定を区別するため、既定値のあるものはポインタ・nil スライスで持つ。
@@ -62,6 +64,9 @@ type rawConfig struct {
 	UpdateCheck         *bool   `toml:"update_check"`
 	UpdateCheckInterval *string `toml:"update_check_interval"`
 	UpdateAuto          *bool   `toml:"update_auto"`
+
+	UsageCheck    *bool   `toml:"usage_check"`
+	UsageInterval *string `toml:"usage_interval"`
 }
 
 // Load は config.toml を読み、未知キーの拒否・検証・既定値の適用・`~` 展開・パスの Clean を行う。
@@ -162,6 +167,7 @@ func build(r *rawConfig, home string) (*Config, error) {
 	}
 	c.UpdateCheck = boolOr(r.UpdateCheck, true)
 	c.UpdateAuto = boolOr(r.UpdateAuto, true)
+	c.UsageCheck = boolOr(r.UsageCheck, true)
 	return c, nil
 }
 

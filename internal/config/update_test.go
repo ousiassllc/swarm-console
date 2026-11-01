@@ -65,3 +65,23 @@ func TestParseBytesAcceptsUpdateKeys(t *testing.T) {
 		t.Fatalf("未知のキーは FormatError のはず: %v", err)
 	}
 }
+
+// usage_check・usage_interval は書いた値が効く。既定は true・5m、下限は 1m（NFR-OPS-12）。
+func TestUsageSettings(t *testing.T) {
+	cfg, _, err := writeConfig(t, minimal+"usage_check = false\nusage_interval = \"90s\"\n")
+	if err != nil || cfg.UsageCheck || cfg.UsageInterval != 90*time.Second {
+		t.Fatalf("書いた値: %v %v %v", cfg, err, cfg.UsageInterval)
+	}
+	if cfg, _, err = writeConfig(t, minimal+"usage_interval = \"1m\"\n"); err != nil || !cfg.UsageCheck || cfg.UsageInterval != time.Minute {
+		t.Fatalf("1m は許す: %v %v", cfg, err)
+	}
+	for _, tt := range []struct{ name, body, want string }{
+		{"下限未満", "usage_interval = \"59s\"\n", "usage_interval は 1m0s 以上"},
+		{"形式不正", "usage_interval = \"often\"\n", "usage_interval"},
+		{"usage_check が文字列", "usage_check = \"yes\"\n", "TOML"},
+	} {
+		if _, _, err := writeConfig(t, minimal+tt.body); err == nil || !strings.Contains(err.Error(), tt.want) {
+			t.Errorf("%s: %v（%q を含むはず）", tt.name, err, tt.want)
+		}
+	}
+}
