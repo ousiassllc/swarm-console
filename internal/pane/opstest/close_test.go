@@ -2,13 +2,20 @@ package opstest
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/agent/claude"
+	"github.com/ousiassllc/swarm-console/internal/agent/codex"
+	"github.com/ousiassllc/swarm-console/internal/agent/omp"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/pane/ops"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
 )
 
@@ -140,5 +147,104 @@ func TestCloseRejectsOtherStates(t *testing.T) {
 	}
 	if len(f.env.Tmux.Ops()) != 0 {
 		t.Fatalf("何も送らない: %v", f.env.Tmux.Ops())
+	}
+}
+
+// closingAgentTo は closingAgent と同じ手順で、clear の後の画面を final にする。
+func (f *fixture) closingAgentTo(final string) {
+	var last string
+	f.env.Tmux.OnOp(func(o panetest.Op) {
+		switch {
+		case o.Kind == "literal":
+			last = o.Text
+		case o.Kind == "keys" && o.Keys[0] == "Enter":
+			switch last {
+			case "/exit":
+				f.becomeShell("終了しました\n" + final)
+			case "cd ~", "clear":
+				f.becomeShell(final)
+			}
+		}
+	})
+}
+
+func readScreen(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimRight(string(b), "\n")
+}
+
+// 枠付き複数行のプロンプト（fish）でも、片付いていれば ok: true・メモを履歴へ移す。
+func TestCloseMultilinePromptOK(t *testing.T) {
+	f := newFixture(t)
+	ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
+	f.env.Notes.SetSummary("%0", notes.Summary{From: "agent-b"})
+	f.closingAgentTo(readScreen(t, "fish-multiline-prompt.txt"))
+	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.OK || res.State != agent.StateShell || !res.NoteArchived {
+		t.Fatalf("res = %+v", res)
+	}
+	if len(f.env.Notes.Archives()) != 1 {
+		t.Fatalf("archives = %+v", f.env.Notes.Archives())
+	}
+}
+
+// 実際のアダプターでも、複数行プロンプトをエージェントの画面と取り違えない。
+func TestCloseMultilinePromptRealAdapters(t *testing.T) {
+	env := panetest.NewEnv()
+	env.Adapters = map[string]agent.Adapter{}
+	for name, newAdapter := range map[string]func(agent.Overrides) (agent.Adapter, error){
+		"omp": omp.New, "claude": claude.New, "codex": codex.New,
+	} {
+		ad, err := newAdapter(agent.Overrides{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		env.Adapters[name] = ad
+	}
+	reg, err := pane.NewRegistry(pane.Deps{
+		Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters,
+		Notes: env.Notes, Clock: env.Clock, FS: env.FS,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &fixture{env: env, reg: reg, op: ops.New(reg)}
+	ref := f.single(panetest.ScreenShell(), nil)
+	f.closingAgentTo(readScreen(t, "fish-multiline-prompt.txt"))
+	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
+	if err != nil || !res.OK {
+		t.Fatalf("res=%+v err=%v", res, err)
+	}
+}
+
+// プロンプトの前に出力が残っている、枠が閉じていない、~ がない画面は片付いたとみなさない。
+func TestCloseNotCleanScreensStayFalse(t *testing.T) {
+	for name, screen := range map[string]string{
+		"出力が残る":      "エラー: 何かが残っている\n~ $",
+		"枠の中に出力が残る":  "╭─  ~ ─── 21:23:48\n何かの出力\n╰─❯",
+		"枠が閉じていない":   "╭─  ~ ─── 21:23:48\n何かの出力",
+		"~ がない":      "╭─  /tmp ─── 21:23:48\n╰─❯",
+		"プロンプトが 4 行": "╭─\n│\n│ ~\n╰─❯",
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			ref := f.single(panetest.ScreenShell(), nil)
+			f.env.Notes.SetSummary("%0", notes.Summary{From: "agent-b"})
+			f.closingAgentTo(screen)
+			res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.OK || res.NoteArchived || len(f.env.Notes.Archives()) != 0 {
+				t.Fatalf("res = %+v", res)
+			}
+		})
 	}
 }

@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/notes"
@@ -98,8 +99,12 @@ func (o *Operator) archiveClosed(ctx context.Context, p pane.PaneState, res *pan
 	}
 }
 
+// maxPromptLines は枠付きプロンプトとして認める最大の行数（fish・starship の 2〜3 行）。
+const maxPromptLines = 3
+
 // promptOnly は画面が「エージェントが消え、シェルのプロンプトだけ」か。
 // 非空行が 1 行以下で、あるならプロンプトらしい行（~ を含むか、$ # % > などで終わる）。
+// 複数行は、枠付きプロンプト（先頭が ╭┌ などの上枠、末尾が ╰└ などの下枠で、~ を含む）だけ認める。
 func (o *Operator) promptOnly(lines []string) bool {
 	var nonBlank []string
 	for _, l := range lines {
@@ -107,7 +112,7 @@ func (o *Operator) promptOnly(lines []string) bool {
 			nonBlank = append(nonBlank, t)
 		}
 	}
-	if len(nonBlank) > 1 {
+	if len(nonBlank) > 1 && !framedPrompt(nonBlank) {
 		return false
 	}
 	scr := agent.NewScreen(lines)
@@ -117,6 +122,9 @@ func (o *Operator) promptOnly(lines []string) bool {
 		}
 	}
 	if len(nonBlank) == 0 {
+		return true
+	}
+	if len(nonBlank) > 1 {
 		return true
 	}
 	l := nonBlank[0]
@@ -129,4 +137,25 @@ func (o *Operator) promptOnly(lines []string) bool {
 		}
 	}
 	return false
+}
+
+// framedPrompt は非空行（前後の空白は除去済み）が、1 つの枠付きプロンプトか。
+// 先頭行が上枠（╭┌╔┏）、末尾行が下枠（╰└╚┗）、間の行が縦線（│├┃║）で始まり、全体のどこかに ~ がある。
+func framedPrompt(nonBlank []string) bool {
+	n := len(nonBlank)
+	if n > maxPromptLines || !startsWithAny(nonBlank[0], "╭┌╔┏") || !startsWithAny(nonBlank[n-1], "╰└╚┗") {
+		return false
+	}
+	for _, l := range nonBlank[1 : n-1] {
+		if !startsWithAny(l, "│├┃║") {
+			return false
+		}
+	}
+	return strings.Contains(strings.Join(nonBlank, "\n"), "~")
+}
+
+// startsWithAny は s が set のどれかの文字で始まるか。
+func startsWithAny(s, set string) bool {
+	r, _ := utf8.DecodeRuneInString(s)
+	return r != utf8.RuneError && strings.ContainsRune(set, r)
 }
