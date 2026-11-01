@@ -281,7 +281,7 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 {"load": [98.2, 95.1, 90.4], "cpus": 32, "mem_total_gb": 128, "mem_free_gb": 41.3,
  "disk": [{"mount": "/", "free_gb": 120}, {"mount": "/mnt/nvme", "free_gb": 830}],
  "tmux_session": true, "agents": {"omp": 6, "claude": 0, "codex": 0}, "uptime": "12d 4h",
- "update": {"status": "update_available", "current": "v0.1.3", "latest": "v0.1.5", "checked_at": "2026-11-01T12:00:00+09:00",
+ "update": {"status": "up_to_date", "current": "v0.1.5", "latest": "v0.1.5", "checked_at": "2026-11-01T12:00:00+09:00",
             "apply": {"state": "idle"}}}
 ```
 
@@ -302,7 +302,7 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 | `state` | 意味 | 他に付くキー |
 |---------|------|-------------|
 | `off` | `update_auto = false`、または `update_check = false`（自己更新しない） | なし |
-| `idle` | 入れ替える新しい版が無い（まだ確認していないときを含む） | なし |
+| `idle` | 入れ替えの失敗・保留が無い（新しい版が無い・まだ確認していないときのほか、入れ替えの実行中を含む。入れ替えが済めば `serve` は終了するので、`update_available` で `idle` を見るのは入れ替えの実行中だけ） | なし |
 | `probation` | 入れ替え直後の試運転中（待ち受けから 60 秒生きれば確定。FR-UPD-17） | `from`（入れ替え前の版） |
 | `failed` | 入れ替えに至らなかった。次の周期で再試行 | `reason`（`unsupported_platform`・`not_managed`・`asset_missing`・`download`・`checksum`・`write`）・`at` |
 | `blocked` | 起動に失敗して前の版へ戻した版（以下）なので入れ替えない | `version`（戻した版） |
