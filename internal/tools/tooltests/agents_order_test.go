@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/host"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
@@ -51,7 +52,7 @@ func (a authAgentsJSON) pairs() []string {
 	return out
 }
 
-// report の auth と agent_auth_status は、同じ pane.Agents（1 か所）の順・対象でログイン期限を読む（FR-REP-16）。
+// report の auth と agent_auth_status は、同じ agent.Builtin（1 か所）の順・対象でログイン期限を読む（FR-REP-16）。
 // report は本物の SnapshotRegistry が作るスナップショットから、agent_auth_status は host を直接読んで出すので、
 // どちらかが自前の一覧を持つと、host へ聞く名前・並びか出力の並びがずれる。
 func TestReportAuthAndAgentAuthStatusShareAgents(t *testing.T) {
@@ -99,8 +100,9 @@ func TestReportAuthAndAgentAuthStatusShareAgents(t *testing.T) {
 	}
 	askedByStatus := rec.take()
 
-	if !slices.Equal(askedByReport, pane.Agents) || !slices.Equal(askedByStatus, pane.Agents) {
-		t.Errorf("host へ聞いた順: report=%v agent_auth_status=%v, want %v", askedByReport, askedByStatus, pane.Agents)
+	order := agent.Builtin()
+	if !slices.Equal(askedByReport, order) || !slices.Equal(askedByStatus, order) {
+		t.Errorf("host へ聞いた順: report=%v agent_auth_status=%v, want %v", askedByReport, askedByStatus, order)
 	}
 	if !slices.Equal(report.Auth.pairs(), status.pairs()) {
 		t.Errorf("出力が違います: report.auth=%v agent_auth_status=%v", report.Auth.pairs(), status.pairs())

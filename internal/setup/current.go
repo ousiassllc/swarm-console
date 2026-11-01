@@ -2,6 +2,8 @@ package setup
 
 import (
 	"github.com/pelletier/go-toml/v2"
+
+	"github.com/ousiassllc/swarm-console/internal/agent"
 )
 
 // keyState は 1 つのキーが config.toml にどう書かれているか。
@@ -47,7 +49,7 @@ func readCurrent(data []byte) current {
 	c.list(doc, keyAllowed, &c.Values.AllowedRoots)
 	c.list(doc, keyDenied, &c.Values.DeniedPaths)
 	agents, _ := doc["agents"].(map[string]any)
-	for _, name := range AgentNames {
+	for _, name := range agent.Builtin() {
 		m, _ := agents[name].(map[string]any)
 		var a Agent
 		for field, dst := range map[string]*string{"command": &a.Command, "exit_command": &a.ExitCommand, "auth_file": &a.AuthFile} {

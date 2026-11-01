@@ -10,9 +10,6 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/config"
 )
 
-// AgentNames は画面で設定を聞くエージェント（FR-SET の項目 5）。
-var AgentNames = []string{"omp", "claude", "codex"}
-
 // Agent は 1 エージェントの command・exit_command・auth_file。空は「書かれていない（上書きしない）」。
 type Agent struct {
 	Command, ExitCommand, AuthFile string

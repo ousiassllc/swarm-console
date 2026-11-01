@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 
+	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 )
 
@@ -227,7 +228,7 @@ func (p *HuhPrompter) agentGroups(st *State, f *form) []*huh.Group {
 		Title("エージェント（omp・claude・codex）の設定を変えますか").
 		Description("command・exit_command・auth_file。空欄は上書きしません（組み込みの既定を使います）。").
 		Affirmative("はい").Negative("いいえ").Value(&f.changeAgents))}
-	for _, name := range AgentNames {
+	for _, name := range agent.Builtin() {
 		cur := st.Cur.Values.Agents[name]
 		ag := &Agent{Command: cur.Command, ExitCommand: cur.ExitCommand, AuthFile: cur.AuthFile}
 		f.agents[name] = ag

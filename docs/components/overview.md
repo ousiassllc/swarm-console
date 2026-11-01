@@ -109,7 +109,7 @@ swarm-console/
 | `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録 | `NewReportServer(tools)`、`NewOpsServer(tools)` | FR-SAFE-6 |
 | `tools` | ツール 17 個のハンドラ。引数検証、窓口の権限確認、`pane` の解決、エラーコードへの変換 | `Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Registry` | API 仕様 §5 |
 | `pane` | スナップショットとサンプラー、位置の命名、ペイン解決、ペインロック、`send_text`・`ask_pick` などの操作実行 | `Registry`、`Snapshot`、`Resolve(arg)`、`Ops` | FR-POS, FR-STATE, FR-O |
-| `agent` | アダプタの契約（下記 §4）とレジストリ。設定の上書きの適用 | `Adapter`、`Register`、`Get(name)` | FR-AD |
+| `agent` | アダプタの契約（下記 §4）とレジストリ。設定の上書きの適用。組み込みのエージェント名の一覧（`Builtin()`・`IsBuiltin(name)`。並びの定義はここ 1 か所） | `Adapter`、`Register`、`Get(name)`、`Builtin()`、`IsBuiltin(name)` | FR-AD |
 | `notes` | `notes.json` の読み書き、`note_set` のマージ・検証、履歴、孤児化 | `Store`、`Get/Set/Log/Archive/History` | FR-NOTE |
 | `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(snap, opts)`、`Dispatch(args, profile, pos)` | FR-REP, FR-DIS |
 | `safety` | `cwd`・`file` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン | `CheckCWD`、`CheckFile`、`CheckText`、`DetectSecret` | FR-SAFE, NFR-SEC |
@@ -166,7 +166,7 @@ type Adapter interface {
 ```
 
 - 各アダプタは、判定に使う正規表現を `Patterns`（`working`・`ask`・`idle`・`spinner`・`status_line`・`border`・`process_match`）として持つ。組み込みの既定値を `config.toml` の `[agents.<name>]` で上書きできる（FR-AD-2）。
-- 状態の決定（`pane` パッケージ）：①プロセス木で `Adapter` を特定（なければ `MatchScreen`）→ ②`Detect` が `Asking` なら `asking`、`Working` なら `working`、どちらでもなければエージェントありで `idle` → ③エージェントなしで前面コマンドがシェルなら `shell` → ④それ以外 `unknown` → ⑤`working` で画面無変化が `stalled_after` 以上なら `stalled`。
+- 状態の決定（`pane` パッケージ）：①プロセス木で `Adapter` を特定（なければ `MatchScreen`。木が読めても読めなくても、前面コマンドがシェルでエージェントがいなければ画面は見ずエージェントなし。Issue #35）→ ②`Detect` が `Asking` なら `asking`、`Working` なら `working`、どちらでもなければエージェントありで `idle` → ③エージェントなしで前面コマンドがシェルなら `shell` → ④それ以外 `unknown` → ⑤`working` で画面無変化が `stalled_after` 以上なら `stalled`。
 - 質問カードの操作は、omp は ↑/↓＋Enter、Claude Code は ↑/↓ または数字＋Enter、Codex は数字＋Enter。具体的な画面の目印は [agent-patterns.md](../architecture/agent-patterns.md)（P-22。実画面サンプルは `testdata/screens/`）。
 
 | アダプタ | `PickKeys` | `CustomKeys` | 備考 |
@@ -270,3 +270,4 @@ type Tool struct {
 | 1.6 | 2026-11-01 | §2 に `scripts/`（`make install` の `install.sh` とそのテスト）を追加 | Issue #18 |
 | 1.7 | 2026-11-02 | `reportvalues` の入出力を実装に合わせた（`Runner`・`Start`、`pane.Values`）。`tools` から `UpdateSource` を除き、`host_status.update` もスナップショットの値を返す | Issue #21〜#25（実装時の確認） |
 | 1.8 | 2026-11-02 | §5.2 `Close(ref)` に、終了コマンドのあと `shell` に戻るまで待つ手順（上限で `apperr.ExitTimeout`）を追加 | Issue #30 |
+| 1.9 | 2026-11-02 | `agent` に組み込みのエージェント名の一覧（`Builtin`・`IsBuiltin`）を足し、`pane.Agents`・`setup.AgentNames`・`config.agentNames` をこれに 1 か所化（出力は変えない）。§4 の状態の決定に、`/proc` が読めないときの扱いを追記 | Issue #35・#36 |

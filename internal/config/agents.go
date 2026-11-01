@@ -7,9 +7,6 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/agent"
 )
 
-// agentNames は [agents.<name>] に書ける名前（組み込みのアダプタ）。
-var agentNames = map[string]bool{"omp": true, "claude": true, "codex": true}
-
 // checkAgents は [agents.<name>] の上書きを検査する。正規表現は構文だけを確かめる
 // （コンパイル結果は agent.New が作る）。command・exit_command は端末に打つので 1 行・制御文字なし。
 func checkAgents(in map[string]agent.Overrides, home string) (map[string]agent.Overrides, error) {
@@ -18,7 +15,7 @@ func checkAgents(in map[string]agent.Overrides, home string) (map[string]agent.O
 	}
 	out := make(map[string]agent.Overrides, len(in))
 	for name, ov := range in {
-		if !agentNames[name] {
+		if !agent.IsBuiltin(name) {
 			return nil, fmt.Errorf("[agents.%s] は未対応です（omp・claude・codex）", name)
 		}
 		if err := checkOverrides(name, &ov, home); err != nil {
