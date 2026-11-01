@@ -40,7 +40,7 @@ omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左�
 | Activity | ステータス行の直上の行（`<記号> Working…`・`<記号> Asking fruit choice`）の文言。右寄せのタイトル（`U+F1042 FRUIT: …`）は字下げが大きいので除く | 活動行がないとき（`You chose …` が直上に来るなど）は空 |
 | Elapsed | ステータス行の最初の区切り `U+E0B1` より左の `\d+(s\|m\|h)` | 時間が長いと単位が粗くなる（`2s`→`4m`→`4h`）。分・秒の混在はない |
 | カード | 見出し行＝質問文。選択肢は `│ [U+F054] <記号> ラベル │`。`(Recommended)` は Recommended=true で文言から外す。`Other (type your own)` は Options に入れず AllowsCustom=true（カーソルがそこなら Cursor=len(Options)+1） | 複数選択（`U+F096`/`U+F14A`、見出しの 1 行目に `Submit` のタブ）も同じ形。`Custom answer` の枠は選ぶ対象がないので ParseCard は ok=false |
-| キー | `PickKeys` は Up/Down の差分だけ、`CustomKeys` は「その他」まで Down。Enter は含めない。カーソルが読めないときは `cursor_mismatch` | 数字キーは使わない（フッターは `↑/↓ move`・`select` のみ） |
+| キー | `PickKeys` は Up/Down の差分だけ、`CustomKeys` は「その他」まで Down。Enter は含めない。カーソルが読めないときは `cursor_mismatch`。キーを送った直後の画面は描き直し前のことがあるので、呼び出し側（`ask_pick`）が反映を待ってから検証する | 数字キーは使わない（フッターは `↑/↓ move`・`select` のみ） |
 | 自由入力 | 「その他」で Enter → `╭─ Custom answer: <質問>` の枠（`> ` の行へ入力）。Enter で送信（フッターには `Ctrl+Q submit` もある） | 送信後は `Ask` の結果枠にチェック付きで本文が出て、そのまま作業中に戻る |
 | Clean | 画面下のステータス行・活動行・タイトル行、`╭╰├` の枠線、`Todo N tasks` の枠、`TODO` の木、枠の左右の `│` を除く | TODO は 2 通りの表示がある（上の枠と下の `TODO` の木） |
 | StableText | ステータス行を除き、スピナー文字と `36s`・`1m 5s`・`12:34`・`N tokens` を除く | 本文の中の時間表記も消えるが、画面ハッシュ用なので問題ない |
