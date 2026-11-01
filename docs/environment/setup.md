@@ -181,15 +181,17 @@ jobs:
           mkdir -p dist
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
             -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
-            -o dist/swarm-console ./cmd/swarm-console
-          (cd dist && sha256sum swarm-console > SHA256SUMS)
+            -o "dist/swarm-console_${GITHUB_REF_NAME}_linux_amd64" ./cmd/swarm-console
+          (cd dist && sha256sum "swarm-console_${GITHUB_REF_NAME}_linux_amd64" > SHA256SUMS)
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/swarm-console dist/SHA256SUMS --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "dist/swarm-console_${GITHUB_REF_NAME}_linux_amd64" dist/SHA256SUMS --generate-notes
 ```
 
-デプロイは自動化しない。サーバーでは新バイナリを `~/bin/swarm-console/` に手で入れ替え、`systemctl --user restart swarm-console` する（[アーキテクチャ設計 §7](../architecture/overview.md#7-デプロイ構成)）。
+成果物は `swarm-console_vX.Y.Z_linux_amd64`（バイナリ。版・OS・arch を含む）と `SHA256SUMS`（`sha256sum` の出力どおり。1 行 `<ハッシュ>␣␣swarm-console_vX.Y.Z_linux_amd64`）。自己更新（機能要件 §12.4・P-46・P-57）がこの 2 つの名前で取りに来るので、名前と書式を変えるときは FR-UPD-13・14 も直す。
+
+デプロイは、既定では `serve` が新しい版を見つけて自分で入れ替える（自己更新。機能要件 §12.4）。`update_auto = false` のときは、新バイナリを `~/bin/swarm-console/` に手で入れ替え、`systemctl --user restart swarm-console` する（[アーキテクチャ設計 §7](../architecture/overview.md#7-デプロイ構成)）。
 
 ## Lint
 
@@ -338,3 +340,4 @@ pre-push:
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | 「ローカルで動かす」に `setup`（対話型）の使い方を追加 | Issue #5 |
+| 1.2 | 2026-11-01 | release.yml の骨子の成果物名を `swarm-console_vX.Y.Z_linux_amd64` に、デプロイの記述を自己更新に更新 | Issue #7（自己更新で確定） |

@@ -280,10 +280,34 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 ```json
 {"load": [98.2, 95.1, 90.4], "cpus": 32, "mem_total_gb": 128, "mem_free_gb": 41.3,
  "disk": [{"mount": "/", "free_gb": 120}, {"mount": "/mnt/nvme", "free_gb": 830}],
- "tmux_session": true, "agents": {"omp": 6, "claude": 0, "codex": 0}, "uptime": "12d 4h"}
+ "tmux_session": true, "agents": {"omp": 6, "claude": 0, "codex": 0}, "uptime": "12d 4h",
+ "update": {"status": "up_to_date", "current": "v0.1.5", "latest": "v0.1.5", "checked_at": "2026-11-01T12:00:00+09:00",
+            "apply": {"state": "idle"}}}
 ```
 
 `disk` は設定した監視マウント（既定 `/` と `/mnt/nvme`）。`agents` は種別ごとのペイン数。
+
+`update` は新しい版の確認の結果と、自己更新の状況 `apply`（FR-UPD-9・20）。`serve` が持つ最後の結果を返すだけで、呼び出しで GitHub へは通信しない。
+
+| `status` | 意味 | 他に付くキー |
+|----------|------|-------------|
+| `up_to_date` | 最新版以上 | `current`・`latest`・`checked_at`・`apply` |
+| `update_available` | 最新版が現在より新しい | `current`・`latest`・`checked_at`・`apply` |
+| `unknown` | 確認できない | `current`・`reason`（`network`・`rate_limit`・`access`・`no_release`・`release_invalid`・`dev_build`）・`checked_at`（前回の成功した結果があれば `latest` も残す）・`apply` |
+| `pending` | 起動後まだ確認していない | `current`・`apply` |
+| `disabled` | `update_check = false` | `current`・`apply` |
+
+`apply` は常に付く（自己更新の状況。FR-UPD-20）。
+
+| `state` | 意味 | 他に付くキー |
+|---------|------|-------------|
+| `off` | `update_auto = false`、または `update_check = false`（自己更新しない） | なし |
+| `idle` | 入れ替えの失敗・保留が無い（新しい版が無い・まだ確認していないときのほか、入れ替えの実行中を含む。入れ替えが済めば `serve` は終了するので、`update_available` で `idle` を見るのは入れ替えの実行中だけ） | なし |
+| `probation` | 入れ替え直後の試運転中（待ち受けから 60 秒生きれば確定。FR-UPD-17） | `from`（入れ替え前の版） |
+| `failed` | 入れ替えに至らなかった。次の周期で再試行 | `reason`（`unsupported_platform`・`not_managed`・`asset_missing`・`download`・`checksum`・`write`）・`at` |
+| `blocked` | 起動に失敗して前の版へ戻した版（以下）なので入れ替えない | `version`（戻した版） |
+
+`current` は動いているバイナリの版（版を入れていないビルドは `"dev"`）。`latest`・`from`・`version` は `vX.Y.Z` の形に合うときだけ出す。GitHub の応答の文面・URL・エラー文は出さない。
 
 #### `agent_auth_status`
 
@@ -471,3 +495,5 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | `host_status` に `update`（新しい版の確認結果）を追加 | Issue #7 |
+| 1.2 | 2026-11-01 | `host_status.update` に自己更新の状況 `apply`（`off`・`idle`・`probation`・`failed`・`blocked`）を追加 | Issue #7（自己更新で確定） |

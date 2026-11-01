@@ -10,6 +10,7 @@
 | 永続（人が編集） | 条件のひな形 `profiles.toml` | `~/.config/swarm-console/profiles.toml` | 644 以下 |
 | 永続（人が編集、任意） | レポートのテンプレート | `~/.config/swarm-console/templates/report.{ja,en}.md` | — |
 | 外部が書く | 最終報告 `<位置>.md` | `/tmp/swarm-console/reports/` | エージェントが書く |
+| 永続（書き込み: 自己更新のみ） | 旧バイナリの退避・試運転のマーカー・戻した版の記録 | `~/bin/swarm-console/swarm-console.{old,update-pending,update-failed}`（と一時の `swarm-console.new`） | 600（`.old`・`.new` は 755） |
 | 実行時（メモリ） | スナップショット・ペイン状態 | プロセス内 | — |
 
 ## 1. 全体ER図
@@ -337,6 +338,9 @@ erDiagram
         array file_roots
         array disk_mounts "host_status が見るマウント"
         string report_dir
+        bool update_check "true"
+        duration update_check_interval "24h（1h 以上）"
+        bool update_auto "true"
     }
     SESSION {
         string name
@@ -365,7 +369,9 @@ erDiagram
 | `pane_names` | 名前は `^[A-Za-z][A-Za-z0-9_-]*$`、他の固定名・自動名（`T1` など）・`%` 始まりと衝突しない |
 | `allowed_roots`・`file_roots`・`denied_paths` | 絶対パス。`~` は展開。比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file` の両方） |
 | `denied_paths` の既定 | 既定は `["~/dotfiles"]`。`config.toml` に書いたら既定と**入れ替わる**（足されない。書き方の例は [環境構築](../environment/setup.md#ローカルで動かす)）。P-29 |
-| 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms |
+| 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h |
+| `update_check` | bool。省略は `true`。`false` なら `serve` は GitHub へ確認しに行かない（`version --check` の手動確認は動く。FR-UPD） |
+| `update_auto` | bool。省略は `true`。`false` なら自己更新だけ止まる（確認と `host_status` は続く）。`update_check = false` のときは無視される（確認も更新もしない。FR-UPD-19） |
 | `agents.<name>` | 書かれたキーだけ組み込みの既定を上書きする。正規表現は起動時にコンパイルできること |
 | 未知のキー | 起動拒否（打ち間違いを検知する） |
 
@@ -453,9 +459,36 @@ rules = [
 | 読み取り上限 | 20,000 字。超えたら先頭から切って `truncated: true` |
 | 存在判定 | あれば `report_exists: true`。空ファイルは存在扱い |
 
+## 8. 自己更新のファイル
+
+置き場は `~/bin/swarm-console/` に固定（FR-UPD-12・15。NFR-SEC-14・16）。サーバーが書くのは次の 5 つだけ。
+
+| ファイル | 中身 | 書き手・消す人 |
+|---------|------|--------------|
+| `swarm-console` | 動いているバイナリ（権限 755） | 入れ替え（`rename`）と戻し（`rename`） |
+| `swarm-console.new` | ダウンロード中・検証待ちの一時ファイル | 入れ替えが作り、`rename` するか失敗時に消す |
+| `swarm-console.old` | 入れ替え前のバイナリ（ハードリンク。1 世代だけ） | 入れ替えのたびに作り直す。戻しで `swarm-console` に `rename` される |
+| `swarm-console.update-pending` | 試運転中のマーカー | 入れ替えが作る。試運転が済む・戻す・`to` が自分の版でないときに消す |
+| `swarm-console.update-failed` | 起動に失敗して戻した版の記録 | 戻しが書く。運用者が消すと同じ版を再び試す |
+
+```json
+// swarm-console.update-pending（権限 600）
+{"from": "v0.1.3", "to": "v0.1.5", "boots": 0}
+// swarm-console.update-failed（権限 600）
+{"version": "v0.1.5", "at": "2026-11-01T12:30:00+09:00"}
+```
+
+| 項目 | 検証・意味 |
+|------|-----------|
+| `from`・`to`・`version` | `vX.Y.Z`（FR-UPD-3 の形）。読めない・形が違うファイルは無いものとして扱い、消す |
+| `boots` | 0 以上の整数。`serve` が起動の最初に 1 増やして書き戻し、3 以上になる起動で戻す。試運転が済んだらマーカーごと消える |
+| 書き込み | 一時ファイル → `rename`（NFR-AVL-3 と同じ作り）。権限 600 |
+
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | §5.1 `setup` による書き戻し、`config.toml` の区分を更新 | Issue #5 |
+| 1.2 | 2026-11-01 | `config.toml` に `update_check`・`update_check_interval` を追加 | Issue #7 |
+| 1.3 | 2026-11-01 | `config.toml` に `update_auto` を追加。§8 自己更新のファイル（`.old`・`.update-pending`・`.update-failed`）を追加 | Issue #7（自己更新で確定） |

@@ -33,7 +33,9 @@
 | NFR-SEC-11 | メモに秘密に見える文字列（`ghp_`・`sk-`・`eyJ`・PEM など）が入る書き込みは拒否し、拒否した値をログ・応答に出さない |
 | NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・結果コード」だけを記録する。送った本文・トークン・メモの内容は記録しない |
 | NFR-SEC-13 | 受け付けるリクエスト本文は 256 KiB まで。超えたら 413 |
-| NFR-SEC-14 | 設定・メモ・トークンの置き場以外へ書き込まない（書き込み先は `~/.config/swarm-console`・`~/.local/share/swarm-console`・`/tmp/swarm-console`）。`~/dotfiles` には触らない |
+| NFR-SEC-14 | 設定・メモ・トークン・バイナリの置き場以外へ書き込まない。書き込み先は `~/.config/swarm-console`・`~/.local/share/swarm-console`・`/tmp/swarm-console` と、自己更新のための `~/bin/swarm-console/` の決まった 5 ファイルだけ（`swarm-console`・`swarm-console.new`・`swarm-console.old`・`swarm-console.update-pending`・`swarm-console.update-failed`。NFR-SEC-16）。`~/dotfiles` には触らない |
+| NFR-SEC-15 | 新しい版の確認と自己更新（FR-UPD）のための外向き通信は、確認の `https://api.github.com/repos/ousiassllc/swarm-console/releases/latest` への認証なしの GET 1 本と、更新のダウンロード（`https://github.com/ousiassllc/swarm-console/releases/download/<tag>/…` の 2 ファイルと、そのリダイレクト先の `objects.githubusercontent.com`・`release-assets.githubusercontent.com`）だけ。どちらも認証なしで、トークン・設定の値・ペインの内容を送らない（送るのは `User-Agent: swarm-console/<版>` まで）。リダイレクトは許可リスト内の `https` だけ。待ち受け（NFR-SEC-1・2）の方針は変えない。GitHub が返した文字列は、`vX.Y.Z` の形に合うときだけ応答・表示・URL の組み立てに使う |
+| NFR-SEC-16 | 自己更新は新しいバイナリを入れ替える前に実行せず、`systemctl` などのコマンドも実行しない（NFR-SEC-7 のまま）。再起動は自分で正常終了して systemd に任せる。入れ替えるのは、`SHA256SUMS` のハッシュが一致した、linux/amd64 の、現在より新しい版だけ。`os.Executable()` が `$HOME/bin/swarm-console/swarm-console` でない（シンボリックリンク・別の場所）なら入れ替えない。検証がハッシュだけである限界は機能要件 §12.5 に明記する |
 
 ## 3. 可用性・信頼性
 
@@ -46,7 +48,9 @@
 | NFR-AVL-5 | 1 ペインの tmux 呼び出しの失敗・タイムアウトが他のペインの結果を止めない（そのペインを `unknown` にして警告） |
 | NFR-AVL-6 | 同じペインへの操作は直列化し、デッドロックしない（`lock_timeout` で `busy_timeout`）。異なるペインは並行に処理できる |
 | NFR-AVL-7 | 終了シグナル（SIGTERM）で進行中の操作を完了待ち（最大 10 秒）してから止まる。操作の途中で止まって、ペインに半端な入力を残さない |
-| NFR-AVL-8 | 配布は GitHub Releases のバイナリ。サーバーでは手で入れ替えて `systemctl --user restart swarm-console` |
+| NFR-AVL-8 | 配布は GitHub Releases のバイナリ。`serve` は新しい版を見つけたら自分で入れ替える（自己更新。`update_auto` が既定 `true`。FR-UPD-11）。`update_auto = false` のときは、手で入れ替えて `systemctl --user restart swarm-console` する |
+| NFR-AVL-9 | 新しい版の確認・ダウンロード・入れ替えが失敗・遅延・拒否されても `serve` は動き続ける。確認と更新は起動・ツールの応答・終了（NFR-AVL-7）を待たせない（FR-UPD-8） |
+| NFR-AVL-10 | 自己更新の途中で失敗・停止しても、元のバイナリが残る（入れ替えは一時ファイル → 検証 → `rename`。旧バイナリは `.old` に 1 世代残す）。新しいバイナリが起動に失敗し続けたら（3 回目の起動）、`.old` から自動で戻し、その版は再び入れ替えない（FR-UPD-15・17）。入れ替えの終了は NFR-AVL-7 と同じ正常終了で、`working` のペインがあっても待たない（ペインは tmux に残る。MCP クライアントは再接続が要る） |
 
 ## 4. スケーラビリティ・容量
 
@@ -61,8 +65,8 @@
 
 | ID | 要件 |
 |----|------|
-| NFR-OPS-1 | 置き場所：バイナリ `~/bin/swarm-console/`、設定 `~/.config/swarm-console/`、データ `~/.local/share/swarm-console/`。`~/dotfiles` には触らない |
-| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console setup`（対話型の設定。FR-SET）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console version` |
+| NFR-OPS-1 | 置き場所：バイナリ `~/bin/swarm-console/`（自己更新の対象はここに固定。FR-UPD-12）、設定 `~/.config/swarm-console/`、データ `~/.local/share/swarm-console/`。`~/dotfiles` には触らない |
+| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console setup`（対話型の設定。FR-SET）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console version`（`--check` で新しい版を確認。FR-UPD-6） |
 | NFR-OPS-3 | エージェントの画面が変わったら、設定ファイルの正規表現の上書きだけで直せる（再ビルド不要）。設定は `serve` の再起動で反映 |
 | NFR-OPS-4 | レポートのテンプレート（`templates/report.ja.md`・`report.en.md`）と条件のひな形（`profiles.toml`）は設定フォルダに置け、再ビルド不要。テンプレートの構文エラーは起動時に検出して拒否する |
 | NFR-OPS-5 | ログは構造化（JSON Lines）で標準エラーへ出し、systemd の journal で見る |
@@ -70,6 +74,7 @@
 | NFR-OPS-7 | 認証の期限情報（`agent_auth_status`）はファイルの場所を設定で変えられる。取れなければ「不明」を返し、エラーにしない |
 | NFR-OPS-8 | `config.toml` は手書きと `setup` のどちらでも作れ、`setup` は手で書いた内容（コメント・並び・書式・`setup` が聞かないキー）を壊さない（FR-SET-3）。`setup` が書くのは設定の置き場（`~/.config/swarm-console`）の `config.toml` と、発行したときの `tokens.toml` だけ（NFR-SEC-14）。`config.toml` がシンボリックリンクのときは書かず中止する（リンク先が置き場の外のため。P-35） |
 | NFR-OPS-9 | `setup` は `tmux`・`tailscale` などの外部コマンドを実行せず、ネットワークにも出ない。tailnet の候補はインターフェースの列挙だけで出す（NFR-SEC-7 と同じ方針。P-33） |
+| NFR-OPS-10 | 新しい版の確認と自己更新は `config.toml` の `update_check`（既定 `true`）・`update_check_interval`（既定 `24h`、`1h` 以上）・`update_auto`（既定 `true`）で切り替える。`version --check` は設定に依らず手動で動く（確認だけで入れ替えない。FR-UPD-10・19） |
 
 ## 6. 互換性・前提環境
 
@@ -98,6 +103,8 @@
 | NFR-TEST-11 | タグ `v*` の push で、GitHub Releases に linux/amd64 のバイナリを載せるワークフローを用意する（P-20） |
 | NFR-TEST-12 | `setup` の書き戻し（`config` の編集部品）は表駆動の単体テストで確かめる：コメント・空行・並び・CRLF・複数行配列・dotted key・表の有無・未知のキー（`serve` では拒否されるが編集部品は壊さない）。変更した値の範囲の外のバイト列が入力と同一であること、読み直した値が期待どおりであること、`serve` と同じ読み込みで落ちる結果は書かないことを確かめる |
 | NFR-TEST-13 | `setup` の画面は、実 tmux の専用ソケットのペインで `swarm-console setup` を起動し、`send-keys` で入力して確かめる（NFR-TEST-1 と同じ方式。待ちは NFR-TEST-7）。新規作成 → そのまま `serve` が起動できる、手書きの `config.toml` を開いて 1 項目だけ変えても他が 1 バイトも変わらない、TTY でない起動が終了コード 1 で終わる、中止で何も書かれない、を通す |
+| NFR-TEST-14 | 新しい版の確認は、実際の GitHub に出ずに `httptest` で確かめる：新しい版・同じ版・古い版（手元が先）・プレリリース形の現在の版・非 semver の最新タグ・`dev` ビルド・404・429・403（上限／拒否）・5xx・接続失敗・タイムアウト・不正 JSON・巨大な本文。`serve` の定期確認は `clock` を進めて確かめ（NFR-TEST-7）、確認が失敗しても `serve` が応答し続けること、`host_status.update` の各状態（`pending`・`disabled`・結果）を通す |
+| NFR-TEST-16 | 自己更新は、実際の GitHub にも実際の `~/bin` にも触れずに確かめる（`httptest` の偽の配信元、`HOME` を一時ディレクトリに差し替え。パスは `$HOME` から決める）：成功（入れ替え・`.old`・マーカー・終了の要求）、`SHA256SUMS` の不一致・行なし・行が複数・形式不正・空のバイナリ、404（`asset_missing`）、サイズ超過、許可されないホストへのリダイレクト、`os.Executable()` が置き場と違う・シンボリックリンク、ダウングレード・同じ版、`update_auto = false`・`update_check = false`、`blocked`（`update-failed` の版以下）、各ステップ（書き込み・リンク・マーカー・rename）の失敗で本体が元のまま残ること、`SIGTERM` での中断と一時ファイルの掃除。試運転は `boots` の 1・2・3 回目、60 秒（`clock`）での確定、`to` が自分の版でないマーカーの掃除、`.old` が無いときの戻し失敗を通す。`working` のペインがあっても待たずに入れ替えることを確かめる。実際の systemd による再起動と戻し（新バイナリの起動失敗）は CI で再現できないので、実機で確認し、未確認なら報告に明記する（NFR-TEST-10 と同じ扱い） |
 
 ## 改訂履歴
 
@@ -105,3 +112,5 @@
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | NFR-OPS-2 に `setup` を追加、NFR-OPS-8・9、NFR-TEST-12・13 を追加 | Issue #5 |
+| 1.2 | 2026-11-01 | NFR-SEC-15・NFR-AVL-9・NFR-OPS-10・NFR-TEST-14 を追加、NFR-OPS-2 に `version --check` を追加 | Issue #7 |
+| 1.3 | 2026-11-01 | 更新の方式を自己更新で確定：NFR-SEC-14・15 を改訂し NFR-SEC-16・NFR-AVL-10・NFR-TEST-16 を追加、NFR-AVL-8・9、NFR-OPS-1・10 を自己更新に合わせて改訂 | Issue #7（自己更新で確定） |
