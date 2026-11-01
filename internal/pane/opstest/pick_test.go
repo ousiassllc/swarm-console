@@ -128,7 +128,7 @@ func TestPickAskCursorMismatchNeverSendsEnter(t *testing.T) {
 	f := newFixture(t)
 	ref := f.single(panetest.ScreenAsk("omp", "どれ？", 1, true, "A", "B", "C"), []string{"omp"})
 	// キーを送ってもカーソルが動かない画面。
-	_, err := f.op.PickAsk(context.Background(), ref, 3, "")
+	_, err := run(t, f.env.Clock, func() (pane.PickResult, error) { return f.op.PickAsk(context.Background(), ref, 3, "") })
 	if code(err) != apperr.CursorMismatch {
 		t.Fatalf("err = %v", err)
 	}

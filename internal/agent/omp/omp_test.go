@@ -20,6 +20,16 @@ func fruit(cursor int) *agent.Card {
 	}
 }
 
+// pickAB は「どちらが好き？」の A・B と Other の 2 択のカード（Issue #20 の実機のカード）。
+func pickAB(cursor int) *agent.Card {
+	return &agent.Card{
+		Question:     "どちらが好き？",
+		Options:      []agent.Option{{N: 1, Label: "A"}, {N: 2, Label: "B"}},
+		Cursor:       cursor,
+		AllowsCustom: true,
+	}
+}
+
 func toppings(cursor int) *agent.Card {
 	return &agent.Card{
 		Question:     "Pick toppings",
@@ -42,6 +52,9 @@ func TestScreens(t *testing.T) {
 		{File: "ask-2.txt", State: agent.StateAsking, Activity: ask, Card: fruit(2)},
 		{File: "ask-3.txt", State: agent.StateAsking, Activity: ask, Card: fruit(3)},
 		{File: "ask-4.txt", State: agent.StateAsking, Activity: ask, Card: fruit(4)},
+		{File: "ask-ab-1.txt", State: agent.StateAsking, Activity: ask, Card: pickAB(1)},
+		{File: "ask-ab-2.txt", State: agent.StateAsking, Activity: ask, Card: pickAB(2)},
+		{File: "ask-ab-3.txt", State: agent.StateAsking, Activity: ask, Card: pickAB(3)},
 		{File: "ask-multi.txt", State: agent.StateAsking, Activity: "Asking toppings choice", Card: toppings(1)},
 		{File: "ask-multi-toggled.txt", State: agent.StateAsking, Activity: "Asking toppings choice", Card: toppings(2)},
 		// 自由入力中の枠は asking のままだが、選ぶ対象がないのでカードは読めない。
@@ -60,6 +73,10 @@ func TestKeys(t *testing.T) {
 		{File: "ask-4.txt", N: 2, Want: []string{"Up", "Up"}},
 		{File: "ask-2.txt", N: 0, Want: []string{"Down", "Down"}},
 		{File: "ask-4.txt", N: 0, Want: []string{}},
+		{File: "ask-ab-1.txt", N: 2, Want: []string{"Down"}},
+		{File: "ask-ab-2.txt", N: 1, Want: []string{"Up"}},
+		{File: "ask-ab-3.txt", N: 2, Want: []string{"Up"}},
+		{File: "ask-ab-1.txt", N: 0, Want: []string{"Down", "Down"}},
 		{File: "ask-multi.txt", N: 3, Want: []string{"Down", "Down"}},
 		{File: "ask-2.txt", N: 4, ErrCode: apperr.OptionOutOfRange},
 		{File: "ask-2.txt", N: -1, ErrCode: apperr.OptionOutOfRange},
