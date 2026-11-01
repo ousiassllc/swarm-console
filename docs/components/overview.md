@@ -91,6 +91,7 @@ swarm-console/
 ├── test/fakeagent/           擬似エージェント（サンプル画面を出し、キーに反応する）
 ├── test/integration/         実 tmux ＋ fakeagent ＋ MCP クライアントの統合・受け入れテスト
 ├── deploy/                   swarm-console.service（systemd ユーザーサービス）
+├── scripts/                  install.sh（`make install`。最新リリースの取得・照合・配置・systemd 常駐。FR-INS）と、そのテスト install_test.sh
 ├── docs/                     仕様書
 └── .github/                  workflows/ci.yml・release.yml、scripts/plan-release.sh（次の版を決める）と、そのテスト
 ```
@@ -262,3 +263,4 @@ type Tool struct {
 | 1.2 | 2026-11-01 | `updatecheck` を追加、`version --check` を追加 | Issue #7 |
 | 1.3 | 2026-11-01 | `selfupdate` を追加（自己更新の確定。FR-UPD-11〜20）、テスト構成に自己更新を追加 | Issue #7（自己更新で確定） |
 | 1.4 | 2026-11-01 | §2 の `.github/`、§7 の `release.yml` を自動タグ付きに更新 | Issue #8 |
+| 1.5 | 2026-11-01 | §2 に `scripts/`（`make install` の `install.sh` とそのテスト）を追加 | Issue #18 |

@@ -10,6 +10,7 @@
 - [機能要件：レポート・質問カード・指示](functional-report.md)：§5 レポート（FR-REPORT）、§6 質問カードの操作（FR-ASK）、§7 指示の組み立て（FR-DISPATCH）、§8 受け入れ確認
 - [機能要件：メモ・安全・設定](functional-note.md)：§9 メモ（FR-NOTE）、§10 安全のための決まり（FR-SAFE）、§11 対話型の設定（FR-SET）
 - [機能要件：新しい版の確認と自己更新](functional-update.md)：§12 新しい版の確認と自己更新（FR-UPD）
+- [機能要件：インストール](functional-install.md)：§13 インストール（FR-INS）
 
 ## 1. ユースケース
 
@@ -181,3 +182,4 @@ stateDiagram-v2
 | 1.6 | 2026-11-01 | FR-UPD-12：現在の版がプレリリース形のときは入れ替えない（`not_managed`）ことを明記 | Issue #7（実装時の確認） |
 | 1.7 | 2026-11-01 | FR-UPD-12・20：試運転中（`apply = probation`）は新しい入れ替えを始めない（次の周期で再試行）ことを明記 | Issue #12 |
 | 1.8 | 2026-11-01 | FR-UPD-12：試運転中に見送った入れ替えは、試運転の確定の時点で次の周期を待たずに再試行することを明記 | Issue #15 |
+| 1.9 | 2026-11-01 | §13 インストール（FR-INS-1〜11）を functional-install.md に追加（`make install`：最新リリースの取得・`SHA256SUMS` の照合・配置・systemd 常駐・リンガリング。何回流しても同じ結果） | Issue #18 |

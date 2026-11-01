@@ -9,7 +9,7 @@
 | 項目 | 内容 |
 |------|------|
 | 実行場所 | example-host（tmux サーバーと同じホスト、同じユーザー） |
-| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から。Releases への掲載は main の CI 成功ごとに自動。`serve` が自分で入れ替える。`update_auto = false` のときは手で入れ替え）。同じフォルダに `swarm-console.new`・`.old`・`.update-pending`・`.update-failed` が一時的にできる（ER §8） |
+| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から。最初の導入は `make install`。Releases への掲載は main の CI 成功ごとに自動。`serve` が自分で入れ替える。`update_auto = false` のときは手で入れ替え）。同じフォルダに `swarm-console.new`・`.old`・`.update-pending`・`.update-failed` が一時的にできる（ER §8） |
 | 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`templates/`（任意） |
 | データ | `~/.local/share/swarm-console/notes.json`（600） |
 | 最終報告 | `/tmp/swarm-console/reports/<位置>.md`（エージェントが書く）、`archive/`（サーバーが移す） |
@@ -37,6 +37,7 @@ WantedBy=default.target
 
 - `listen_addr` は `tailscale ip -4` の値を設定に書く（コードでアドレスを探しにいかない。P-01）。tailscale がまだ上がっていなくても `bind` に失敗したら再試行して立ち上がるように、`Restart=always` に任せる。
 - 更新手順（`update_auto = false` のとき）：新バイナリを置く → `systemctl --user restart swarm-console` → `host_status` で確認。
+- 最初の導入：リポジトリの直下で `make install`（`scripts/install.sh`。FR-INS）。最新リリースを取り、`SHA256SUMS` で照合してから `~/bin/swarm-console/swarm-console` に置き、`deploy/swarm-console.service` を `~/.config/systemd/user/` に実ファイルでコピーして `daemon-reload`・`enable`（`config.toml` があれば `--now`）、リンガリングを有効にする。`config.toml` は作らず、無いときは起動せず設定の手順を表示する。何回流しても同じ結果で、動いているサービスは再起動しない（FR-INS-6）。
 - 新しい版の確認は `serve` が 24 時間ごとに `api.github.com` を読んで行い（`update_check`。FR-UPD）、結果は `host_status` の `update` と `version --check` で見る。`update_auto`（既定 `true`）なら、新しい版を見つけたときにダウンロード → 検証 → `rename` → 正常終了し、上の `Restart=always`・`RestartSec=2` が新バイナリを起動する（`systemctl` は実行しない）。
 - 自己更新は `swarm-console.service` の変更を要しない。新バイナリが起動に失敗し続けても、3 回目の起動で `.old` に戻して終了する（`RestartSec=2` なので約 4 秒後。systemd の既定の起動回数の上限（10 秒に 5 回）より前。FR-UPD-17・P-55）。
 

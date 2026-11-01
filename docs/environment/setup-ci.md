@@ -12,7 +12,7 @@
 flowchart LR
     T["push / pull_request"] --> J["ci.yml: job test (ubuntu-latest)"]
     J --> S1["checkout"] --> S2["setup-go (go.mod)"] --> S3["apt install tmux"]
-    S3 --> S4["go build ./..."] --> S5["go vet ./..."] --> S6["golangci-lint"] --> S7["linterly check"] --> S7b["plan-release_test.sh"] --> S8["go test -race ./..."]
+    S3 --> S4["go build ./..."] --> S5["go vet ./..."] --> S6["golangci-lint"] --> S7["linterly check"] --> S7b["plan-release_test.sh"] --> S7c["install_test.sh"] --> S8["go test -race ./..."]
     S8 --> CIOK["main への push の CI が成功"] --> RP["release.yml: plan（次の版を決める）"]
     TAG["手で打ったタグ vX.Y.Z"] --> RP
     RP --> RV["verify（main の履歴・CI 成功）"] --> RB["build linux/amd64"] --> RR["release（タグを付けて Releases に載せる）"]
@@ -21,7 +21,7 @@ flowchart LR
 - 全ジョブを GitHub ホストのランナー（`runs-on: ubuntu-latest`）で動かす。
 - Go と golangci-lint は `actions/setup-go`（`go-version-file: go.mod`）と `golangci/golangci-lint-action` で入れる。
 - tmux はジョブの中で `apt-get install` して入れ、続く `Check tmux` ステップで `tmux -V` により入ったことを確かめる。
-- 1 ジョブ内で、build・vet・lint・linterly・release plan test（`plan-release.sh` の表駆動テスト。NFR-TEST-15）・test を別ステップで順に実行する（失敗したステップで止まり、どのコマンドで落ちたか分かる）。
+- 1 ジョブ内で、build・vet・lint・linterly・release plan test（`plan-release.sh` の表駆動テスト。NFR-TEST-15）・install script test（`make install` の `install.sh` のテスト。NFR-TEST-17）・test を別ステップで順に実行する（失敗したステップで止まり、どのコマンドで落ちたか分かる）。
 - ステップ順は lint → test の前に build・vet を置く（コンパイルエラーを先に出す）。
 - `concurrency` で同じ ref の古い実行をキャンセルする。`permissions` は `contents: read`。
 
@@ -65,6 +65,8 @@ jobs:
         run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check
       - name: Release plan test
         run: bash .github/scripts/plan-release_test.sh
+      - name: Install script test
+        run: bash scripts/install_test.sh
       - name: Test
         run: go test -race ./...
 ```

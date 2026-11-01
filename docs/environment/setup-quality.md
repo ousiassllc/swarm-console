@@ -135,8 +135,10 @@ pre-push:
 | `make fmt` / `make fmt-check` | 整形 / 整形差分の検査 |
 | `make linterly` | `linterly check` |
 | `make plan-test` | `bash .github/scripts/plan-release_test.sh`（次の版を決める処理のテスト。NFR-TEST-15） |
+| `make install-test` | `bash scripts/install_test.sh`（`make install` のテスト。偽の `curl`・`systemctl`・`loginctl` と一時 `HOME` を使い、実際の GitHub・systemd・`HOME` には触れない。NFR-TEST-17） |
+| `make install` | `bash scripts/install.sh`（運用ホストへの導入。最新リリースを取って `SHA256SUMS` で照合し、`~/bin/swarm-console` に置いて systemd のユーザーサービスとして常駐させる。`make check` には入れない。FR-INS） |
 | `make test` | `go test -race ./...` |
-| `make check` | build → vet → lint → linterly → plan-test → test を別ターゲットとして順に実行 |
+| `make check` | build → vet → lint → linterly → plan-test → install-test → test を別ターゲットとして順に実行 |
 
 `make check` は CI の `ci.yml` と同じ順序・同じコマンドにする（差が出たら両方を直す）。
 

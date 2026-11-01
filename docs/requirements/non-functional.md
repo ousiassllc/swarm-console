@@ -76,6 +76,7 @@
 | NFR-OPS-9 | `setup` は `tmux`・`tailscale` などの外部コマンドを実行せず、ネットワークにも出ない。tailnet の候補はインターフェースの列挙だけで出す（NFR-SEC-7 と同じ方針。P-33） |
 | NFR-OPS-10 | 新しい版の確認と自己更新は `config.toml` の `update_check`（既定 `true`）・`update_check_interval`（既定 `24h`、`1h` 以上）・`update_auto`（既定 `true`）で切り替える。`version --check` は設定に依らず手動で動く（確認だけで入れ替えない。FR-UPD-10・19） |
 | NFR-OPS-11 | リリースの権限：`release.yml` の既定は `contents: read`。書き込み（`contents: write`）を持つのはリリースを作るジョブだけで、ビルドのジョブは書き込みトークンを持たない。PR（フォーク含む）のコードではリリースのワークフローを動かさない。リリースは同時に 1 本だけ（`concurrency`）。タグの版は `vX.Y.Z` だけで、Issue #7 の版の確認が読む形と同じ |
+| NFR-OPS-12 | `make install` は `$HOME` 配下（`~/bin/swarm-console`・`~/.config/systemd/user`）だけを書き、`sudo` を使わず、`config.toml`・`tokens.toml` を作らない。動いているサービスを再起動しない。ネットワークに出るのは GitHub（`github.com` と、リリースの実体の転送先）だけで、最新版の確認とバイナリ・`SHA256SUMS` の取得に使う（FR-INS） |
 
 ## 6. 互換性・前提環境
 
@@ -107,6 +108,7 @@
 | NFR-TEST-14 | 新しい版の確認は、実際の GitHub に出ずに `httptest` で確かめる：新しい版・同じ版・古い版（手元が先）・プレリリース形の現在の版・非 semver の最新タグ・`dev` ビルド・404・429・403（上限／拒否）・5xx・接続失敗・タイムアウト・不正 JSON・巨大な本文。`serve` の定期確認は `clock` を進めて確かめ（NFR-TEST-7）、確認が失敗しても `serve` が応答し続けること、`host_status.update` の各状態（`pending`・`disabled`・結果）を通す |
 | NFR-TEST-15 | 次の版を決める処理（`.github/scripts/plan-release.sh`）は表駆動の `bash` テストで確かめる：タグなし → `v0.1.0`、最新 `v0.1.9` → `v0.1.10`（数として比較する）、手で打った `v1.0.0` の次は `v1.0.1`、プレリリース形・`v` 無し・`vX.Y` の拒否、main の先頭でないコミット、既に `v*` タグがあるコミット、手で打ったタグが既存の最大以下、を通す。ワークフロー全体は main に入れてからの最初の CI 成功で確かめる（PR 上では `workflow_run` が動かないため、結果は報告に明記する） |
 | NFR-TEST-16 | 自己更新は、実際の GitHub にも実際の `~/bin` にも触れずに確かめる（`httptest` の偽の配信元、`HOME` を一時ディレクトリに差し替え。パスは `$HOME` から決める）：成功（入れ替え・`.old`・マーカー・終了の要求）、`SHA256SUMS` の不一致・行なし・行が複数・形式不正・空のバイナリ、404（`asset_missing`）、サイズ超過、許可されないホストへのリダイレクト、`os.Executable()` が置き場と違う・シンボリックリンク、ダウングレード・同じ版、`update_auto = false`・`update_check = false`、`blocked`（`update-failed` の版以下）、各ステップ（書き込み・リンク・マーカー・rename）の失敗で本体が元のまま残ること、`SIGTERM` での中断と一時ファイルの掃除。試運転は `boots` の 1・2・3 回目、60 秒（`clock`）での確定、`to` が自分の版でないマーカーの掃除、`.old` が無いときの戻し失敗を通す。`working` のペインがあっても待たずに入れ替えることを確かめる。実際の systemd による再起動と戻し（新バイナリの起動失敗）は CI で再現できないので、実機で確認し、未確認なら報告に明記する（NFR-TEST-10 と同じ扱い） |
+| NFR-TEST-17 | `make install`（`scripts/install.sh`）は、実際の GitHub にも systemd にも実際の `HOME` にも触れずに、`bash` のテスト（`scripts/install_test.sh`）で確かめる（`curl`・`systemctl`・`loginctl`・`uname` を PATH の先頭の偽物に、`HOME` をケースごとの一時ディレクトリに差し替える）：新規（設定なし → 有効にするだけ・案内して終了コード 0 ／ 設定あり → `enable --now`）、もう一度流しても同じ（バイナリの inode・unit・`daemon-reload`・`enable-linger` が変わらない）、新しい版への入れ替え（再起動しない）、入っている版が最新以上なら置き換えない、ハッシュ不一致・`SHA256SUMS` の行なし／複数行・版の不一致・アセット無し・最新の版の形が違う（どれも何も置かない。CRLF・`*` 付きは通る）、配置先がシンボリックリンク、unit がリンクや別内容のとき実ファイルで書き直す、非対応の arch、`active` にならないとき失敗、リンガリングがすでに `yes`。CI の `ci.yml` と `make check` で動かす。実際の systemd での `enable --now`・linger は CI で再現できないので、実機で確認し、未確認なら報告に明記する（NFR-TEST-10 と同じ扱い） |
 
 ## 改訂履歴
 
@@ -118,3 +120,4 @@
 | 1.3 | 2026-11-01 | 更新の方式を自己更新で確定：NFR-SEC-14・15 を改訂し NFR-SEC-16・NFR-AVL-10・NFR-TEST-16 を追加、NFR-AVL-8・9、NFR-OPS-1・10 を自己更新に合わせて改訂 | Issue #7（自己更新で確定） |
 | 1.4 | 2026-11-01 | NFR-TEST-11 を自動タグ付きリリースに更新、NFR-TEST-15・NFR-OPS-11 を追加、NFR-AVL-8 を更新 | Issue #8 |
 | 1.5 | 2026-11-01 | NFR-TEST-11 の成果物をアセット名 `swarm-console_vX.Y.Z_linux_amd64`・`SHA256SUMS` に、NFR-AVL-8 を自己更新（Issue #7）に合わせて更新 | Issue #8（Issue #7 の自己更新で確定） |
+| 1.6 | 2026-11-01 | NFR-OPS-12・NFR-TEST-17（`make install`）を追加 | Issue #18 |

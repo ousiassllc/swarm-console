@@ -18,35 +18,29 @@ tmux の中で動く AI コーディングエージェント（omp・Claude Code
 
 ## インストール
 
-1. [GitHub Releases](https://github.com/ousiassllc/swarm-console/releases) から、バイナリ `swarm-console_vX.Y.Z_linux_amd64` と `SHA256SUMS` を取得し、ハッシュを検証してから `~/bin/swarm-console/swarm-console`（通常ファイル。シンボリックリンクにしない）に置きます。`vX.Y.Z` は入れたい版に置き換えます（例は `v0.1.1`）。
+リポジトリを取得して、`make install` を 1 回打ちます（`sudo` は要りません。`curl`・`sha256sum`・`systemctl`・`loginctl` が使えること）。
 
-   ```sh
-   tag=v0.1.1
-   work=$(mktemp -d) && cd "$work"
-   curl -fsSLO "https://github.com/ousiassllc/swarm-console/releases/download/${tag}/swarm-console_${tag}_linux_amd64"
-   curl -fsSLO "https://github.com/ousiassllc/swarm-console/releases/download/${tag}/SHA256SUMS"
-   sha256sum -c SHA256SUMS      # "swarm-console_${tag}_linux_amd64: OK" と出ること
-   mkdir -p ~/bin/swarm-console
-   install -m 0755 "swarm-console_${tag}_linux_amd64" ~/bin/swarm-console/swarm-console
-   ~/bin/swarm-console/swarm-console version   # 入れた版が 1 行出る
-   ```
+```sh
+git clone https://github.com/ousiassllc/swarm-console.git
+cd swarm-console
+make install
+```
 
-2. 設定（`~/.config/swarm-console/config.toml`）とトークンを用意します。手順は次の「設定」を参照してください。
+`make install` は次を順に行います。手元ビルドは使わず、入れるのは常に [GitHub Releases](https://github.com/ousiassllc/swarm-console/releases) の最新リリースです。
 
-3. systemd のユーザーサービスとして登録します。`deploy/swarm-console.service` は `%h/bin/swarm-console/swarm-console serve --config %h/.config/swarm-console/config.toml` を `Restart=always` で動かします。
+1. 最新リリースの `swarm-console_vX.Y.Z_linux_amd64` と `SHA256SUMS` を取得し、ハッシュを照合します。**一致しなければ、何も置かずに失敗します。**
+2. `~/bin/swarm-console/swarm-console` に通常ファイルとして置きます（シンボリックリンクにしません。自己更新の条件です。配置先がシンボリックリンクのときは、置き換えずに失敗します）。
+3. `deploy/swarm-console.service` を `~/.config/systemd/user/` にコピーし、`systemctl --user daemon-reload` と `enable` をします。
+4. `~/.config/swarm-console/config.toml` があれば `enable --now` で起動し、`active` になるまで確かめます。**無いときは、設定を作らず、起動せずに止まって次の手順を表示します**（終了コードは 0）。「設定」の節で `config.toml` とトークンを用意して、もう一度 `make install` を打ちます。
+5. `loginctl enable-linger` で、ログインしていなくても動くようにします（ユーザーサービスはこれが無いと、ログアウトで止まります。すでに有効なら何もしません）。
 
-   ```sh
-   mkdir -p ~/.config/systemd/user
-   cp deploy/swarm-console.service ~/.config/systemd/user/   # clone していなければ、リポジトリの同じパスのファイルを取得して置く
-   systemctl --user daemon-reload
-   systemctl --user enable --now swarm-console
-   ```
+何回打っても同じ結果になります。
 
-4. ログインしていなくても動くように、リンガリングを有効にします（ユーザーサービスはこれが無いと、ログアウトで止まります）。
+- すでに最新のバイナリが入っていれば、バイナリにも unit にも触れません（`unchanged`）。
+- 入っている版が最新リリース以上なら、置き換えません（`kept`。ダウングレードしません）。古いときだけ上書きします（`updated`）。
+- 動いているサービスは再起動しません。新しい版にするには `systemctl --user restart swarm-console` です（`serve` の自己更新でも入れ替わります）。
 
-   ```sh
-   loginctl enable-linger "$USER"
-   ```
+実際のホームを使わずに動作を確かめるテストは `make install-test` です（偽の `curl`・`systemctl`・`loginctl` と一時ディレクトリの `HOME` を使います）。
 
 状態は `systemctl --user status swarm-console` と `journalctl --user -u swarm-console`（ログは JSON Lines）で見ます。デプロイ構成の全体は [アーキテクチャ：デプロイ構成](docs/architecture/deployment.md#7-デプロイ構成) を参照してください。
 
