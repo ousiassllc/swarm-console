@@ -239,8 +239,8 @@ type Tool struct {
 
 | ワークフロー | トリガー | 内容 |
 |-------------|---------|------|
-| `ci.yml` | push・PR | `go build ./...` → `go vet ./...` → `golangci-lint run` → `go test -race ./...`（tmux を `apt-get install tmux` で入れる）。各コマンドは別ステップ |
-| `release.yml` | タグ `v*` | `GOOS=linux GOARCH=amd64` でビルドし、GitHub Releases に載せる（P-20） |
+| `ci.yml` | push・PR | `go build ./...` → `go vet ./...` → `golangci-lint run` → `go test -race ./...`（tmux はセルフホステッドランナーに入っている前提で、先頭ステップで有無を確かめ、無ければ失敗させる）。各コマンドは別ステップ。`runs-on: [self-hosted, Linux, X64]` |
+| `release.yml` | タグ `v*` | `GOOS=linux GOARCH=amd64` でビルドし、GitHub Releases に載せる（P-20）。`runs-on: [self-hosted, Linux, X64]` |
 
 ## 改訂履歴
 

@@ -90,7 +90,7 @@
 | NFR-TEST-5 | 同一スナップショットに対して `report`（`ja`・`en`）と `dispatch` の組み立てが決定的であることを確かめる（ゴールデンファイル） |
 | NFR-TEST-6 | 各アダプタについて、状態判定・質問カード読み取り・選択キーの列をサンプル画面の表で確かめる |
 | NFR-TEST-7 | 非同期の待ちは固定時間の `sleep` に頼らず、準備完了の通知・上限付きの条件待ち（ポーリング）を使う。不安定なテストはタイムアウトを延ばさずコード側（待ち方・準備完了の通知）を直す |
-| NFR-TEST-8 | CI は `go build`・`go vet`・`golangci-lint`・`go test -race`。tmux が要るテストは CI でも tmux を入れて動かす |
+| NFR-TEST-8 | CI は `go build`・`go vet`・`golangci-lint`・`go test -race`。tmux が要るテストは CI でも実 tmux で動かす。CI は org のセルフホステッドランナー（`[self-hosted, Linux, X64]`）で動き、tmux はランナーに入っている前提（ジョブの先頭で有無を確かめ、無ければ失敗させる。ランナーへは入れない）。Go・golangci-lint は `actions/setup-go`・golangci-lint の公式 action で入れる |
 | NFR-TEST-9 | バグ修正には回帰テストを付ける |
 | NFR-TEST-10 | 受け入れ確認（機能要件 §8）は、自動テストで担保できる範囲を CI で、実クライアント接続（Claude Code・Codex・Cursor・curl）が要る範囲を実機で行い、未確認の部分は報告に明記する |
 | NFR-TEST-11 | タグ `v*` の push で、GitHub Releases に linux/amd64 のバイナリを載せるワークフローを用意する（P-20） |
