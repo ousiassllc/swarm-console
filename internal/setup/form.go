@@ -51,7 +51,9 @@ const manualEntry = "\x00manual"
 func keyMap() *huh.KeyMap {
 	km := huh.NewDefaultKeyMap()
 	km.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))
-	km.Select.Filter.SetEnabled(false)
+	// SetEnabled(false) では足りない。選択肢の読み込み（OptionsFunc）のたびに huh が Filter を有効へ戻し、ヘルプに / filter が出る。
+	// キーの無い割り当てなら Enabled() は常に false。
+	km.Select.Filter = key.NewBinding()
 	return km
 }
 
