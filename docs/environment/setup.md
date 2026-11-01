@@ -10,7 +10,7 @@ swarm-console の開発環境・CI/CD・Lint・Format・Linterly・Git Hooks の
 | MCP | 公式 Go SDK（`github.com/modelcontextprotocol/go-sdk`） |
 | パッケージ管理 | Go modules（`go.mod`・`go.sum`）。TypeScript / JavaScript は使わないため bun は不要 |
 | 外部ランタイム依存 | tmux 3.x（開発機は 3.2a）。テストでも実 tmux を使う |
-| CI/CD | GitHub Actions（`ci.yml`・`release.yml`） |
+| CI/CD | GitHub Actions（`ci.yml`・`release.yml`）。**org のセルフホステッドランナー**（`runs-on: [self-hosted, Linux, X64]`）で動かす |
 | Lint / Format | golangci-lint v2（開発機は 2.12.2）。format も同じ設定で管理（gofmt・goimports） |
 | 行数管理 | Linterly（`.linterly.yml`） |
 | Git Hooks | Lefthook（開発機は 2.1.17） |
@@ -41,7 +41,7 @@ swarm-console/
 | ツール | バージョン | 用途 | 導入 |
 |--------|-----------|------|------|
 | Go | 1.26 以上 | ビルド・テスト | https://go.dev/dl/ |
-| tmux | 3.x | 統合テスト・実運用（`load-buffer -`・`paste-buffer -p` が必要） | `apt install tmux` |
+| tmux | 3.x | 統合テスト・実運用（CI はセルフホステッドランナーの tmux を使う）（`load-buffer -`・`paste-buffer -p` が必要） | `apt install tmux` |
 | golangci-lint | v2 系（2.12 以上） | lint / format | 公式のインストールスクリプト、または `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest` |
 | Lefthook | 2.x | Git Hooks | `go install github.com/evilmartians/lefthook@latest` |
 | Linterly | 最新 | 行数管理 | `go install github.com/ousiassllc/linterly/cmd/linterly@latest` |
@@ -67,6 +67,9 @@ mkdir -p ~/.config/swarm-console
 cat > ~/.config/swarm-console/config.toml <<'EOF'
 listen_addr = "127.0.0.1:48120"
 sessions = ["0"]
+# 作業フォルダにしてはいけないパス（cwd・file を拒否）。書かなければ既定の ["~/dotfiles"]。
+# 書いたら既定と入れ替わるので、~/dotfiles も守るなら一緒に書く（~ は展開して絶対パスで比較）。
+# denied_paths = ["~/dotfiles", "/mnt/nvme/ousiassllc/some-checkout"]
 EOF
 go run ./cmd/swarm-console token add dev --scope ops   # 表示されたトークンを控える（再表示不可）
 go run ./cmd/swarm-console serve --config ~/.config/swarm-console/config.toml
@@ -86,12 +89,16 @@ go run ./cmd/swarm-console serve --config ~/.config/swarm-console/config.toml
 
 ```mermaid
 flowchart LR
-    T["push / pull_request"] --> J["ci.yml: job test (ubuntu-latest)"]
-    J --> S1["checkout"] --> S2["setup-go (go.mod)"] --> S3["apt install tmux"]
+    T["push / pull_request"] --> J["ci.yml: job test (self-hosted, Linux, X64)"]
+    J --> S1["checkout"] --> S2["setup-go (go.mod)"] --> S3["tmux の有無を確認"]
     S3 --> S4["go build ./..."] --> S5["go vet ./..."] --> S6["golangci-lint"] --> S7["linterly check"] --> S8["go test -race ./..."]
     TAG["タグ v*"] --> R["release.yml: build linux/amd64"] --> REL["GitHub Releases に載せる"]
 ```
 
+- 全ジョブを org のセルフホステッドランナーで動かす。`runs-on` は `[self-hosted, Linux, X64]`（macOS のランナーに乗らないよう Linux・X64 まで指定する）。
+- Go と golangci-lint はランナーの既存環境に頼らず、`actions/setup-go`（`go-version-file: go.mod`）と `golangci/golangci-lint-action` で入れる。
+- tmux はランナーに入っている前提。ジョブの先頭ステップ（`Check tmux`）で `command -v tmux` を確かめ、無ければ分かるメッセージを出して失敗させる。**ジョブからもランナーへ sudo で入れない**（導入はランナーの管理者の作業）。
+- ランナー側の不具合（node・PATH など）で落ちたときは、ワークフローで回避せずランナーの管理者に報告する。
 - 1 ジョブ内で、build・vet・lint・linterly・test を別ステップで順に実行する（失敗したステップで止まり、どのコマンドで落ちたか分かる）。
 - ステップ順は lint → test の前に build・vet を置く（コンパイルエラーを先に出す）。
 - `concurrency` で同じ ref の古い実行をキャンセルする。`permissions` は `contents: read`。
@@ -114,14 +121,19 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux
+      - name: Check tmux
+        run: |
+          if ! command -v tmux >/dev/null 2>&1; then
+            echo "::error title=tmux がありません::ランナーの管理者が tmux 3.x を導入してください（ジョブからは入れません）。"
+            exit 1
+          fi
+          tmux -V
       - name: Build
         run: go build ./...
       - name: Vet
@@ -137,7 +149,7 @@ jobs:
 ```
 
 - `push` は `main` のみ、それ以外は PR で検証する（ブランチ push と PR の二重実行を避ける）。
-- tmux のバージョンは ubuntu-latest のパッケージ（3.x）。テストは専用ソケットで起動し、固定時間の待ちに頼らない（NFR-TEST-7）。
+- tmux のバージョンはランナーに入っているもの（3.x を想定）。テストは専用ソケットで起動し、固定時間の待ちに頼らない（NFR-TEST-7）。
 - 実装時に `linterly` を `@latest` から固定バージョンへ上げる（再現性のため）。
 
 ### `.github/workflows/release.yml`（骨子）
@@ -153,7 +165,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

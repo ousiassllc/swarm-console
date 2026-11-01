@@ -12,6 +12,14 @@
 
 どのエージェントも `auth_file` を設定すればそちらを（`~/` 展開して）読む。形式はそのエージェントの上の行と同じ。
 
+## Claude の `0`・空を `expired` とする理由（P-16）
+
+`expiresAt`・`refreshTokenExpiresAt` が **0・null・欠落のものだけ**（有効な値が 1 つも無い）なら `expired`、期限は無し。`0` は「無期限」ではない。
+
+- Claude Code 自身も `expiresAt: 0` を期限切れとして扱う。<https://github.com/anthropics/claude-code/issues/83834>
+- リフレッシュに失敗したあとは、トークンが空・`expiresAt: 0` のログアウト状態になる。<https://github.com/anthropics/claude-code/issues/76561>
+- 長期トークン（`CLAUDE_CODE_OAUTH_TOKEN`）は `.credentials.json` に入らない。そのため `0` が「無期限」を意味することはなく、`claudeAiOauth` ごと無い場合は `unknown`（`expired` にしない）。<https://code.claude.com/docs/en/authentication>
+
 ## この機の実ファイルで確認したこと（値は記録しない）
 
 - `~/.claude/.credentials.json`（権限 600）: `claudeAiOauth` に `accessToken`・`refreshToken`（どちらも空文字列）・`expiresAt`（数値）・`refreshTokenExpiresAt`（数値）ほか。`expiresAt` は **0**、`refreshTokenExpiresAt` は過去（2026-10-14）。トークンが空なのでログアウト状態＝**`expired`**（`unknown` ではない。`expiresAt: 0` は「1970 年に切れた」を意味し、期限不明ではなく失効の値のため）。

@@ -59,7 +59,7 @@ func (p *Policy) CheckCWD(path string) (string, error) {
 
 // CheckFile は send_text の file を検証し、シンボリックリンク解決後の絶対パスを返す。
 //   - 空・相対パス・制御文字を含む → invalid_args
-//   - file_roots の外 → forbidden_path（存在しないファイルも、字面が根の外なら forbidden_path で存在を漏らさない）
+//   - file_roots の外、または denied_paths の一致・配下 → forbidden_path（存在しないファイルも、字面が根の外・拒否の下なら forbidden_path で存在を漏らさない）
 //   - 根の下だが存在しない・一般ファイルでない → file_unreadable
 func (p *Policy) CheckFile(path string) (string, error) {
 	if err := checkPathSyntax("file", path, false); err != nil {
@@ -70,11 +70,17 @@ func (p *Policy) CheckFile(path string) (string, error) {
 		if !underAny(filepath.Clean(path), p.fileRoots) {
 			return "", forbidden("file", "outside_roots")
 		}
+		if underAny(filepath.Clean(path), p.deniedPaths) {
+			return "", forbidden("file", "denied")
+		}
 		return "", apperr.New(apperr.FileUnreadable, "field", "file")
 	}
 	resolved = filepath.Clean(resolved)
 	if !underAny(resolved, p.fileRoots) {
 		return "", forbidden("file", "outside_roots")
+	}
+	if underAny(resolved, p.deniedPaths) {
+		return "", forbidden("file", "denied")
 	}
 	if !isRegular(resolved) {
 		return "", apperr.New(apperr.FileUnreadable, "field", "file")
