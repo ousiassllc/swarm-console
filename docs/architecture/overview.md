@@ -57,6 +57,8 @@ graph TD
 | ログ | `log/slog`（JSON Lines） | 標準。journald で見る |
 | Lint | `golangci-lint` | 元仕様の CI |
 | トークン | 32 バイト乱数（`crypto/rand`）＋ SHA-256 保存 | 高エントロピーなので低速ハッシュは不要 |
+| 設定の対話型 | `github.com/charmbracelet/huh`（Bubble Tea 上のフォーム）。端末判定に `golang.org/x/term` | 項目ごとの入力・選択・検証表示が既製で足りる。自前で Bubble Tea のモデルを書くより実装とテストが小さい（P-36） |
+| `config.toml` の書き戻し | `go-toml/v2` の `unstable.Parser`（値のバイト範囲）で、変えた値だけを置き換える | `Marshal` は全体を書き直してコメント・並び・書式が消える。手で書いた値を壊さないため（P-34） |
 | 配布 | GitHub Releases ＋ 手で入れ替え | 元仕様 |
 
 DB は使わない（ER ドキュメントは永続ファイルのデータモデル）。外部サービスへ依存しない。
@@ -294,6 +296,14 @@ WantedBy=default.target
 | P-29 | `denied_paths` の既定 | **確定：既定 `~/dotfiles`、`config.toml` で変更可**。`denied_paths` を書いたら既定と入れ替わる（足されない）。書かなければ既定。`~` は展開して絶対パスで比較。`cwd`・`file` の両方に効く。オーナーの checkout の一覧は仕様書に無いため、必要なら設定で書く（例は [環境構築](../environment/setup.md#ローカルで動かす)） | **確定** |
 | P-30 | `report_read` の読み取り | 最終報告ファイルは `O_NOFOLLOW` で開く（シンボリックリンクなら `exists: false`）。認証ファイルなどを読み出されないため | 実装時に決めた |
 | P-31 | 仕様書の行数管理 | **確定**：`.linterlyignore` で `docs/**` を Linterly の対象から外す（`api/endpoints.md`・`architecture/er.md` が 300 行を超えるため）。仕様書の分割は別 Issue（#3） | **確定** |
+| P-32 | `setup` のコマンド名と起動 | **`swarm-console setup [--config <path>]`**。ファイルが無ければ新規、あれば読み込んで編集（初回専用にしない）。サブコマンド名は Issue の「仮」を確定 | 実装時に決めた。OK 時に確認 |
+| P-33 | tailnet IP の候補 | `net.InterfaceAddrs` を `100.64.0.0/10`・`fd7a:115c:a1e0::/48` で絞り、ポート `48120` を付けて選択肢にする。`tailscale ip` は実行しない（外部コマンドなし）。0 件なら手入力だけ | 実装時に決めた |
+| P-34 | 書き戻し方式 | 変えた値のバイト範囲だけ置き換える（コメント・並び・空行・書式は保つ）。コメント入りの複数行配列を変えるときだけ、中のコメントが消えることを確認する。全体の再出力（`Marshal`）は採らない | OK 時に確認 |
+| P-35 | `config.toml` がシンボリックリンク | 書かずに中止（rename でリンクが普通のファイルに変わる。リンク先が置き場の外・`~/dotfiles` のことがある。NFR-SEC-14）。手で編集してもらう | 実装時に決めた |
+| P-36 | TUI のライブラリ | `charmbracelet/huh`（Bubble Tea 上）。バージョンは実装時に最新の安定版を `go.mod` に入れる。画面は実 tmux のペインで確かめる | OK 時に確認 |
+| P-37 | `setup` の対象外 | `profiles.toml`・レポートのテンプレート・`setup` が聞かないキー（FR-SET-4）は手書きのまま。`--non-interactive`（質問なしで値を渡す）は作らない（TTY でなければエラー。FR-SET-6） | 実装時に決めた |
+| P-38 | 既存ファイルが壊れているとき | TOML 構文エラー・未知キーは開かず終了（自動で直さない）。値の検証エラー・`listen_addr` 未設定は開いて直させる | 実装時に決めた |
+| P-39 | 新規作成のファイル権限 | 600（「644 以下」を満たす）。既存ファイルの権限は変えない | 実装時に決めた |
 
 ## 改訂履歴
 
@@ -301,3 +311,4 @@ WantedBy=default.target
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | P-16・P-24 を確定、P-22 を omp で確定（Claude Code は一部推定、Codex は未確定）。agent-patterns.md・agent-auth.md を追加。P-25〜P-31 を追加 | 実装時確認事項の反映（Issue #1） |
+| 1.2 | 2026-11-01 | §2 に設定の対話型・書き戻しの選定、P-32〜P-39（`setup`）を追加 | Issue #5 |

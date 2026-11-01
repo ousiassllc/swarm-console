@@ -75,6 +75,15 @@ go run ./cmd/swarm-console token add dev --scope ops   # 表示されたトー�
 go run ./cmd/swarm-console serve --config ~/.config/swarm-console/config.toml
 ```
 
+手書きの代わりに、対話型でも同じ `config.toml` を作れる（[機能要件 §11](../requirements/functional.md#11-対話型の設定fr-set)）。端末（TTY）が要る。手で書いた `config.toml` を開いて直してもよく、触っていない項目は 1 バイトも変わらない。
+
+```sh
+go run ./cmd/swarm-console setup                       # 既定は ~/.config/swarm-console/config.toml
+go run ./cmd/swarm-console setup --config ./my.toml    # 別の場所
+```
+
+端末でない環境（SSH の `-t` なし・CI・パイプ）では終了コード 1 で終わる。その場合は上のように手で書く。保存したら `systemctl --user restart swarm-console` で反映する。
+
 ### 高負荷ホストでの実行
 
 開発機（example-host）は他の作業で高負荷になりやすい（CPU 数に対し load average が大きく上回る状態が続くことがある）。
@@ -328,3 +337,4 @@ pre-push:
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | 「ローカルで動かす」に `setup`（対話型）の使い方を追加 | Issue #5 |
