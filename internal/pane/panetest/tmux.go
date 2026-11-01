@@ -40,6 +40,7 @@ type FakeTmux struct {
 	ops         []Op
 	listCalls   int
 	onOp        func(Op)
+	onCapture   func()
 	onList      func()
 }
 
@@ -88,6 +89,14 @@ func (f *FakeTmux) OnOp(fn func(Op)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.onOp = fn
+}
+
+// OnCapture は capture-pane の呼び出しごとに、画面を返す前に呼ばれるフック（描き直しの遅れを時計に合わせて再現する）。
+// フック内から SetScreen を呼んでよい。
+func (f *FakeTmux) OnCapture(fn func()) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.onCapture = fn
 }
 
 // OnList は list-panes の呼び出しごとに呼ばれるフック（singleflight の確認用に待たせられる）。
@@ -170,6 +179,12 @@ func (f *FakeTmux) ListPanes(_ context.Context, sessions []string) ([]tmux.PaneI
 
 // Capture は設定された画面を返す。lines は無視する（アダプタ側が最後の 80 行に切る）。
 func (f *FakeTmux) Capture(_ context.Context, id string, _ int) (string, error) {
+	f.mu.Lock()
+	hook := f.onCapture
+	f.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if err := f.captureErr[id]; err != nil {

@@ -1,4 +1,4 @@
-# レポートに足す値の集め方（Issue #21〜#25、P-59〜P-66）
+# レポートに足す値の集め方（Issue #21〜#25、P-60〜P-67）
 
 [機能要件：レポート](../requirements/functional-report.md)（FR-REP-10〜18）の「値をどう取るか」を定める。出す形（キー・単位・取れないときの値）は [API 仕様：レポート](../api/endpoints-report.md#55-report) と [API 仕様：サーバーの状態](../api/endpoints-state.md#53-サーバーの状態)。
 
@@ -39,7 +39,7 @@
 | `window.resetsAt` | epoch ミリ秒 | `resets_at`（RFC 3339、`at` と同じオフセット）。無ければ `null` |
 | `status` | `ok`・`exhausted` | そのまま `status` に入れる。ほかの文字列は `unknown` |
 | `generatedAt` | epoch ミリ秒 | トップの `fetched_at` |
-| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-60） |
+| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-61） |
 
 ### 2.2 アカウント名
 
@@ -47,7 +47,7 @@
 
 ### 2.3 並びと欠け
 
-- アカウントは `account` の昇順（辞書順）。前のスクリプトは使用率の降順だったが、スナップショットごとに並びが入れ替わらないよう名前順にした（P-61）。
+- アカウントは `account` の昇順（辞書順）。前のスクリプトは使用率の降順だったが、スナップショットごとに並びが入れ替わらないよう名前順にした（P-62）。
 - Claude は、`omp` が返したアカウントを**全部**出す。現在 5 つ（この機での確認）。ある枠が返ってこないアカウント（この機では 5 時間枠が返らないアカウントがある）は、その枠を `available: false` にして**アカウントを残す**。
 - 一度でも取れたアカウントは、あとの取得が成功して一覧から消えるまで消さない（失敗の間は `stale`）。
 
@@ -59,9 +59,9 @@
 | `swap.total_gb`・`used_gb`・`used_percent` | `/proc/meminfo` の `SwapTotal`・`SwapFree`（KiB）。GB は 1024³ で割って小数 1 位、`used_percent` は整数 | 読めない：`available: false`。`SwapTotal` が 0 なら `total_gb: 0`・`used_gb: 0`・`used_percent: 0`（スワップ無し。取得できずではない） |
 | `disk[].total_gb`・`used_percent` | `disk_mounts` の各マウントを `statfs`。`used_percent` は `df` の `Use%` と同じ（使用 ÷ （使用 ＋ 一般ユーザーが使える空き）、切り上げの整数）。`free_gb` は今のとおり | `statfs` が失敗：そのマウントを残し `available: false` |
 
-- 「SSD 2 台」は `disk_mounts`（既定 `/` と `/mnt/nvme`）の 2 つ。マウントを新しく見つけたり、デバイス名を設定に書いたりしない。台数は `disk_mounts` の要素数に従う（P-62）。
+- 「SSD 2 台」は `disk_mounts`（既定 `/` と `/mnt/nvme`）の 2 つ。マウントを新しく見つけたり、デバイス名を設定に書いたりしない。台数は `disk_mounts` の要素数に従う（P-63）。
 - CPU のサンプルは `poll_interval` ごとにサンプラーだけが更新する。読み取りの呼び出しで取り直したスナップショットは、直近のサンプラーの値を使う（短い間隔の差で値がぶれない。FR-REP-7）。
-- 前のスクリプトのバーは I/O の忙しさ（`iostat` の `%util`）だったが、今回は Issue の言葉どおり「使用量」（容量の使用率）にした（P-62）。I/O の忙しさ・iowait・OOM は今回足さない。
+- 前のスクリプトのバーは I/O の忙しさ（`iostat` の `%util`）だったが、今回は Issue の言葉どおり「使用量」（容量の使用率）にした（P-63）。I/O の忙しさ・iowait・OOM は今回足さない。
 
 ## 4. omp の更新確認（Issue #24）
 
@@ -69,16 +69,16 @@
 |------|------|
 | コマンド | `omp update --check`（引数固定。実行ファイルは §2.1 と同じ。打ち切り 30 秒） |
 | 間隔・設定 | swarm-console の確認と同じ `update_check`・`update_check_interval`（既定 24 時間、下限 1 時間）。`update_check = false` なら実行せず `status: disabled`。`serve` 起動の 90 秒後に 1 回目（FR-UPD-7 の 1 分後の確認と重ねない） |
-| 読み方 | ANSI 制御文字を取り除いた出力から、`Current version: X.Y.Z` → `current`、`New version available: X.Y.Z` → `latest`、`Already up to date` を含む → 最新。この機で `18.14.2`・`Already up to date` を確認した。新しい版があるときの出力は、`omp` の実装の文言（`New version available: …`）による（実機では確認していない。P-63） |
+| 読み方 | ANSI 制御文字を取り除いた出力から、`Current version: X.Y.Z` → `current`、`New version available: X.Y.Z` → `latest`、`Already up to date` を含む → 最新。この機で `18.14.2`・`Already up to date` を確認した。新しい版があるときの出力は、`omp` の実装の文言（`New version available: …`）による（実機では確認していない。P-64） |
 | 結果 | `up_to_date`（`Already up to date`）・`update_available`（`New version available` があり、`latest` が `current` と違う）・`unknown`（上のどちらでもない・実行できない。`reason`：`not_found`・`timeout`・`exec`・`parse`）・`pending`（起動後まだ確認していない）・`disabled` |
 | 版の形 | `X.Y.Z`（数字だけ。`^(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)$`）に合うものだけ出す。合わなければその値は `null`（出力の文面をそのまま返さない。FR-UPD-5 と同じ考え方） |
 | 入れ替えない | `omp update` は実行しない（確認だけ。`--check` 以外の引数を渡さない） |
 
-swarm-console 自身の更新状態は、`host_status.update` と同じ値を `report` の JSON にも載せる（P-64）。追加の通信・設定は無い。
+swarm-console 自身の更新状態は、`host_status.update` と同じ値を `report` の JSON にも載せる（P-65）。追加の通信・設定は無い。
 
 ## 5. ログイン期限（Issue #25）
 
-- 値は `agent_auth_status` と同じ判定（[agent-auth.md](agent-auth.md)。48 時間以内で `expiring_soon`、過ぎていれば `expired`、不明は `unknown`）を、スナップショットを作るときに 1 回読んで入れる。新しい閾値・設定は足さない（P-65）。
+- 値は `agent_auth_status` と同じ判定（[agent-auth.md](agent-auth.md)。48 時間以内で `expiring_soon`、過ぎていれば `expired`、不明は `unknown`）を、スナップショットを作るときに 1 回読んで入れる。新しい閾値・設定は足さない（P-66）。
 - 要対応の一覧には `expired` と `expiring_soon` だけ入れる。`unknown`（`auth_file` 未設定の omp など）は要対応に**入れない**。値としては残し、markdown の見出しに「不明」と出す（FR-REP-16）。
 - 「あと何時間」は、`expires_at` と `Snapshot.At` から描画で計算する（呼び出し時刻を使わない）。
 

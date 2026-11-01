@@ -58,6 +58,11 @@ type updateRuntime struct {
 
 	exitMu sync.Mutex
 	exit   context.CancelFunc // Run が置く。入れ替えのあとの正常終了の要求（SIGTERM と同じ経路）
+
+	// applyMu は確認の goroutine と試運転の確定の goroutine が、入れ替えと deferred・applied を同時に触らないようにする。
+	applyMu  sync.Mutex
+	deferred string // 試運転中に見送った update_available の最新版。確定したらすぐ再試行する（FR-UPD-12）
+	applied  bool   // 入れ替えが済んだ（終了を要求した）。以後は入れ替えない
 }
 
 var _ tools.UpdateSource = (*updateRuntime)(nil)
@@ -112,16 +117,48 @@ func (u *updateRuntime) setExit(cancel context.CancelFunc) {
 func (u *updateRuntime) onResult(ctx context.Context, r updatecheck.Result) {
 	switch r.Status {
 	case updatecheck.UpToDate:
+		u.applyMu.Lock()
+		defer u.applyMu.Unlock()
+		u.deferred = ""
 		u.updater.Reset()
 	case updatecheck.UpdateAvailable:
 		if !u.cfg.UpdateAuto {
 			return
 		}
-		// 失敗・中断は Updater が apply と警告に反映済み（reason だけ。FR-UPD-18）。次の周期まで再試行しない。
-		if err := u.updater.Apply(ctx, r.Latest); err != nil && !isExpected(err) {
-			u.logger.Warn("自己更新を行えませんでした")
-		}
+		u.applyMu.Lock()
+		defer u.applyMu.Unlock()
+		u.applyLocked(ctx, r.Latest)
 	case updatecheck.Unknown, updatecheck.Pending, updatecheck.Disabled:
+	}
+}
+
+// applyLocked は latest へ入れ替える（applyMu を持って呼ぶ）。
+// 失敗・中断は Updater が apply と警告に反映済み（reason だけ。FR-UPD-18）。次の周期まで再試行しない。
+// ただし試運転中に見送った分は latest を覚え、試運転の確定で再試行する（FR-UPD-12）。
+func (u *updateRuntime) applyLocked(ctx context.Context, latest string) {
+	if u.applied {
+		return
+	}
+	u.deferred = ""
+	err := u.updater.Apply(ctx, latest)
+	switch {
+	case err == nil:
+		u.applied = true
+	case errors.Is(err, selfupdate.ErrProbation):
+		u.deferred = latest
+	case !isExpected(err):
+		u.logger.Warn("自己更新を行えませんでした")
+	}
+}
+
+// confirmTrial は試運転の確定を Updater へ伝え、試運転中に見送った入れ替えがあれば次の周期を待たずに再試行する。
+// 確定と見送りの記録は applyMu の下で行うので、確定の直前に見送られた分を取りこぼさない。
+func (u *updateRuntime) confirmTrial(ctx context.Context) {
+	u.applyMu.Lock()
+	defer u.applyMu.Unlock()
+	u.updater.Confirmed()
+	if latest := u.deferred; latest != "" {
+		u.applyLocked(ctx, latest)
 	}
 }
 
@@ -140,7 +177,7 @@ func (u *updateRuntime) start(ctx context.Context, ready <-chan struct{}) (wait 
 	if u.trial != nil {
 		wg.Go(func() {
 			if u.trial.Run(ctx, u.clk, ready) {
-				u.updater.Confirmed()
+				u.confirmTrial(ctx)
 			}
 		})
 	}

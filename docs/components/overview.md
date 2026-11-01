@@ -202,7 +202,7 @@ type Registry interface {
 
 | 操作 | 主な手順 |
 |------|---------|
-| `PickAsk(ref, n, text)` | ロック → カード読み取り → `PickKeys` → 再読み取りで検証（最大 3 回）→ Enter → 閉じ・`working` を待つ |
+| `PickAsk(ref, n, text)` | ロック → カード読み取り → `PickKeys` → キーのあと画面に反映されるまで（最大 1 秒）取り直して検証（合わなければ読めたカーソルから差分を送り直す。最大 3 回）→ Enter → 閉じ・`working` を待つ |
 | `SendText(ref, text)` | ロック → 検証 → `load-buffer -`（標準入力・一意なバッファ名）→ `paste-buffer -p -d` → 1 秒 → Enter → 受理を待つ |
 | `Escape(ref)` | ロック → `send-keys Escape` → 状態遷移を待つ → `notes.Log` |
 | `Start(ref, agent, cwd, title)` | ロック → 検証 → `select-pane -T` → `cd <cwd>` → 起動コマンド → `idle` を待つ |
