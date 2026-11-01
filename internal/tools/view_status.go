@@ -14,9 +14,6 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/render"
 )
 
-// agentNames は起動できるエージェント（FR-SAFE-3）。agent_auth_status・host_status の並びもこの順。
-var agentNames = []string{"omp", "claude", "codex"}
-
 type panesStatusArgs struct {
 	Session *string `json:"session"`
 }
@@ -166,8 +163,8 @@ func (e *env) agentAuthStatus(_ context.Context, _ auth.Client, raw json.RawMess
 		return Result{}, err
 	}
 	now := e.now()
-	entries := make([]authEntryJSON, 0, len(agentNames))
-	for _, name := range agentNames {
+	entries := make([]authEntryJSON, 0, len(pane.Agents))
+	for _, name := range pane.Agents {
 		var authFile string
 		if ov, ok := e.Cfg.Agents[name]; ok && ov.AuthFile != nil {
 			authFile = *ov.AuthFile

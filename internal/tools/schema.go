@@ -1,5 +1,7 @@
 package tools
 
+import "slices"
+
 // 引数の JSON Schema を組み立てる小さな部品。どのツールも additionalProperties:false（未知キー拒否）。
 
 type props map[string]any
@@ -21,7 +23,7 @@ func strProp(desc string) map[string]any {
 }
 
 func enumProp(desc string, values ...string) map[string]any {
-	return map[string]any{"type": "string", "description": desc, "enum": values}
+	return map[string]any{"type": "string", "description": desc, "enum": slices.Clone(values)}
 }
 
 func intProp(desc string, minimum, maximum int) map[string]any {

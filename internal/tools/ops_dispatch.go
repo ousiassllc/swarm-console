@@ -40,7 +40,7 @@ func (e *env) dispatchTool() Tool {
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane", "agent", "task", "profile"}, props{
 			"pane":        strProp("shell または idle のペイン。" + panePropDesc),
-			"agent":       enumProp("エージェント", agentNames...),
+			"agent":       enumProp("エージェント", pane.Agents...),
 			"cwd":         strProp("作業フォルダの絶対パス（shell のとき必須。idle では無視）"),
 			"title":       strProp("タイトル（shell のとき必須。80 字まで、制御文字なし）"),
 			"command":     strProp("1 行目のスラッシュコマンド（改行・制御文字不可）"),

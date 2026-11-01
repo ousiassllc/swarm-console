@@ -7,8 +7,9 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 )
 
-// AuthAgents はログイン期限を読むエージェント。agent_auth_status・report の auth の並びもこの順（FR-REP-16）。
-var AuthAgents = []string{"omp", "claude", "codex"}
+// Agents は起動できる（FR-SAFE-3）・ログイン期限を読む（FR-REP-16）エージェント。並びはここだけに書く。
+// agent_auth_status・report の auth の並びも、pane_start・dispatch の agent の選択肢もこの順。読むだけで、変更しない。
+var Agents = []string{"omp", "claude", "codex"}
 
 // UpdateInfo は swarm-console 自身の新しい版の確認の結果と自己更新の状況（host_status.update・report の update の元。
 // FR-UPD-9・FR-REP-15）。文字列は serve が決めた固定の語彙で、Latest・Apply.From・Apply.Version だけは GitHub 由来の版なので、
@@ -39,10 +40,10 @@ type Values interface {
 	UpdateInfo() UpdateInfo
 }
 
-// authStatuses は AuthAgents のログイン期限を now で判定する（スナップショットを作るときに 1 回読む。FR-REP-16）。
+// authStatuses は Agents のログイン期限を now で判定する（スナップショットを作るときに 1 回読む。FR-REP-16）。
 func (d Deps) authStatuses(now time.Time) []host.Auth {
-	out := make([]host.Auth, 0, len(AuthAgents))
-	for _, name := range AuthAgents {
+	out := make([]host.Auth, 0, len(Agents))
+	for _, name := range Agents {
 		var authFile string
 		if ov, ok := d.Cfg.Agents[name]; ok && ov.AuthFile != nil {
 			authFile = *ov.AuthFile
