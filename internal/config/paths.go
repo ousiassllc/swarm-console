@@ -53,7 +53,7 @@ func expandList(key string, in []string, home string, resolve bool) ([]string, e
 }
 
 // buildPaths は allowed_roots・denied_paths・file_roots・disk_mounts・report_dir を既定値つきで決める。
-// denied_paths には、設定の一覧にかかわらず ~/dotfiles を必ず含める（NFR-SEC-8）。
+// denied_paths の既定は ["~/dotfiles"]。config.toml に書いたら既定と入れ替える（足さない。P-29）。
 func buildPaths(r *rawConfig, c *Config, home string) error {
 	var err error
 	allowed := r.AllowedRoots
@@ -73,7 +73,10 @@ func buildPaths(r *rawConfig, c *Config, home string) error {
 	if c.FileRoots, err = expandList("file_roots", files, home, true); err != nil {
 		return err
 	}
-	denied := append([]string{"~/dotfiles"}, r.DeniedPaths...)
+	denied := r.DeniedPaths
+	if denied == nil {
+		denied = []string{"~/dotfiles"}
+	}
 	if c.DeniedPaths, err = expandList("denied_paths", denied, home, true); err != nil {
 		return err
 	}

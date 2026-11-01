@@ -125,7 +125,7 @@ exit_command = "/exit"
 		{"StalledAfter", cfg.StalledAfter, time.Hour},
 		{"TitlePrefix", cfg.TitlePrefix, ""},
 		{"AllowedRoots", cfg.AllowedRoots, []string{resolvePath(root), filepath.Join(home, "work")}},
-		{"DeniedPaths", cfg.DeniedPaths, []string{filepath.Join(home, "dotfiles"), resolvePath(root) + "/co"}},
+		{"DeniedPaths", cfg.DeniedPaths, []string{resolvePath(root) + "/co", filepath.Join(home, "dotfiles")}},
 		{"FileRoots", cfg.FileRoots, []string{"/tmp"}},
 		{"DiskMounts", cfg.DiskMounts, []string{"/var"}},
 		{"ReportDir", cfg.ReportDir, filepath.Join(home, "reports")},
@@ -239,12 +239,13 @@ func unwrapAll(err error) error {
 	}
 }
 
-func TestDeniedPathsAlwaysIncludeDotfiles(t *testing.T) {
-	cfg, dir, err := writeConfig(t, minimal+"denied_paths = [\"/srv/checkout\"]\n")
+// denied_paths を書いたら既定（~/dotfiles）と入れ替わり、足されない（P-29）。
+func TestDeniedPathsReplaceDefault(t *testing.T) {
+	cfg, dir, err := writeConfig(t, minimal+"denied_paths = [\"/srv/checkout\", \"~/secret/../private\"]\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{filepath.Join(dir, "home", "dotfiles"), "/srv/checkout"}
+	want := []string{"/srv/checkout", filepath.Join(dir, "home", "private")}
 	if !reflect.DeepEqual(cfg.DeniedPaths, want) {
 		t.Fatalf("denied_paths = %v, want %v", cfg.DeniedPaths, want)
 	}
