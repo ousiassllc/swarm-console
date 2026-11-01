@@ -123,7 +123,7 @@ stateDiagram-v2
 | FR-AD-2 | 判定に使う文字列・正規表現は `config.toml` の `[agents.<名前>]` で上書きできる。エージェントの画面が変わったら設定だけで直せる |
 | FR-AD-3 | どのアダプタにも当てはまらないペインは `agent: null`・`state: unknown` として扱い、`pane_tail`・メモ系だけ使える。それ以外の操作は `unsupported_agent` で拒否 |
 | FR-AD-4 | 新しいエージェントはアダプタを 1 つ足せば対応できる（コード変更はアダプタ登録のみ） |
-| FR-AD-5 | エージェントの特定は、まずペインのプロセス木（`/proc`）で行い、取れなければ画面の特徴で補う（P-06） |
+| FR-AD-5 | エージェントの特定は、まずペインのプロセス木（`/proc`）で行い、取れなければ画面の特徴で補う（P-06）。ただし前面コマンドが shell のペインは、画面に過去の表示が残っていてもエージェントなし（`shell`）とする（木が読めないときも同じ。Issue #35） |
 | FR-AD-6 | `stalled` 判定の画面ハッシュは、スピナー・経過時間など毎回変わる部分を除いた本文で計算する（P-05） |
 
 具体的な正規表現の値は [agent-patterns.md](../architecture/agent-patterns.md)（P-22。実画面サンプルは `testdata/screens/`）。
@@ -156,7 +156,7 @@ stateDiagram-v2
 | FR-O2 | `send_text` | `text`（上限 8000 字）または `file`（サーバー上のパス）を、bracketed paste で貼り付け、1 秒待って Enter。入力欄が空になって `working` になったかを返す。制御キーは送れない | `idle`・`working`・`stalled`（エージェントが動いているとき）| `invalid_state`（`shell`・`asking`・`unknown`）・`forbidden_control_char`・`text_too_long`・`forbidden_path`・`file_unreadable` |
 | FR-O3 | `send_escape` | `confirm: true` が必須。作業中のエージェントを中断する。使ったことをメモの履歴（`log`）に自動で残す。**オーナーの OK があるときだけ使う**（ツールの説明にも書く）。クライアントごとの許可設定は持たない | `working`・`stalled`・`asking`・`idle` | `confirm_required`・`invalid_state`（`shell`・`unknown`）|
 | FR-O4 | `pane_start` | `shell` のペインで `cwd` に cd し、エージェントを起動、タイトルを `agent: <title>` にして、`idle` になったかを返す | `shell` | `invalid_state`・`forbidden_path`・`invalid_args`（`agent` が未設定のもの）|
-| FR-O5 | `pane_close` | 終了コマンド → `cd ~` → `clear` → タイトル消し、を 1 つずつ「文字列 → 1 秒 → Enter → 1 秒」で送る。終了コマンドのあとは、ペインの状態が `shell` に戻るまで、スナップショットを 500 ms ごとに取り直して待ち（上限は `accept_timeout`、既定 10 秒。P-70）、戻ってから `cd ~` 以降を送る。`shell` に戻ったかは `panes_status` と同じ状態の判定（前面コマンド・プロセス木 `/proc`、取れなければ画面で補う。FR-AD-5）で見るので、`/proc` が読めることに依る。上限までに戻らなければ `cd ~` 以降を送らずに、エラー `exit_timeout` だけを返す（`ok`・`steps`・`note_archived` などの結果の項目は返らない）。メモも最終報告も移さない。終了コマンドはすでに送ってあるので、呼び出し側は `pane_close` を呼び直してよい（そのときペインが `shell` なら終了コマンドは飛ばす）。終了が遅れた画面へ `cd ~` が入力されるのを防ぐ。最後に画面が `~` のプロンプトだけになったかを確かめて返す。確かめられたら、そのペインのメモを履歴に移す | `idle`・`shell` | `invalid_state`（`working`・`stalled`・`asking`・`unknown`。P-19）・`exit_timeout`（終了コマンドのあと上限までに `shell` へ戻らない）|
+| FR-O5 | `pane_close` | 終了コマンド → `cd ~` → `clear` → タイトル消し、を 1 つずつ「文字列 → 1 秒 → Enter → 1 秒」で送る。終了コマンドのあとは、ペインの状態が `shell` に戻るまで、スナップショットを 500 ms ごとに取り直して待ち（上限は `accept_timeout`、既定 10 秒。P-70）、戻ってから `cd ~` 以降を送る。`shell` に戻ったかは `panes_status` と同じ状態の判定（前面コマンド・プロセス木 `/proc`、取れなければ画面で補う。FR-AD-5）で見る。`/proc` が読めないときは、前面コマンドが shell なら戻ったとみなし、終了後も画面に残ったエージェントの表示では判定しない（正常に終了したのに `exit_timeout` にならない）。上限までに戻らなければ `cd ~` 以降を送らずに、エラー `exit_timeout` だけを返す（`ok`・`steps`・`note_archived` などの結果の項目は返らない）。メモも最終報告も移さない。終了コマンドはすでに送ってあるので、呼び出し側は `pane_close` を呼び直してよい（そのときペインが `shell` なら終了コマンドは飛ばす）。終了が遅れた画面へ `cd ~` が入力されるのを防ぐ。最後に画面が `~` のプロンプトだけになったかを確かめて返す。確かめられたら、そのペインのメモを履歴に移す | `idle`・`shell` | `invalid_state`（`working`・`stalled`・`asking`・`unknown`。P-19）・`exit_timeout`（終了コマンドのあと上限までに `shell` へ戻らない）|
 | FR-O6 | `dispatch` | 指示を中身と条件に分けて受け取り、決まった形の指示文に組み立てて送る（§7）。送った指示文の全文を返す | `shell`（→ `pane_start` してから）・`idle` | `invalid_state`（`working`・`asking` ほか）|
 | FR-O7 | `note_set` | 渡した項目だけ書き換える。`null` でその項目を消す | — | `secret_detected`・`invalid_args` |
 | FR-O8 | `note_log` | 出来事を時刻つきで 1 行足す。直近 50 行を残す | — | `secret_detected`・`invalid_args` |
@@ -188,3 +188,4 @@ stateDiagram-v2
 | 1.11 | 2026-11-02 | FR-UPD-9：`report` に swarm-console 自身の更新状態を載せる（markdown は見出しの「更新」の 1 行、JSON は `update`）。`report` に載せないとした記述を改め、スナップショットの値だけを使う描画で AC-1・NFR-PERF-3 を保つ。FR-REP-15・16：見出しの「更新」の行・`pane` 指定でもログインの要対応を入れることを明記。§5.4 に英語の「あと N 時間」（`in 5 min`・`in 10 h 5 min`・`in 2 d 3 h`）を追加 | Issue #21〜#25（実装時の確認） |
 | 1.12 | 2026-11-02 | FR-O5：終了コマンドのあと `shell` に戻るまで待ってから `cd ~` 以降を送る。上限（`accept_timeout`）までに戻らなければ `cd ~` 以降を送らず `exit_timeout` を返す（メモは移さない）。FR-O-C2 の「`ok: false`」の例外 | Issue #30 |
 | 1.13 | 2026-11-02 | FR-O5：`exit_timeout` はエラーだけを返す（結果の項目は返らない）、終了コマンドは送ってあり `pane_close` を呼び直してよい、`shell` に戻ったかの判定は `panes_status` と同じで `/proc` に依ると明記。状態遷移図に `exit_timeout` の経路（`idle` のまま）を追加 | Issue #30 |
+| 1.14 | 2026-11-02 | FR-O5・FR-AD-5：`/proc` が読めないときは、前面コマンドが shell なら `shell` とみなす（終了後も画面にエージェントの表示が残る `pane_close` が `exit_timeout` にならない）。1.13 の「`/proc` が読めることに依る」を改めた | Issue #35 |

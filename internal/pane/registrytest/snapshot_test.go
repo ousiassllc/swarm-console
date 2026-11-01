@@ -73,7 +73,10 @@ func TestIdentifyProcessBeforeScreen(t *testing.T) {
 	env.Tmux.SetScreen("%1", panetest.ScreenIdle("omp"))
 	// プロセス木が読めて前面がシェル・agent なし → 画面に過去の omp が残っていても shell。
 	p3 := env.Pane("%2", 102, 20, 0, panetest.ScreenIdle("omp"), nil)
-	env.Tmux.SetPanes(p1, p2, p3)
+	// プロセス木が読めなくて前面がシェル → 画面に過去の omp が残っていても shell（Issue #35）。
+	p4 := tmux.PaneInfo{ID: "%3", Session: "0", PaneIndex: 3, Left: 70, PID: 998, CurrentCmd: "bash"}
+	env.Tmux.SetScreen("%3", panetest.ScreenIdle("omp"))
+	env.Tmux.SetPanes(p1, p2, p3, p4)
 	snap := mustRefresh(t, newTestRegistry(t, env))
 	if a := byID(t, snap, "%0").Agent; a != "claude" {
 		t.Errorf("プロセス優先: %q", a)
@@ -83,6 +86,9 @@ func TestIdentifyProcessBeforeScreen(t *testing.T) {
 	}
 	if p := byID(t, snap, "%2"); p.Agent != "" || p.State != agent.StateShell {
 		t.Errorf("シェルは画面の残りで誤判定しない: %+v", p)
+	}
+	if p := byID(t, snap, "%3"); p.Agent != "" || p.State != agent.StateShell {
+		t.Errorf("/proc が読めなくても前面がシェルなら shell: %+v", p)
 	}
 }
 

@@ -60,6 +60,13 @@ func (h *FakeHost) Status(context.Context, []string) (host.Status, error) {
 	return host.Status{Load: [3]float64{h.Load, 0, 0}, CPUs: 4}, nil
 }
 
+// ClearTree は pid のプロセス木を消す（以後 ProcTree はエラーを返す。/proc が読めない状態）。
+func (h *FakeHost) ClearTree(pid int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.trees, pid)
+}
+
 // ProcTree は設定された木。
 func (h *FakeHost) ProcTree(pid int) ([]host.Proc, error) {
 	h.mu.Lock()
