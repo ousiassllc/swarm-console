@@ -35,7 +35,8 @@ swarm-console/
 ├── .linterly.yml                   行数管理設定
 ├── .linterlyignore                 行数管理の除外（自動生成コードが出たときだけ書く。今は何も除外しない。P-31）
 ├── lefthook.yml                    Git Hooks
-├── Makefile                        タスクランナー
+├── Makefile                        タスクランナー（`make install` で運用ホストに導入）
+├── scripts/                        install.sh（`make install`）とそのテスト install_test.sh
 ├── go.mod / go.sum
 └── docs/environment/               このドキュメント（setup.md・setup-ci.md・setup-quality.md）
 ```
@@ -90,6 +91,19 @@ go run ./cmd/swarm-console setup --config ./my.toml    # 別の場所
 
 端末でない環境（SSH の `-t` なし・CI・パイプ）では終了コード 1 で終わる。その場合は上のように手で書く。保存したら `systemctl --user restart swarm-console` で反映する。
 
+### 運用ホストに入れる（`make install`）
+
+開発ではなく、運用ホストへ最初に導入するときの 1 コマンド（要件は [機能要件 §13](../requirements/functional-install.md#13-インストールfr-ins)）。リポジトリの直下で打つ。GitHub Releases の最新リリースを取り、`SHA256SUMS` で照合してから `~/bin/swarm-console/swarm-console` に置き、`deploy/swarm-console.service` を `~/.config/systemd/user/` に置いて `enable`、リンガリングを有効にする。手元ビルドは使わない。
+
+```sh
+make install
+```
+
+- `~/.config/swarm-console/config.toml` があれば起動して `active` まで確かめる。無ければ起動せず、`setup` → `token add` → `make install` のやり直しの手順を表示する（設定は作らない）。
+- 何回流しても同じ結果になる。同じ版が入っていれば何も変えず、入っている版が最新以上なら置き換えない。動いているサービスは再起動しない。
+- ハッシュが合わなければ、何も置かずに失敗する。
+- 実際のホームに触れずに試すには、`HOME` を一時ディレクトリにして実行する（`systemctl --user` は実際のユーザーの systemd に届くので、試すときは偽の `systemctl`・`loginctl` を PATH の先頭に置く。`scripts/install_test.sh` がその形でテストしている）。
+
 ### 高負荷ホストでの実行
 
 開発機（example-host）は他の作業で高負荷になりやすい（CPU 数に対し load average が大きく上回る状態が続くことがある）。
@@ -109,3 +123,4 @@ go run ./cmd/swarm-console setup --config ./my.toml    # 別の場所
 | 1.4 | 2026-11-01 | 成果物名を `swarm-console_<タグ>_linux_amd64`（版・OS・arch 入り）と `SHA256SUMS` の書式に変更、デプロイの記述を自己更新（Issue #7）に合わせて更新 | Issue #8（Issue #7 の自己更新で確定） |
 | 1.5 | 2026-11-01 | CI に `plan-release_test.sh` のステップ、Makefile に `plan-test` を追加（NFR-TEST-15 を CI で動かす） | Issue #8 の実装 |
 | 1.6 | 2026-11-01 | 300 行超過ファイルを分割（§CI/CD を setup-ci.md、Lint 以降を setup-quality.md へ移動。`.linterlyignore` の `docs/**` 除外を廃止（P-31）、ほかの内容は変更なし） | Issue #3 |
+| 1.7 | 2026-11-01 | 「運用ホストに入れる（`make install`）」を追加、ディレクトリ構造に `scripts/`、Makefile に `install`・`install-test` を追加 | Issue #18 |

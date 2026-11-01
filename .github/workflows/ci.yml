@@ -35,5 +35,7 @@ jobs:
         run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check
       - name: Release plan test
         run: bash .github/scripts/plan-release_test.sh
+      - name: Install script test
+        run: bash scripts/install_test.sh
       - name: Test
         run: go test -race ./...

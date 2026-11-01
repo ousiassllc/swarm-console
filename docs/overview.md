@@ -96,6 +96,7 @@ graph TD
 | 機能要件：レポート・質問カード・指示 | `docs/requirements/functional-report.md` | レポート、質問カードの操作、指示文の組み立て、受け入れ確認 |
 | 機能要件：メモ・安全・設定 | `docs/requirements/functional-note.md` | メモ、安全のための決まり、対話型の設定（`setup`） |
 | 機能要件：新しい版の確認と自己更新 | `docs/requirements/functional-update.md` | 新しい版の確認（`version --check`）と自己更新 |
+| 機能要件：インストール | `docs/requirements/functional-install.md` | `make install`（最新リリースの取得・照合・配置・systemd 常駐。何回流しても同じ結果） |
 | 非機能要件 | `docs/requirements/non-functional.md` | 性能目標、セキュリティ（tailnet 限定・認証・拒否規則）、可用性、運用、テスト・CI 要件 |
 | アーキテクチャ設計 | `docs/architecture/overview.md` | 全体構成、技術選定、レイヤー構造、スナップショット方式、通信フロー、認証と窓口 |
 | アーキテクチャ：デプロイ構成・設定ファイル | `docs/architecture/deployment.md` | デプロイ構成、設定ファイルの全体像 |
@@ -151,3 +152,4 @@ graph TD
 | 1.1 | 2026-10-31 | ドキュメントマップに環境構築を追加 | 環境構築ドキュメントの作成に伴い |
 | 1.2 | 2026-11-01 | 運用者の役割を自己更新に合わせて更新 | Issue #7（自己更新で確定） |
 | 1.3 | 2026-11-01 | 300 行超過ファイルを分割し、ドキュメントマップを新しいファイルに合わせて更新。内容の変更なし | Issue #3 |
+| 1.4 | 2026-11-01 | ドキュメントマップに機能要件：インストール（`make install`）を追加 | Issue #18 |
