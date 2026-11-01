@@ -134,3 +134,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.1 | 2026-11-01 | `host_status` に `update`（新しい版の確認結果）を追加 | Issue #7 |
 | 1.2 | 2026-11-01 | `host_status.update` に自己更新の状況 `apply`（`off`・`idle`・`probation`・`failed`・`blocked`）を追加 | Issue #7（自己更新で確定） |
 | 1.3 | 2026-11-01 | 300 行超過ファイルを分割（§5 ツール以降を endpoints-pane.md・endpoints-state.md・endpoints-report.md へ移動）。内容の変更なし | Issue #3 |
+| 1.4 | 2026-11-01 | `pane_close` の「`~` のプロンプトだけ」に枠付き複数行プロンプトを含むと明記（実装の取りこぼしを修正。判定の意味は変えない） | Issue #19 |
