@@ -141,17 +141,27 @@ func (o *Operator) promptOnly(lines []string) bool {
 
 // framedPrompt は非空行（前後の空白は除去済み）が、1 つの枠付きプロンプトか。
 // 先頭行が上枠（╭┌╔┏）、末尾行が下枠（╰└╚┗）、間の行が縦線（│├┃║）で始まり、全体のどこかに ~ がある。
+// 右端まで閉じた枠（╮┐╗┓ や ╯┘╝┛ で終わる行）は、別のアプリの箱であってプロンプトではない。
 func framedPrompt(nonBlank []string) bool {
 	n := len(nonBlank)
 	if n > maxPromptLines || !startsWithAny(nonBlank[0], "╭┌╔┏") || !startsWithAny(nonBlank[n-1], "╰└╚┗") {
 		return false
 	}
+	if endsWithAny(nonBlank[0], "╮┐╗┓") || endsWithAny(nonBlank[n-1], "╯┘╝┛") {
+		return false
+	}
 	for _, l := range nonBlank[1 : n-1] {
-		if !startsWithAny(l, "│├┃║") {
+		if !startsWithAny(l, "│├┃║") || utf8.RuneCountInString(l) > 1 && endsWithAny(l, "│┃║") {
 			return false
 		}
 	}
 	return strings.Contains(strings.Join(nonBlank, "\n"), "~")
+}
+
+// endsWithAny は s が set のどれかの文字で終わるか。
+func endsWithAny(s, set string) bool {
+	r, _ := utf8.DecodeLastRuneInString(s)
+	return r != utf8.RuneError && strings.ContainsRune(set, r)
 }
 
 // startsWithAny は s が set のどれかの文字で始まるか。
