@@ -17,3 +17,7 @@ var ErrBlocked = errors.New("戻した版以下のため入れ替えません")
 
 // ErrInvalidVersion は最新版が vX.Y.Z の形でないことを表す（呼び出し側の誤り。通信も書き込みもしない）。
 var ErrInvalidVersion = errors.New("版の形が不正です")
+
+// ErrProbation は試運転中（apply = probation）で、新しい入れ替えを始めないことを表す（FR-UPD-12）。
+// 試運転のマーカーと .old を守るためで、apply の状況は変えない（failed にしない）。次の周期に再試行する。
+var ErrProbation = errors.New("試運転中のため入れ替えません")
