@@ -22,8 +22,8 @@ import (
 var screens embed.FS
 
 // closingAgent は終了コマンドでシェルに戻り、clear で画面が空になる擬似エージェント。
-// stuck なら /exit しても終了しない（画面が片付かない）。
-func (f *fixture) closingAgent(stuck bool) (times *[]time.Time) {
+// 終了しない・遅れる場合は lateExitingAgent。
+func (f *fixture) closingAgent() (times *[]time.Time) {
 	var last string
 	var stamps []time.Time
 	f.env.Tmux.OnOp(func(o panetest.Op) {
@@ -31,7 +31,7 @@ func (f *fixture) closingAgent(stuck bool) (times *[]time.Time) {
 		case o.Kind == "literal":
 			last = o.Text
 			stamps = append(stamps, f.env.Clock.Now())
-		case o.Kind == "keys" && o.Keys[0] == "Enter" && !stuck:
+		case o.Kind == "keys" && o.Keys[0] == "Enter":
 			switch last {
 			case "/exit":
 				f.becomeShell("終了しました\n" + panetest.ScreenShell())
@@ -50,7 +50,7 @@ func TestCloseIdleOK(t *testing.T) {
 	ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
 	f.env.Notes.SetSummary("%0", notes.Summary{From: "agent-b"})
 	f.env.FS.Put("/reports/T1.md", "最終報告")
-	times := f.closingAgent(false)
+	times := f.closingAgent()
 	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ func TestCloseIdleOK(t *testing.T) {
 func TestCloseShellSkipsExit(t *testing.T) {
 	f := newFixture(t)
 	ref := f.single(panetest.ScreenShell(), nil)
-	f.closingAgent(false)
+	f.closingAgent()
 	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
 	if err != nil || !res.OK {
 		t.Fatalf("res=%+v err=%v", res, err)
@@ -99,27 +99,6 @@ func TestCloseShellSkipsExit(t *testing.T) {
 	}
 	if res.NoteArchived {
 		t.Fatal("メモが無ければ note_archived=false")
-	}
-}
-
-func TestCloseNotConfirmedKeepsNote(t *testing.T) {
-	f := newFixture(t)
-	ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
-	f.env.Notes.SetSummary("%0", notes.Summary{From: "agent-b"})
-	f.env.FS.Put("/reports/T1.md", "最終報告")
-	f.closingAgent(true) // 終了しない
-	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.OK || res.NoteArchived || res.State != agent.StateIdle {
-		t.Fatalf("res = %+v", res)
-	}
-	if len(f.env.Notes.Archives()) != 0 {
-		t.Fatalf("確認できないのにメモを移した: %v", f.env.Notes.Archives())
-	}
-	if !f.env.FS.Has("/reports/T1.md") {
-		t.Fatal("確認できないのに最終報告を移した")
 	}
 }
 

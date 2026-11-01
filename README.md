@@ -144,7 +144,7 @@ curl --socks5-hostname localhost:<port> -sS "http://<tailnet-ip>:48120/ops" \
 ## 開発者向け
 
 - 必要なツールと初回セットアップ（Go 1.26 以上・tmux・golangci-lint・Lefthook・Linterly・make）は [環境構築](docs/environment/setup.md) を参照してください
-- ビルドとチェックは `make` で行います。`make check` は CI（`.github/workflows/ci.yml`）と同じ順序・同じコマンドで、`build`・`vet`・`lint`・`linterly`・`plan-test`・`test`（`go test -race ./...`）を順に実行します。詳細は [環境構築：Lint・Format・Linterly・Git Hooks・Makefile](docs/environment/setup-quality.md#タスクランナーmakefile) を参照してください
+- ビルドとチェックは `make` で行います。`make check` は CI（`.github/workflows/ci.yml`）と同じ順序・同じコマンドで、`build`・`vet`・`lint`・`linterly`・`plan-test`・`test`（`go test -race ./...`）を順に実行します。lint のキャッシュは worktree ごと（`.cache/golangci-lint`）に分かれ、隣の worktree のファイルは混ざりません。`golangci-lint` を直接打つときは `GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint"` を付けてください。詳細は [環境構築：Lint・Format・Linterly・Git Hooks・Makefile](docs/environment/setup-quality.md#タスクランナーmakefile) を参照してください
 - Git Hooks は `lefthook install` で有効にします（pre-commit と pre-push。`--no-verify` は使いません）
 - テストは実際の tmux を使います。専用ソケットで動かすので、動いている tmux には触れません
 - CI は GitHub Actions です。`main` の CI が成功すると、`release.yml` が次の版（パッチ +1）のタグを付け、`swarm-console_<タグ>_linux_amd64` と `SHA256SUMS` を GitHub Releases に載せます。マイナー・メジャーを上げるときは手で `vX.Y.Z` のタグを打ちます。詳細は [環境構築：CI/CD](docs/environment/setup-ci.md#cicd) を参照してください

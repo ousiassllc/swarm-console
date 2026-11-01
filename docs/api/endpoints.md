@@ -111,6 +111,7 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | `file_unreadable` | `file` が読めない・UTF-8 でない | `send_text` |
 | `secret_detected` | 秘密に見える文字列（`details.field` に項目名だけ） | `note_set`・`note_log`・`dispatch` |
 | `busy_timeout` | 同じペインの前の操作が `lock_timeout` 内に終わらない | 操作系全部 |
+| `exit_timeout` | `pane_close` の終了コマンドを送ったあと、`accept_timeout` 内にペインが `shell` へ戻らない（`details.state` は最後に見た状態。`cd ~` 以降は送っていない） | `pane_close` |
 | `tmux_error` | tmux の呼び出しに失敗 | 全部 |
 | `internal` | 想定外のエラー | 全部 |
 
@@ -137,3 +138,5 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.4 | 2026-11-01 | `pane_close` の「`~` のプロンプトだけ」に枠付き複数行プロンプトを含むと明記（実装の取りこぼしを修正。判定の意味は変えない） | Issue #19 |
 | 1.5 | 2026-11-01 | `report` の JSON に `host`（CPU・スワップ・ディスクの使用率）・`usage`・`omp`・`update`・`auth`、`kind` の `auth_expired`・`auth_expiring` を追加（`attention[]` のキー・型は変えない）。`host_status` に同じ値を追加 | Issue #21〜#25 |
 | 1.6 | 2026-11-02 | `report` の `pane` 指定の JSON でも、ログインの要対応・`usage`・`omp`・`update`・`auth`・`host` は絞らず常に入れると明記（ペインの項目だけ絞る）。例の `used` を JSON の数値表記（`48`）にそろえた | Issue #21〜#25（実装時の確認） |
+| 1.7 | 2026-11-02 | `pane_close` が終了コマンドのあと `shell` に戻るまで待つと明記し、エラーコード `exit_timeout` を追加（戻らなければ `cd ~` 以降は送らない） | Issue #30 |
+| 1.8 | 2026-11-02 | `pane_close` の `exit_timeout` はエラーだけを返す（`ok`・`steps`・`note_archived` は返らない）、終了コマンドは送ってあり呼び直してよい、`shell` に戻ったかの判定は `panes_status` と同じで `/proc` に依ると明記 | Issue #30 |
