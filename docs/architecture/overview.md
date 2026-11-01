@@ -57,7 +57,7 @@ graph TD
 | ログ | `log/slog`（JSON Lines） | 標準。journald で見る |
 | Lint | `golangci-lint` | 元仕様の CI |
 | トークン | 32 バイト乱数（`crypto/rand`）＋ SHA-256 保存 | 高エントロピーなので低速ハッシュは不要 |
-| 配布 | GitHub Releases ＋ 手で入れ替え | 元仕様 |
+| 配布 | GitHub Releases（main の CI 成功ごとに自動）＋ `serve` の自己更新（Issue #7）。`update_auto = false` のときは手で入れ替え | 元仕様。更新の方式は Issue #7 で自己更新に確定 |
 
 DB は使わない（ER ドキュメントは永続ファイルのデータモデル）。外部サービスへ依存しない。
 
@@ -203,7 +203,7 @@ flowchart TD
 | 項目 | 内容 |
 |------|------|
 | 実行場所 | example-host（tmux サーバーと同じホスト、同じユーザー） |
-| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から手で入れ替え。Releases への掲載は main の CI 成功ごとに自動） |
+| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から。Releases への掲載は main の CI 成功ごとに自動。入れ替えは `serve` が自分で行う（自己更新。Issue #7）。`update_auto = false` のときは手で入れ替え） |
 | 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`templates/`（任意） |
 | データ | `~/.local/share/swarm-console/notes.json`（600） |
 | 最終報告 | `/tmp/swarm-console/reports/<位置>.md`（エージェントが書く）、`archive/`（サーバーが移す） |
@@ -308,3 +308,4 @@ WantedBy=default.target
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | P-16・P-24 を確定、P-22 を omp で確定（Claude Code は一部推定、Codex は未確定）。agent-patterns.md・agent-auth.md を追加。P-25〜P-31 を追加 | 実装時確認事項の反映（Issue #1） |
 | 1.2 | 2026-11-01 | P-20 を更新、P-48〜P-53（自動タグ付きリリース）を追加 | Issue #8 |
+| 1.3 | 2026-11-01 | 配布・デプロイの記述を自己更新（Issue #7）に合わせて更新。リリースの成果物名を `swarm-console_vX.Y.Z_linux_amd64` に変更（環境構築 CI/CD） | Issue #8（Issue #7 の自己更新で確定） |

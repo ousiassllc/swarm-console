@@ -164,7 +164,7 @@ jobs:
 | タグの付け方 | `GITHUB_TOKEN` で push したタグは別のワークフローを起動しない。そのため、別ワークフローに渡さず、`release.yml` の中で `gh release create <タグ> --target <コミット>` を使い、リリースと同時にタグも作る（手で打ったタグは既にあるのでそのまま使う）。ビルドが落ちればタグも作られない（欠番が出ない） |
 | 同時に動くとき | `concurrency: group: release`・`cancel-in-progress: false`。次の版は直列になった実行の中で、そのときの既存タグから決める。`gh release create` は既存のリリースを上書きしない（ぶつかれば失敗する）。GitHub の仕様で、実行中 1 つ・待ち 1 つまでで、待ちが増えると古い待ちはキャンセルされる。古い main のコミットは対象外なので問題ないが、手で打ったタグの実行がキャンセルされたら、その実行を再実行する（P-51） |
 | 変更履歴 | `gh release create --generate-notes`（GitHub が前のタグからのマージ済み PR・コミットを一覧にする）。`CHANGELOG.md` は作らない（P-52） |
-| 成果物 | 今と同じ：`swarm-console`（linux/amd64、`-trimpath`、`-X main.version=<タグ。v 付き>`）と `SHA256SUMS`。アセット名・版の形は Issue #7 と揃える |
+| 成果物 | 2 つだけ：バイナリ `swarm-console_<タグ>_linux_amd64`（例 `swarm-console_v0.1.5_linux_amd64`。linux/amd64、`-trimpath`、`-X main.version=<タグ。v 付き>`。版・OS・arch を名前に含める）と `SHA256SUMS`（`sha256sum` の出力どおり。1 行 `<64 桁の小文字 16 進>␣␣swarm-console_<タグ>_linux_amd64`）。Issue #7 の自己更新（機能要件 FR-UPD-13・14、P-57）がこの 2 つの名前・書式で取りに来る。変えるときは #7 の仕様書も同時に直す |
 | 権限 | 既定は `contents: read`。`contents: write` を持つのは `release` ジョブだけ（ビルドのジョブは書き込みトークンを持たない）。PR のコードは動かさない（`workflow_run` は main の CI だけが対象）。使う action は GitHub 公式（`actions/*`）だけ |
 | ランナー | GitHub ホスト（`ubuntu-latest`）。リポジトリは public |
 | 最初のリリース | 新しい `release.yml` が main に入ったあとの、次の main の CI 成功で `v0.1.0`（今はタグ・リリースとも無い）。`workflow_run` は main にあるワークフローファイルだけが動くので、この変更を入れた PR 自身では動かない |
@@ -274,8 +274,8 @@ jobs:
           mkdir -p dist
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath \
             -ldflags "-s -w -X main.version=${TAG}" \
-            -o dist/swarm-console ./cmd/swarm-console
-          (cd dist && sha256sum swarm-console > SHA256SUMS)
+            -o "dist/swarm-console_${TAG}_linux_amd64" ./cmd/swarm-console
+          (cd dist && sha256sum "swarm-console_${TAG}_linux_amd64" > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
           name: release
@@ -300,13 +300,13 @@ jobs:
         run: |
           # --target で、リリースするコミットにタグを作る（手で打ったタグは既にあるのでそのまま使う）
           gh release create "$TAG" --title "$TAG" --generate-notes --target "$RELEASE_SHA" \
-            dist/swarm-console dist/SHA256SUMS
+            "dist/swarm-console_${TAG}_linux_amd64" dist/SHA256SUMS
 ```
 
 - `plan` の処理は `.github/scripts/plan-release.sh` に切り出し、`bash` のテスト（表駆動）で確かめる（NFR-TEST-15）。ワークフローの YAML に長いシェルを埋め込まない。
 - 今の `release.yml`（タグ `v*` の push で 1 ジョブ）は、手で打ったタグの経路としてそのまま残る（`plan` が検査を足す）。
 
-デプロイは自動化しない。サーバーでは新バイナリを `~/bin/swarm-console/` に手で入れ替え、`systemctl --user restart swarm-console` する（[アーキテクチャ設計 §7](../architecture/overview.md#7-デプロイ構成)）。リリース（Releases にバイナリが載ること）だけが自動になる。
+デプロイは、既定では `serve` が新しい版を見つけて自分で入れ替える（自己更新。Issue #7、機能要件 §12.4）。`update_auto = false` のときは、新バイナリを `~/bin/swarm-console/` に手で入れ替え、`systemctl --user restart swarm-console` する（[アーキテクチャ設計 §7](../architecture/overview.md#7-デプロイ構成)）。リリース（Releases にバイナリが載ること）は main の CI 成功ごとに自動。
 
 ## Lint
 
@@ -455,3 +455,4 @@ pre-push:
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | CI/CD に自動タグ付きリリース（`release.yml` の `plan`・`verify`・`build`・`release`、版の上げ方、手で打ったタグの検査）を追加 | Issue #8 |
+| 1.2 | 2026-11-01 | 成果物名を `swarm-console_<タグ>_linux_amd64`（版・OS・arch 入り）と `SHA256SUMS` の書式に変更、デプロイの記述を自己更新（Issue #7）に合わせて更新 | Issue #8（Issue #7 の自己更新で確定） |

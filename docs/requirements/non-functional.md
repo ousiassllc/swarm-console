@@ -46,7 +46,7 @@
 | NFR-AVL-5 | 1 ペインの tmux 呼び出しの失敗・タイムアウトが他のペインの結果を止めない（そのペインを `unknown` にして警告） |
 | NFR-AVL-6 | 同じペインへの操作は直列化し、デッドロックしない（`lock_timeout` で `busy_timeout`）。異なるペインは並行に処理できる |
 | NFR-AVL-7 | 終了シグナル（SIGTERM）で進行中の操作を完了待ち（最大 10 秒）してから止まる。操作の途中で止まって、ペインに半端な入力を残さない |
-| NFR-AVL-8 | 配布は GitHub Releases のバイナリ（main の CI が成功するたびに自動でリリースされる。NFR-TEST-11）。サーバーでは手で入れ替えて `systemctl --user restart swarm-console`（入れ替えは自動化しない） |
+| NFR-AVL-8 | 配布は GitHub Releases のバイナリ（main の CI が成功するたびに自動でリリースされる。NFR-TEST-11）。`serve` は新しい版を見つけたら自分で入れ替える（自己更新。Issue #7）。`update_auto = false` のときは、手で入れ替えて `systemctl --user restart swarm-console` する |
 
 ## 4. スケーラビリティ・容量
 
@@ -94,7 +94,7 @@
 | NFR-TEST-8 | CI は `go build`・`go vet`・`golangci-lint`・`go test -race`。tmux が要るテストは CI でも実 tmux で動かす。CI は GitHub ホストのランナー（`ubuntu-latest`）で動き、tmux はジョブの中で `apt-get install` して入れ、`tmux -V` で確かめる。Go・golangci-lint は `actions/setup-go`・golangci-lint の公式 action で入れる |
 | NFR-TEST-9 | バグ修正には回帰テストを付ける |
 | NFR-TEST-10 | 受け入れ確認（機能要件 §8）は、自動テストで担保できる範囲を CI で、実クライアント接続（Claude Code・Codex・Cursor・curl）が要る範囲を実機で行い、未確認の部分は報告に明記する |
-| NFR-TEST-11 | 次の条件で、GitHub Releases に linux/amd64 のバイナリを載せるワークフローを用意する（P-20・P-48）：main への push の CI が成功したら次の版のタグを自動で付けてリリースする（毎回パッチを上げる）。CI が失敗・PR・main の先頭でないコミットではタグを付けない。手でタグ `vX.Y.Z` を打てばマイナー・メジャーを上げられる（環境構築 CI/CD） |
+| NFR-TEST-11 | 次の条件で、GitHub Releases に linux/amd64 のバイナリ（`swarm-console_vX.Y.Z_linux_amd64`）と `SHA256SUMS` を載せるワークフローを用意する（P-20・P-48。名前と書式は Issue #7 の自己更新が読む。環境構築 CI/CD）：main への push の CI が成功したら次の版のタグを自動で付けてリリースする（毎回パッチを上げる）。CI が失敗・PR・main の先頭でないコミットではタグを付けない。手でタグ `vX.Y.Z` を打てばマイナー・メジャーを上げられる |
 | NFR-TEST-15 | 次の版を決める処理（`.github/scripts/plan-release.sh`）は表駆動の `bash` テストで確かめる：タグなし → `v0.1.0`、最新 `v0.1.9` → `v0.1.10`（数として比較する）、手で打った `v1.0.0` の次は `v1.0.1`、プレリリース形・`v` 無し・`vX.Y` の拒否、main の先頭でないコミット、既に `v*` タグがあるコミット、手で打ったタグが既存の最大以下、を通す。ワークフロー全体は main に入れてからの最初の CI 成功で確かめる（PR 上では `workflow_run` が動かないため、結果は報告に明記する） |
 
 ## 改訂履歴
@@ -103,3 +103,4 @@
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | NFR-TEST-11 を自動タグ付きリリースに更新、NFR-TEST-15・NFR-OPS-11 を追加、NFR-AVL-8 を更新 | Issue #8 |
+| 1.2 | 2026-11-01 | NFR-TEST-11 の成果物をアセット名 `swarm-console_vX.Y.Z_linux_amd64`・`SHA256SUMS` に、NFR-AVL-8 を自己更新（Issue #7）に合わせて更新 | Issue #8（Issue #7 の自己更新で確定） |
