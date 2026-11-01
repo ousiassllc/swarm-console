@@ -170,7 +170,7 @@ func (f *fixture) closingAgentTo(final string) {
 
 func readScreen(t *testing.T, name string) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("testdata", name))
+	b, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // テストの固定のサンプル画面のパス
 	if err != nil {
 		t.Fatal(err)
 	}
