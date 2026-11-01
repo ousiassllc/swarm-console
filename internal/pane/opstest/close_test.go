@@ -2,8 +2,7 @@ package opstest
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	"embed"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +17,9 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/pane/ops"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
 )
+
+//go:embed testdata
+var screens embed.FS
 
 // closingAgent は終了コマンドでシェルに戻り、clear で画面が空になる擬似エージェント。
 // stuck なら /exit しても終了しない（画面が片付かない）。
@@ -170,7 +172,7 @@ func (f *fixture) closingAgentTo(final string) {
 
 func readScreen(t *testing.T, name string) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // テストの固定のサンプル画面のパス
+	b, err := screens.ReadFile("testdata/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
