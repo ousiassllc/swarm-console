@@ -2,8 +2,6 @@ package harness
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -172,28 +170,15 @@ func (h *H) Refresh(shellPane string) {
 	}
 }
 
-// NewFrozenAsk は omp の質問カードの画面を 1 度だけ出し、以後は入力を --log に生のまま書くだけのプロセス
-// （argv[0] が omp の cat）を動かすペインを足す。カーソルが動かないので cursor_mismatch を起こせ、
-// Enter（CR・LF）が送られたかも確かめられる。ペイン ID とキー入力の記録ファイルを返す。
+// NewFrozenAsk は omp の質問カードを出したまま入力に一切反応しない擬似エージェント（omp ask-frozen）を動かすペインを足す。
+// カーソルが動かないので cursor_mismatch を起こせる。受け取った入力は --raw にそのまま追記されるので、
+// Enter（CR・LF）が送られたかを確かめられる。ペイン ID とキー入力の記録ファイルを返す。
+// 入力を記録するプログラムは cat の別名ではなく擬似エージェントにする。cat が単一バイナリ（multicall。
+// uutils coreutils など）のときは argv[0] が omp だと動かず、ペインがすぐ消えるため。
 func (h *H) NewFrozenAsk() (id, keysFile string) {
 	h.T.Helper()
-	bin := filepath.Join(h.Dir, "frozen")
-	if err := os.MkdirAll(bin, 0o700); err != nil {
-		h.T.Fatal(err)
-	}
-	cat, err := exec.LookPath("cat")
-	if err != nil {
-		h.T.Fatal(err)
-	}
-	if err := os.Symlink(cat, filepath.Join(bin, "omp")); err != nil && !os.IsExist(err) {
-		h.T.Fatal(err)
-	}
-	screen := filepath.Join(RepoRoot(h.T), "test", "fakeagent", "screens", "omp", "ask-2.txt")
 	keysFile = filepath.Join(h.Logs, "frozen-keys.bin")
-	id = h.NewWindow(fmt.Sprintf(`cat %q; stty raw -echo; exec %q/omp >> %q`, screen, bin, keysFile))
-	// exec が済んで、入力を記録するプロセス（omp）に替わるまで待つ。
-	h.Eventually("入力を記録するプロセスに替わる", func() bool {
-		return strings.TrimSpace(h.TM.Run("display-message", "-p", "-t", id, "#{pane_current_command}")) == "omp"
-	})
+	id = h.NewWindow("exec " + h.FakeCommand("omp", "ask-frozen") + fmt.Sprintf(" --raw %q", keysFile))
+	h.TM.WaitForText(id, "READY")
 	return id, keysFile
 }

@@ -58,7 +58,7 @@ func newMachine(agent, scenario string, record func(event)) *machine {
 	switch scenario {
 	case "working":
 		m.mode = modeWorking
-	case "ask", "ask-custom":
+	case "ask", "ask-custom", "ask-frozen":
 		m.rows = askRows(agent, scenario)
 		m.mode = modeAsk
 		m.cursor = m.rows.start
@@ -97,6 +97,9 @@ func (m *machine) Tick() bool {
 
 // Feed はキー入力のバイト列を処理する。分割された ESC シーケンス（1 回の read をまたぐもの）は扱わない。
 func (m *machine) Feed(data []byte) {
+	if m.scenario == "ask-frozen" {
+		return // 質問カードを出したまま、どのキーにも反応しない
+	}
 	for i := 0; i < len(data) && !m.quit; {
 		if m.inPaste {
 			end := bytes.Index(data[i:], pasteEnd)
