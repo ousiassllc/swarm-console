@@ -44,3 +44,5 @@
 
 - `~/.claude/.credentials.json`（権限 600）: `claudeAiOauth` に `accessToken`・`refreshToken`（どちらも空文字列）・`expiresAt`（数値）・`refreshTokenExpiresAt`（数値）ほか。`expiresAt` は **0**、`refreshTokenExpiresAt` は過去（2026-10-14）。トークンが空なのでログアウト状態＝**`expired`**（`unknown` ではない。`expiresAt: 0` は「1970 年に切れた」を意味し、期限不明ではなく失効の値のため）。
 - `~/.codex/auth.json`: `tokens.access_token` は JWT で `exp`（数値）が過去（2026-09-05）＝**`expired`**。`last_refresh` は ISO 8601 文字列（期限ではなく最終更新）。
+
+- `report`・`host_status` はこの判定をスナップショットを作るときに 1 回読んで入れる（FR-REP-16。要対応に入れるのは `expired`・`expiring_soon` だけ。`unknown` は入れない。[report-values.md §5](report-values.md#5-ログイン期限issue-25)）。

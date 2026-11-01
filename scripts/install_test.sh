@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh のテスト（NFR-TEST-17）。実際の GitHub にも systemd にも、実際の HOME にも触れない。
+# install.sh のテスト（NFR-TEST-18）。実際の GitHub にも systemd にも、実際の HOME にも触れない。
 # curl・systemctl・loginctl・uname・sleep は PATH の先頭に置く偽物に差し替え、HOME はケースごとの一時ディレクトリにする。
 #   使い方：bash scripts/install_test.sh
 set -euo pipefail

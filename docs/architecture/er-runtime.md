@@ -54,6 +54,10 @@ erDiagram
     SNAPSHOT {
         string at "取得時刻（report の時刻）"
         object layout "段数・列数"
+        object usage "最後の使用状況の結果（収集器から。status・アカウント）"
+        object omp "omp の更新確認の結果（収集器から）"
+        object update "swarm-console の更新確認の結果（host_status.update と同じ）"
+        object auth "エージェントのログイン期限（スナップショットを作るときに読む）"
     }
     PANE_STATE {
         string id PK "tmux ID %12"
@@ -85,7 +89,9 @@ erDiagram
         int cpus
         float mem_total_gb
         float mem_free_gb
-        array disk "mount と free_gb"
+        array disk "mount・free_gb・available・total_gb・used_percent"
+        object cpu "used_percent（前のサンプラーとの差。最初は取得できず）"
+        object swap "total_gb・used_gb・used_percent"
     }
     WARNING {
         string code "layout_changed | tmux_unavailable | session_missing | pane_unreadable"

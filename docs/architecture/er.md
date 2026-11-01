@@ -228,3 +228,4 @@ erDiagram
 | 1.2 | 2026-11-01 | `config.toml` に `update_check`・`update_check_interval` を追加 | Issue #7 |
 | 1.3 | 2026-11-01 | `config.toml` に `update_auto` を追加。§8 自己更新のファイル（`.old`・`.update-pending`・`.update-failed`）を追加 | Issue #7（自己更新で確定） |
 | 1.4 | 2026-11-01 | 300 行超過ファイルを分割（§3〜§8 を er-runtime.md・er-config.md へ移動）。内容の変更なし | Issue #3 |
+| 1.5 | 2026-11-01 | `config.toml` に `usage_check`・`usage_interval` を追加。実行時の状態（`Snapshot`・`HOST_STATE`）にレポートに足す値を追加 | Issue #21〜#25 |

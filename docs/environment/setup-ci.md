@@ -21,7 +21,7 @@ flowchart LR
 - 全ジョブを GitHub ホストのランナー（`runs-on: ubuntu-latest`）で動かす。
 - Go と golangci-lint は `actions/setup-go`（`go-version-file: go.mod`）と `golangci/golangci-lint-action` で入れる。
 - tmux はジョブの中で `apt-get install` して入れ、続く `Check tmux` ステップで `tmux -V` により入ったことを確かめる。
-- 1 ジョブ内で、build・vet・lint・linterly・release plan test（`plan-release.sh` の表駆動テスト。NFR-TEST-15）・install script test（`make install` の `install.sh` のテスト。NFR-TEST-17）・test を別ステップで順に実行する（失敗したステップで止まり、どのコマンドで落ちたか分かる）。
+- 1 ジョブ内で、build・vet・lint・linterly・release plan test（`plan-release.sh` の表駆動テスト。NFR-TEST-15）・install script test（`make install` の `install.sh` のテスト。NFR-TEST-18）・test を別ステップで順に実行する（失敗したステップで止まり、どのコマンドで落ちたか分かる）。
 - ステップ順は lint → test の前に build・vet を置く（コンパイルエラーを先に出す）。
 - `concurrency` で同じ ref の古い実行をキャンセルする。`permissions` は `contents: read`。
 
