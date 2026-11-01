@@ -280,10 +280,23 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 ```json
 {"load": [98.2, 95.1, 90.4], "cpus": 32, "mem_total_gb": 128, "mem_free_gb": 41.3,
  "disk": [{"mount": "/", "free_gb": 120}, {"mount": "/mnt/nvme", "free_gb": 830}],
- "tmux_session": true, "agents": {"omp": 6, "claude": 0, "codex": 0}, "uptime": "12d 4h"}
+ "tmux_session": true, "agents": {"omp": 6, "claude": 0, "codex": 0}, "uptime": "12d 4h",
+ "update": {"status": "update_available", "current": "v0.1.3", "latest": "v0.1.5", "checked_at": "2026-11-01T12:00:00+09:00"}}
 ```
 
 `disk` は設定した監視マウント（既定 `/` と `/mnt/nvme`）。`agents` は種別ごとのペイン数。
+
+`update` は新しい版の確認の結果（FR-UPD-9）。`serve` が持つ最後の確認結果を返すだけで、呼び出しで GitHub へは通信しない。
+
+| `status` | 意味 | 他に付くキー |
+|----------|------|-------------|
+| `up_to_date` | 最新版以上 | `current`・`latest`・`checked_at` |
+| `update_available` | 最新版が現在より新しい | `current`・`latest`・`checked_at` |
+| `unknown` | 確認できない | `current`・`reason`（`network`・`rate_limit`・`access`・`no_release`・`release_invalid`・`dev_build`）・`checked_at`（前回の成功した結果があれば `latest` も残す） |
+| `pending` | 起動後まだ確認していない | `current` |
+| `disabled` | `update_check = false` | `current` |
+
+`current` は動いているバイナリの版（版を入れていないビルドは `"dev"`）。`latest` は `vX.Y.Z` の形に合うときだけ出す。GitHub の応答の文面・URL・エラー文は出さない。
 
 #### `agent_auth_status`
 
@@ -471,3 +484,4 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | `host_status` に `update`（新しい版の確認結果）を追加 | Issue #7 |

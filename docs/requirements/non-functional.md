@@ -34,6 +34,7 @@
 | NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・結果コード」だけを記録する。送った本文・トークン・メモの内容は記録しない |
 | NFR-SEC-13 | 受け付けるリクエスト本文は 256 KiB まで。超えたら 413 |
 | NFR-SEC-14 | 設定・メモ・トークンの置き場以外へ書き込まない（書き込み先は `~/.config/swarm-console`・`~/.local/share/swarm-console`・`/tmp/swarm-console`）。`~/dotfiles` には触らない |
+| NFR-SEC-15 | 新しい版の確認（FR-UPD）のための外向き通信は、`https://api.github.com/repos/ousiassllc/swarm-console/releases/latest` への認証なしの GET 1 本だけ。トークン・設定の値・ペインの内容を送らない（送るのは `User-Agent: swarm-console/<版>` まで）。待ち受け（NFR-SEC-1・2）の方針は変えない。GitHub が返した文字列は、`vX.Y.Z` の形に合うときだけ応答・表示に使う。更新の方式（自己更新）が決まるまで、バイナリの置き場には書き込まない（§12.4） |
 
 ## 3. 可用性・信頼性
 
@@ -47,6 +48,7 @@
 | NFR-AVL-6 | 同じペインへの操作は直列化し、デッドロックしない（`lock_timeout` で `busy_timeout`）。異なるペインは並行に処理できる |
 | NFR-AVL-7 | 終了シグナル（SIGTERM）で進行中の操作を完了待ち（最大 10 秒）してから止まる。操作の途中で止まって、ペインに半端な入力を残さない |
 | NFR-AVL-8 | 配布は GitHub Releases のバイナリ。サーバーでは手で入れ替えて `systemctl --user restart swarm-console` |
+| NFR-AVL-9 | 新しい版の確認が失敗・遅延・拒否されても `serve` は動き続ける。確認は起動・ツールの応答・終了（NFR-AVL-7）を待たせない（FR-UPD-8） |
 
 ## 4. スケーラビリティ・容量
 
@@ -62,12 +64,13 @@
 | ID | 要件 |
 |----|------|
 | NFR-OPS-1 | 置き場所：バイナリ `~/bin/swarm-console/`、設定 `~/.config/swarm-console/`、データ `~/.local/share/swarm-console/`。`~/dotfiles` には触らない |
-| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console version` |
+| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console version`（`--check` で新しい版を確認。FR-UPD-6） |
 | NFR-OPS-3 | エージェントの画面が変わったら、設定ファイルの正規表現の上書きだけで直せる（再ビルド不要）。設定は `serve` の再起動で反映 |
 | NFR-OPS-4 | レポートのテンプレート（`templates/report.ja.md`・`report.en.md`）と条件のひな形（`profiles.toml`）は設定フォルダに置け、再ビルド不要。テンプレートの構文エラーは起動時に検出して拒否する |
 | NFR-OPS-5 | ログは構造化（JSON Lines）で標準エラーへ出し、systemd の journal で見る |
 | NFR-OPS-6 | 新しいエージェントを足すには、アダプタを 1 つ実装して登録するだけで済む構造にする |
 | NFR-OPS-7 | 認証の期限情報（`agent_auth_status`）はファイルの場所を設定で変えられる。取れなければ「不明」を返し、エラーにしない |
+| NFR-OPS-10 | 新しい版の確認は `config.toml` の `update_check`（既定 `true`）と `update_check_interval`（既定 `24h`、`1h` 以上）で切り替える。`version --check` は設定に依らず手動で動く（FR-UPD-10） |
 
 ## 6. 互換性・前提環境
 
@@ -94,9 +97,11 @@
 | NFR-TEST-9 | バグ修正には回帰テストを付ける |
 | NFR-TEST-10 | 受け入れ確認（機能要件 §8）は、自動テストで担保できる範囲を CI で、実クライアント接続（Claude Code・Codex・Cursor・curl）が要る範囲を実機で行い、未確認の部分は報告に明記する |
 | NFR-TEST-11 | タグ `v*` の push で、GitHub Releases に linux/amd64 のバイナリを載せるワークフローを用意する（P-20） |
+| NFR-TEST-14 | 新しい版の確認は、実際の GitHub に出ずに `httptest` で確かめる：新しい版・同じ版・古い版（手元が先）・プレリリース形の現在の版・非 semver の最新タグ・`dev` ビルド・404・429・403（上限／拒否）・5xx・接続失敗・タイムアウト・不正 JSON・巨大な本文。`serve` の定期確認は `clock` を進めて確かめ（NFR-TEST-7）、確認が失敗しても `serve` が応答し続けること、`host_status.update` の各状態（`pending`・`disabled`・結果）を通す |
 
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | NFR-SEC-15・NFR-AVL-9・NFR-OPS-10・NFR-TEST-14 を追加、NFR-OPS-2 に `version --check` を追加 | Issue #7 |

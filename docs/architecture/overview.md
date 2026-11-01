@@ -57,9 +57,10 @@ graph TD
 | ログ | `log/slog`（JSON Lines） | 標準。journald で見る |
 | Lint | `golangci-lint` | 元仕様の CI |
 | トークン | 32 バイト乱数（`crypto/rand`）＋ SHA-256 保存 | 高エントロピーなので低速ハッシュは不要 |
-| 配布 | GitHub Releases ＋ 手で入れ替え | 元仕様 |
+| 版の確認 | 標準の `net/http` ＋ `golang.org/x/mod/semver`（自前で版を解析しない） | GitHub Releases の `/releases/latest` を読んで semver で比較する（P-42）。mam の `updater` と同じ作り |
+| 配布 | GitHub Releases ＋ 手で入れ替え。自己更新（自分で置き換える）にするかは**未決**（機能要件 §12.4・P-46） | 元仕様 |
 
-DB は使わない（ER ドキュメントは永続ファイルのデータモデル）。外部サービスへ依存しない。
+DB は使わない（ER ドキュメントは永続ファイルのデータモデル）。動作に外部サービスは要らない（新しい版の確認だけ GitHub Releases を読み、失敗しても動く。FR-UPD）。
 
 ## 3. レイヤー構造
 
@@ -231,6 +232,7 @@ WantedBy=default.target
 
 - `listen_addr` は `tailscale ip -4` の値を設定に書く（コードでアドレスを探しにいかない。P-01）。tailscale がまだ上がっていなくても `bind` に失敗したら再試行して立ち上がるように、`Restart=always` に任せる。
 - 更新手順：新バイナリを置く → `systemctl --user restart swarm-console` → `host_status` で確認。
+- 新しい版の確認は `serve` が 24 時間ごとに `api.github.com` を読んで行い（`update_check`。FR-UPD）、結果は `host_status` の `update` と `version --check` で見る。バイナリの入れ替えは今の手順のまま（自己更新は未決）。
 
 ## 8. 設定ファイルの全体像
 
@@ -254,6 +256,8 @@ WantedBy=default.target
 | `file_roots` | `["/tmp/", + allowed_roots]` | `send_text` の `file` を許可する根（P-13） |
 | `disk_mounts` | `["/", "/mnt/nvme"]` | `host_status` が見るマウント |
 | `report_dir` | `/tmp/swarm-console/reports` | 最終報告の置き場 |
+| `update_check` | `true` | `serve` が GitHub Releases で新しい版を確認する（FR-UPD） |
+| `update_check_interval` | `24h`（1h 以上） | 確認の間隔 |
 | `[pane_names]` | なし | 位置の固定名 |
 | `[agents.<name>]` | 組み込み | アダプタの上書き（コマンド・正規表現・認証ファイル） |
 
@@ -294,6 +298,14 @@ WantedBy=default.target
 | P-29 | `denied_paths` の既定 | **確定：既定 `~/dotfiles`、`config.toml` で変更可**。`denied_paths` を書いたら既定と入れ替わる（足されない）。書かなければ既定。`~` は展開して絶対パスで比較。`cwd`・`file` の両方に効く。オーナーの checkout の一覧は仕様書に無いため、必要なら設定で書く（例は [環境構築](../environment/setup.md#ローカルで動かす)） | **確定** |
 | P-30 | `report_read` の読み取り | 最終報告ファイルは `O_NOFOLLOW` で開く（シンボリックリンクなら `exists: false`）。認証ファイルなどを読み出されないため | 実装時に決めた |
 | P-31 | 仕様書の行数管理 | **確定**：`.linterlyignore` で `docs/**` を Linterly の対象から外す（`api/endpoints.md`・`architecture/er.md` が 300 行を超えるため）。仕様書の分割は別 Issue（#3） | **確定** |
+| P-40 | 新しい版の確認の入口 | **確定（Issue #7 のヒアリングで選択）**：`swarm-console version --check`・`serve` の定期確認・`host_status` の `update` の 3 つ全部。`update` サブコマンドは作らない（自己更新が未決のため） | **確定** |
+| P-41 | 定期確認の既定 | **確定（Issue #7 のヒアリングで選択）**：既定オン・24 時間ごと。`config.toml` の `update_check = false` で止める。設定なしで GitHub へ外向き通信が出る（`api.github.com` の GET 1 本。NFR-SEC-15） | **確定** |
+| P-42 | 版の形・比較・プレリリース | タグは `vX.Y.Z` だけを受け付ける（Issue #8 が付ける形と同じ）。比較は `golang.org/x/mod/semver`。`/releases/latest` を使うのでプレリリース・ドラフトは通知しない。現在の版がプレリリース形でも semver どおりに比較する | 実装時に決めた。OK 時に確認 |
+| P-43 | `version --check` の終了コード | 最新 0・新しい版あり 10・確認できない 1。スクリプトで 3 つを区別できるようにする | 実装時に決めた |
+| P-44 | 確認の失敗の扱い | 失敗後の再試行は次の周期まで行わない（バックオフなし）。ログは新しい版を見つけたとき 1 回と、失敗の `reason` が変わったときの警告だけ（FR-UPD-8）。`serve` は止めない | 実装時に決めた |
+| P-45 | 最初の確認の遅れ | 起動の 1 分後（起動処理・サンプラーの初回取得と重ねない。`clock` 経由） | 実装時に決めた |
+| P-46 | **更新の方式（確認だけ／自分で更新）** | **未決。** 案 A（確認だけ）と案 B（ダウンロード・検証・入れ替え）を機能要件 §12.4 に並べた。案 B を選ぶなら、検証（ハッシュだけか署名も付けるか）・きっかけ（手動か自動）・再起動・入れ替えの方法・書き込み先（NFR-SEC-14 の改訂）を併せて決める | **未決（運用者の判断待ち）** |
+| P-47 | 確認に認証を使わない | リポジトリが public である前提（public になった。private に戻すと GitHub は `releases/latest` に 404 を返し、`no_release` になる）。トークンは送らない（NFR-SEC-15） | 実装時に決めた |
 
 ## 改訂履歴
 
@@ -301,3 +313,4 @@ WantedBy=default.target
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | P-16・P-24 を確定、P-22 を omp で確定（Claude Code は一部推定、Codex は未確定）。agent-patterns.md・agent-auth.md を追加。P-25〜P-31 を追加 | 実装時確認事項の反映（Issue #1） |
+| 1.2 | 2026-11-01 | 新しい版の確認の選定と設定キー、P-40〜P-47（P-46 は更新の方式で未決）を追加 | Issue #7 |

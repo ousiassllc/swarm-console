@@ -25,6 +25,8 @@ graph TD
     ROUT --> UC1
     ADMIN --> UC7["UC7 トークン発行・無効化"]
     ADMIN --> UC8["UC8 サーバー状態・ログイン期限を確認"]
+    ADMIN --> UC10["UC10 新しい版があるか確認する"]
+    OPSAGENT --> UC10
     OPSAGENT --> UC8
 ```
 
@@ -38,6 +40,7 @@ graph TD
 | UC6 | オーナーの OK があったとき、作業中のエージェントを止める | `send_escape` | `/ops` |
 | UC7 | クライアントごとに別のトークンを発行・無効化する | `swarm-console token add/revoke`（サーバー上） | CLI |
 | UC8 | ホストの負荷・ディスク・エージェントのログイン期限を見る | `host_status`・`agent_auth_status` | `/report` `/ops` |
+| UC10 | 動いているバイナリより新しい版が GitHub Releases にあるかを確認する（バイナリは置き換えない。置き換えるかは未決: §12.4） | `swarm-console version --check`・`serve` の定期確認・`host_status` の `update` | CLI、`/report` `/ops` |
 
 ## 2. ペイン位置の決め方（FR-POS）
 
@@ -126,7 +129,7 @@ stateDiagram-v2
 | FR-R2 | `pane_tail` | 1 ペインの最後の n 行を、枠線・TODO 表示・ステータス行を除いた本文だけで返す。`raw: true` なら飾りも残す。`lines` 既定 30・上限 200 | `unknown` エージェントでも可（飾りの除去はしない＝`raw` 相当） |
 | FR-R3 | `ask_card` | 質問カードの質問・選択肢・カーソル・自由入力の可否を返す。`asking` でなければ `{"asking": false}` | `unsupported_agent`（`unknown`）|
 | FR-R4 | `report_read` | `/tmp/swarm-console/reports/<位置>.md`（`:` は `_`）を読む。なければ `{"exists": false}` | — |
-| FR-R5 | `host_status` | 負荷・CPU 数・メモリ・ディスク・tmux セッションの有無・エージェント種別ごとのペイン数・稼働時間 | — |
+| FR-R5 | `host_status` | 負荷・CPU 数・メモリ・ディスク・tmux セッションの有無・エージェント種別ごとのペイン数・稼働時間・新しい版の確認結果（`update`。FR-UPD-9） | — |
 | FR-R6 | `agent_auth_status` | エージェントごとのログイン状態（有効／期限切れ／48 時間以内に切れる／不明）と期限日時。鍵・トークンの中身は出さない | — |
 | FR-R7 | `note_get` | 1 ペインのメモを全部返す | — |
 | FR-R8 | `note_history` | 閉じたペインのメモを新しい順に返す。`repo`・`from`・`items` で絞り込み | — |
@@ -322,8 +325,74 @@ flowchart TD
 | FR-SAFE-8 | ログ | 誰が・いつ・どのツールを・どのペインに使ったかを記録する。送った本文とトークンは記録しない |
 | FR-SAFE-9 | 呼び出しの間隔 | 同じペインへの操作は前の操作が終わるまで待たせる |
 
+## 12. 新しい版の確認（FR-UPD）
+
+GitHub Releases（`ousiassllc/swarm-console`）の最新版を見て、動いているバイナリより新しい版があるかを確認する。参考：同じ組織の mam（`ousiassllc/mam`）の `backend/internal/service/updater`（`/releases/latest` の取得・semver 比較・失敗の分類）。
+
+**確認の部分（§12.1〜12.3）は決定済み。バイナリを置き換える（自己更新する）かどうかは未決**で、§12.4 に案を並べてあり、どちらにも決めていない。§12.1〜12.3 は方式によらず実装できる。§12.4 は決まるまで実装しない。リリースを作る側（タグの付け方）は [環境構築 CI・リリース](../environment/setup.md#cicd) と Issue #8 が決める。
+
+### 12.1 確認の要件
+
+| ID | 要件 |
+|----|------|
+| FR-UPD-1 | 確認先は `GET https://api.github.com/repos/ousiassllc/swarm-console/releases/latest` だけ。owner・repo は定数で、設定で変えられない。認証なし（トークンを送らない。`SWARM_CONSOLE_TOKEN` も使わない。リポジトリは public）。`Accept: application/vnd.github+json`、`User-Agent: swarm-console/<版>`。タイムアウト 10 秒、本文は 1 MiB まで。リダイレクトは `api.github.com` の外へ追わない |
+| FR-UPD-2 | `/releases/latest` はドラフトとプレリリースを返さないので、通知の対象は正式版だけ（プレリリースは通知しない） |
+| FR-UPD-3 | 版の形は `vX.Y.Z`（正規表現 `^v(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)$`）。Issue #8 が付けるタグと同じ。最新側の `tag_name` がこの形に合わなければ `release_invalid`。比較は `golang.org/x/mod/semver`（自前で解析しない）。現在の版が `dev`・`vX.Y.Z` でない（ビルド時に版を入れていない）ときは通信せず `dev_build`。現在の版がプレリリース形（`v1.2.0-rc.1`）でも、比較は semver どおり（`v1.2.0` のほうが新しい） |
+| FR-UPD-4 | 結果は 3 つに区別する：`up_to_date`（最新版以上）・`update_available`（最新版が現在より新しい）・`unknown`（確認できない。`reason` 付き）。`unknown` の `reason`：`network`（接続失敗・タイムアウト・5xx）・`rate_limit`（429、または 403 で `X-RateLimit-Remaining: 0` か `Retry-After`）・`access`（401・その他の 403）・`no_release`（404。リリース未公開、またはリポジトリが見えない）・`release_invalid`（JSON が読めない・版の形に合わない）・`dev_build` |
+| FR-UPD-5 | 確認の失敗は `reason` だけを保持・表示する。URL・ヘッダー・応答本文・リリースノート・生のエラー文面は、ログ・応答・メモに出さない |
+| FR-UPD-6 | `swarm-console version`（引数なし）は今までどおり版を 1 行出すだけで通信しない。`swarm-console version --check` は 1 回だけ確認する。標準出力：1 行目に現在の版、2 行目に結果（§12.2）。終了コード：`up_to_date` 0、`update_available` 10、`unknown` 1。`config.toml` を読まず、`update_check` が `false` でも動く（手動の確認） |
+| FR-UPD-7 | `serve` は `update_check`（既定 `true`）が `true` のとき、起動の 1 分後に 1 回確認し、以後 `update_check_interval`（既定 24 時間、下限 1 時間）ごとに確認する。待ちは `clock` を通す（固定時間の `sleep` を使わない）。ツールの呼び出しでは通信しない。結果はメモリだけに持ち、再起動で失ってよい（NFR-AVL-2） |
+| FR-UPD-8 | 確認が失敗・遅延・拒否されても `serve` は動き続ける。確認はバックグラウンドの 1 本の goroutine で、起動・ツールの応答・終了（SIGTERM から 10 秒。NFR-AVL-7）を待たせない。失敗後の再試行は次の周期まで行わない。ログ：新しい版を初めて見つけたとき 1 回（同じ版では出さない）、失敗は `reason` が前回と変わったときだけ警告 |
+| FR-UPD-9 | `host_status` に `update` を足す（`/report` `/ops` の両方。読み取りのみ）。API 仕様 §5.3。`serve` の確認結果を返すだけで、通信はしない。`report`（markdown）には載せない（AC-1 の 1 文字一致・NFR-PERF-3 の文字量に影響させない） |
+| FR-UPD-10 | 設定は `config.toml` の `update_check`（bool、既定 `true`）と `update_check_interval`（期間、既定 `24h`、`1h` 以上）。未知キー拒否の対象に加える（ER §5） |
+
+### 12.2 `version --check` の表示
+
+| 結果 | 2 行目 | 終了コード |
+|------|--------|-----------|
+| `up_to_date` | `最新です（最新版 v0.1.5）` | 0 |
+| `update_available` | `新しい版があります: v0.1.5（https://github.com/ousiassllc/swarm-console/releases/tag/v0.1.5）` | 10 |
+| `unknown`（`network`） | `確認できませんでした: GitHub に接続できません` | 1 |
+| `unknown`（`rate_limit`） | `確認できませんでした: GitHub の取得回数の上限に達しました。しばらくしてからやり直してください` | 1 |
+| `unknown`（`access`） | `確認できませんでした: GitHub が取得を拒否しました` | 1 |
+| `unknown`（`no_release`） | `確認できませんでした: 公開されたリリースがありません` | 1 |
+| `unknown`（`release_invalid`） | `確認できませんでした: 最新リリースの版の形が不正です` | 1 |
+| `unknown`（`dev_build`） | `確認しません: この実行ファイルにはリリースの版が入っていません（dev）` | 1 |
+
+URL は最新版が FR-UPD-3 の形に合うときだけ、その版から組み立てる（応答の URL をそのまま出さない）。
+
+### 12.3 確認の範囲の通信と安全
+
+- 外向きの通信は `api.github.com` への GET 1 本だけ。待ち受けの方針（NFR-SEC-1・2: tailnet の IP だけ、インターネットに出さない）は変えない（NFR-SEC-15）。
+- `host_status.update.latest` は FR-UPD-3 の形に合うときだけ出す（GitHub が返した文字列をそのまま MCP の応答に載せない）。
+
+### 12.4 更新の方式（未決）
+
+**どちらにも決めていない。** 運用者の判断で 1 つに決めてから、該当する要件・受け入れ条件・テストを確定する。A は §12.1〜12.3 だけで完結する。B は A に加えて次を足す。
+
+| 観点 | 案 A: 確認だけ | 案 B: 自分で更新する |
+|------|--------------|--------------------|
+| 動き | 新しい版を表示・報告するだけ。バイナリは置き換えない。入れ替えは今の手順（新バイナリを置く → `systemctl --user restart swarm-console`。NFR-AVL-8） | 新しいバイナリをダウンロードし、検証して、動いているバイナリと入れ替える |
+| 実装の量 | §12.1〜12.3 のみ | 加えてダウンロード・検証・入れ替え・再起動の扱い・失敗時の戻し |
+| 外向き通信 | `api.github.com` の 1 本 | 加えて `github.com/ousiassllc/swarm-console/releases/download/…`（リダイレクト先 `objects.githubusercontent.com` を含む）からのダウンロード |
+| 書き込み先 | 増えない | バイナリの置き場（`~/bin/swarm-console/`）が増える。NFR-SEC-14（書き込み先は設定・メモ・トークンの置き場だけ）と NFR-OPS-1 の改訂が要る |
+| リスク | 小さい（読み取りのみ） | 常駐してエージェントを操作するサーバーのバイナリを自動で入れ替える。取り違え・改ざん・途中失敗が、そのまま全ペイン操作の停止・乗っ取りになる |
+
+案 B を選ぶ場合に、さらに決めること（案 B を選ぶまで決めない）：
+
+| 論点 | 選択肢 | 現状の事実 |
+|------|--------|-----------|
+| 検証 | ① `SHA256SUMS` のハッシュだけ ② 署名（ed25519 など。mam は `checksums.txt.sig` を公開鍵つきで検証）も付ける | 今の `release.yml` は `swarm-console` と `SHA256SUMS` を載せるだけで署名鍵・署名は無い。① だけでは同じリリースが差し替えられても検出できず、破損の検出にとどまる。② は鍵の用意・秘密の保管・`release.yml` の改訂が要る |
+| 実行のきっかけ | ① 手で `swarm-console update` を打つ ② `serve` が自動で行う | ② は運用者の知らない間にバイナリが変わる。作業中のペインがあるときの扱い（待つ・止める）も決める必要がある（mam は作業中は更新しない `SafeGate`） |
+| 再起動 | ① 入れ替えだけして、運用者が `systemctl --user restart` する ② 入れ替え後に自分で正常終了し、systemd（`Restart=always`・`RestartSec=2`）に立ち上げ直してもらう ③ `systemctl` を実行する | ③ は NFR-SEC-7（任意のコマンドを実行しない）に反する。② は SIGTERM と同じ終了（進行中の操作を 10 秒まで待つ。NFR-AVL-7）を使える。新バイナリが起動できなかったときの戻し（旧バイナリの退避）が要る |
+| 入れ替えの方法 | 同じフォルダに一時ファイル → 検証 → `rename`（旧バイナリは `.old` に退避するか） | Linux は実行中のバイナリを `rename` で置き換えられる。置き場 `~/bin/swarm-console/` は手で入れ替える運用 |
+| 対象環境 | linux/amd64 のみ | `release.yml` の成果物は linux/amd64 のみ。アセット名は `swarm-console`（版を含まない）。版・OS を取り違えないためにアセット名に版を入れるかは、案 B を選ぶときに決める（アセット名は Issue #8 のワークフローとも揃える） |
+
+決まったら、本節を決定した案の要件（FR-UPD-11 以降）に書き換え、未決の表は残さない。
+
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | UC10 と §12 新しい版の確認（FR-UPD）を追加。更新の方式（確認だけ／自己更新）は未決として §12.4 に併記 | Issue #7 |

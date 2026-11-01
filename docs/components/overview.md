@@ -60,7 +60,7 @@ graph TD
 
 ```
 swarm-console/
-├── cmd/swarm-console/        main.go（serve / token add|revoke / version）
+├── cmd/swarm-console/        main.go（serve / token add|revoke / version [--check]）
 ├── internal/
 │   ├── config/               config.toml・profiles.toml の読み込み・検証・既定値
 │   ├── server/               HTTP サーバー、窓口ルーティング、リクエスト上限、監査ログ
@@ -80,6 +80,7 @@ swarm-console/
 │   ├── host/                 負荷・メモリ・ディスク・/proc・認証期限の読み取り
 │   ├── store/                原子的ファイル書き込み、権限検査
 │   ├── clock/                時計インターフェース（テストで固定）
+│   ├── updatecheck/          GitHub Releases の最新版の取得・版の比較・結果の保持・定期確認（FR-UPD）
 │   ├── apperr/               エラーコードと固定メッセージ（API 仕様 §3）
 │   └── app/                  配線（設定・アダプタ・tmux・pane・tools・mcpapi・server の組み立て）
 ├── templates/                report.ja.md・report.en.md・dispatch.md（go:embed の既定）
@@ -107,6 +108,7 @@ swarm-console/
 | `safety` | `cwd`・`file` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン | `CheckCWD`、`CheckFile`、`CheckText`、`DetectSecret` | FR-SAFE, NFR-SEC |
 | `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`・`select-pane -T`・`display -p` の実行と出力の解析 | `Runner` | NFR-SEC-7, NFR-ENV-2 |
 | `host` | `/proc`（負荷・メモリ・稼働時間・プロセス木）、`statfs`、認証ファイルの期限 | `Host`（`Status()`、`ProcTree(pid)`、`AuthStatus()`） | FR-R5, FR-R6, FR-AD-5 |
+| `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Check(ctx) Result`、`Runner{Start(ctx), Status() Status}`（HTTP クライアントと `clock` を差し替え可能） | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
 | `store` | 一時ファイル → fsync → rename の書き込み、権限検査（600） | `WriteFileAtomic`、`CheckMode` | NFR-AVL-3 |
 | `clock` | `Now()`、`After()` を持つインターフェース。テストでは固定・手動進行 | `Clock` | NFR-TEST-5, NFR-TEST-7 |
 
@@ -228,6 +230,7 @@ type Tool struct {
 | 認証 | `httptest` | 401・403・失効・定数時間の経路・`/report` の `tools/list` |
 | 統合 | 実 tmux（専用ソケット `-L`、一時セッション）＋ `test/fakeagent` | 各ツールの正常系と拒否（NFR-TEST-1〜4）、`pane_close` の画面確認、並び変更の警告 |
 | 受け入れ（自動化分） | MCP クライアント（SDK の client）で `/report`・`/ops` に接続 | AC-1〜AC-5 のうち自動で担保できる範囲 |
+| 新しい版の確認 | `httptest` で GitHub の応答を差し替え ＋ `clock` を進める | 結果の区別・版の比較・失敗の分類・`serve` が止まらない・`host_status.update`（NFR-TEST-14） |
 
 ### 6.1 擬似エージェント `test/fakeagent`
 
@@ -247,3 +250,4 @@ type Tool struct {
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | `updatecheck` を追加、`version --check` を追加 | Issue #7 |
