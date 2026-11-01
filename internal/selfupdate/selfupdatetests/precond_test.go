@@ -115,6 +115,18 @@ func TestApplyNotNewer(t *testing.T) {
 	}
 }
 
+// 現在の版がプレリリース形のときは、最新版が新しくても入れ替えない（試運転のマーカーの from が vX.Y.Z でなくなるため）。
+func TestApplyRefusesPrereleaseCurrent(t *testing.T) {
+	g := newRig(t, func(o *Options) { o.Current = "v0.1.0-rc.1" })
+	g.serve(okRelease(newVersion, newContent))
+	wantFailure(t, g.apply(newVersion), selfupdate.ReasonNotManaged)
+	if len(g.origin.Requests()) != 0 {
+		t.Error("通信しました")
+	}
+	g.assertUntouched()
+	g.wantApply(selfupdate.StateFailed, selfupdate.ReasonNotManaged)
+}
+
 func TestApplyRejectsInvalidVersion(t *testing.T) {
 	for _, tag := range []string{"", "0.1.5", "v0.1", "v0.1.5-rc.1", "v0.1.5/../x", "v0.1.5\n", "../../evil"} {
 		g := newRig(t)

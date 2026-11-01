@@ -149,6 +149,10 @@ func (u *Updater) precheck(latest string) error {
 	if !updatecheck.Newer(latest, u.o.Current) {
 		return ErrNotNewer
 	}
+	// 試運転のマーカーの from は vX.Y.Z だけ（FR-UPD-15・17）。プレリリース形の版からは入れ替えない。
+	if !updatecheck.ValidTag(u.o.Current) {
+		return fail(ReasonNotManaged)
+	}
 	if v, ok := readFailed(u.dir); ok && !updatecheck.Newer(latest, v) {
 		return &blockedError{version: v}
 	}
