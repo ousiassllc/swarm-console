@@ -7,7 +7,7 @@ pre-commit:
       stage_fixed: true
     lint:
       glob: "*.go"
-      run: golangci-lint run --new-from-rev=HEAD ./...
+      run: GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint" golangci-lint run --new-from-rev=HEAD ./...
     linterly:
       run: linterly check
 
