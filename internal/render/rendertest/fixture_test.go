@@ -16,6 +16,9 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 )
 
+// reportDir・jst・codexExpiry・win・fixedUsage・fixedSnapshot（と report_test.go の mustReport）は、非公開の関数を直接たたく
+// 内部パッケージのテスト internal/render/whitebox_test.go にも同じものを置いている（共有できない）。変えたら両方を直す。
+
 var update = flag.Bool("update", false, "ゴールデンファイルを更新する")
 
 const reportDir = "/tmp/swarm-console/reports"

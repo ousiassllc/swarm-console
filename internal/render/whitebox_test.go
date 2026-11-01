@@ -13,7 +13,8 @@ import (
 )
 
 // 非公開の words・attentionItems を直接たたくテスト。公開 API だけで書けるテストは rendertest にある。
-// 以下の helper は rendertest の fixture_test.go と同じ内容（外部パッケージのテストとは共有できない）。
+// 次の helper は rendertest の複製（外部パッケージのテストとは共有できない）：fixture_test.go の reportDir・jst・codexExpiry・
+// win・fixedUsage・fixedSnapshot と、report_test.go の mustReport。片方を変えたら、もう片方も同じに直す。
 const reportDir = "/tmp/swarm-console/reports"
 
 var jst = time.FixedZone("JST", 9*3600)

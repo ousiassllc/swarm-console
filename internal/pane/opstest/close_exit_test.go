@@ -2,6 +2,7 @@ package opstest
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
@@ -103,5 +104,33 @@ func TestCloseExitTimeoutKeepsNote(t *testing.T) {
 	}
 	if !f.env.FS.Has("/reports/T1.md") {
 		t.Fatal("確認できないのに最終報告を移した")
+	}
+}
+
+// shell に戻るのを待っている間にクライアントが切断（ctx cancel）したら、cd ~ 以降を送らずに ctx のエラーで止まる。
+// メモも最終報告も移さない。終了コマンドは Enter まで送りきってある（Issue #30。NFR-AVL-7）。
+func TestCloseCancelWhileWaitingForExitSendsNothingMore(t *testing.T) {
+	f := newFixture(t)
+	ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
+	f.env.Notes.SetSummary("%0", notes.Summary{From: "agent-b"})
+	typed := f.lateExitingAgent(-1) // 終了しない
+	ctx, cancel := context.WithCancel(context.Background())
+	f.env.Tmux.OnCapture(func() {
+		if len(f.env.Tmux.Ops()) >= 2 { // /exit と Enter を送ったあとの、待ちの中の画面の確認
+			cancel()
+		}
+	})
+	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(ctx, ref) })
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+	if res.OK || res.NoteArchived || len(*typed) != 0 {
+		t.Fatalf("res = %+v typed = %v", res, *typed)
+	}
+	if want := []string{`literal %0 "/exit"`, "keys %0 Enter"}; !equalStrings(opStrings(f), want) {
+		t.Fatalf("ops = %v", opStrings(f))
+	}
+	if len(f.env.Notes.Archives()) != 0 {
+		t.Fatalf("メモを移した: %v", f.env.Notes.Archives())
 	}
 }
