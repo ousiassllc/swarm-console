@@ -48,7 +48,7 @@
 | NFR-AVL-5 | 1 ペインの tmux 呼び出しの失敗・タイムアウトが他のペインの結果を止めない（そのペインを `unknown` にして警告） |
 | NFR-AVL-6 | 同じペインへの操作は直列化し、デッドロックしない（`lock_timeout` で `busy_timeout`）。異なるペインは並行に処理できる |
 | NFR-AVL-7 | 終了シグナル（SIGTERM）で進行中の操作を完了待ち（最大 10 秒）してから止まる。操作の途中で止まって、ペインに半端な入力を残さない |
-| NFR-AVL-8 | 配布は GitHub Releases のバイナリ。`serve` は新しい版を見つけたら自分で入れ替える（自己更新。`update_auto` が既定 `true`。FR-UPD-11）。`update_auto = false` のときは、手で入れ替えて `systemctl --user restart swarm-console` する |
+| NFR-AVL-8 | 配布は GitHub Releases のバイナリ（main の CI が成功するたびに自動でリリースされる。NFR-TEST-11）。`serve` は新しい版を見つけたら自分で入れ替える（自己更新。`update_auto` が既定 `true`。FR-UPD-11）。`update_auto = false` のときは、手で入れ替えて `systemctl --user restart swarm-console` する |
 | NFR-AVL-9 | 新しい版の確認・ダウンロード・入れ替えが失敗・遅延・拒否されても `serve` は動き続ける。確認と更新は起動・ツールの応答・終了（NFR-AVL-7）を待たせない（FR-UPD-8） |
 | NFR-AVL-10 | 自己更新の途中で失敗・停止しても、元のバイナリが残る（入れ替えは一時ファイル → 検証 → `rename`。旧バイナリは `.old` に 1 世代残す）。新しいバイナリが起動に失敗し続けたら（3 回目の起動）、`.old` から自動で戻し、その版は再び入れ替えない（FR-UPD-15・17）。入れ替えの終了は NFR-AVL-7 と同じ正常終了で、`working` のペインがあっても待たない（ペインは tmux に残る。MCP クライアントは再接続が要る） |
 
@@ -75,6 +75,7 @@
 | NFR-OPS-8 | `config.toml` は手書きと `setup` のどちらでも作れ、`setup` は手で書いた内容（コメント・並び・書式・`setup` が聞かないキー）を壊さない（FR-SET-3）。`setup` が書くのは設定の置き場（`~/.config/swarm-console`）の `config.toml` と、発行したときの `tokens.toml` だけ（NFR-SEC-14）。`config.toml` がシンボリックリンクのときは書かず中止する（リンク先が置き場の外のため。P-35） |
 | NFR-OPS-9 | `setup` は `tmux`・`tailscale` などの外部コマンドを実行せず、ネットワークにも出ない。tailnet の候補はインターフェースの列挙だけで出す（NFR-SEC-7 と同じ方針。P-33） |
 | NFR-OPS-10 | 新しい版の確認と自己更新は `config.toml` の `update_check`（既定 `true`）・`update_check_interval`（既定 `24h`、`1h` 以上）・`update_auto`（既定 `true`）で切り替える。`version --check` は設定に依らず手動で動く（確認だけで入れ替えない。FR-UPD-10・19） |
+| NFR-OPS-11 | リリースの権限：`release.yml` の既定は `contents: read`。書き込み（`contents: write`）を持つのはリリースを作るジョブだけで、ビルドのジョブは書き込みトークンを持たない。PR（フォーク含む）のコードではリリースのワークフローを動かさない。リリースは同時に 1 本だけ（`concurrency`）。タグの版は `vX.Y.Z` だけで、Issue #7 の版の確認が読む形と同じ |
 
 ## 6. 互換性・前提環境
 
@@ -100,10 +101,11 @@
 | NFR-TEST-8 | CI は `go build`・`go vet`・`golangci-lint`・`go test -race`。tmux が要るテストは CI でも実 tmux で動かす。CI は GitHub ホストのランナー（`ubuntu-latest`）で動き、tmux はジョブの中で `apt-get install` して入れ、`tmux -V` で確かめる。Go・golangci-lint は `actions/setup-go`・golangci-lint の公式 action で入れる |
 | NFR-TEST-9 | バグ修正には回帰テストを付ける |
 | NFR-TEST-10 | 受け入れ確認（機能要件 §8）は、自動テストで担保できる範囲を CI で、実クライアント接続（Claude Code・Codex・Cursor・curl）が要る範囲を実機で行い、未確認の部分は報告に明記する |
-| NFR-TEST-11 | タグ `v*` の push で、GitHub Releases に linux/amd64 のバイナリを載せるワークフローを用意する（P-20） |
+| NFR-TEST-11 | 次の条件で、GitHub Releases に linux/amd64 のバイナリ（`swarm-console_vX.Y.Z_linux_amd64`）と `SHA256SUMS` を載せるワークフローを用意する（P-20・P-48。名前と書式は Issue #7 の自己更新が読む。環境構築 CI/CD）：main への push の CI が成功したら次の版のタグを自動で付けてリリースする（毎回パッチを上げる）。CI が失敗・PR・main の先頭でないコミットではタグを付けない。手でタグ `vX.Y.Z` を打てばマイナー・メジャーを上げられる |
 | NFR-TEST-12 | `setup` の書き戻し（`config` の編集部品）は表駆動の単体テストで確かめる：コメント・空行・並び・CRLF・複数行配列・dotted key・表の有無・未知のキー（`serve` では拒否されるが編集部品は壊さない）。変更した値の範囲の外のバイト列が入力と同一であること、読み直した値が期待どおりであること、`serve` と同じ読み込みで落ちる結果は書かないことを確かめる |
 | NFR-TEST-13 | `setup` の画面は、実 tmux の専用ソケットのペインで `swarm-console setup` を起動し、`send-keys` で入力して確かめる（NFR-TEST-1 と同じ方式。待ちは NFR-TEST-7）。新規作成 → そのまま `serve` が起動できる、手書きの `config.toml` を開いて 1 項目だけ変えても他が 1 バイトも変わらない、TTY でない起動が終了コード 1 で終わる、中止で何も書かれない、を通す |
 | NFR-TEST-14 | 新しい版の確認は、実際の GitHub に出ずに `httptest` で確かめる：新しい版・同じ版・古い版（手元が先）・プレリリース形の現在の版・非 semver の最新タグ・`dev` ビルド・404・429・403（上限／拒否）・5xx・接続失敗・タイムアウト・不正 JSON・巨大な本文。`serve` の定期確認は `clock` を進めて確かめ（NFR-TEST-7）、確認が失敗しても `serve` が応答し続けること、`host_status.update` の各状態（`pending`・`disabled`・結果）を通す |
+| NFR-TEST-15 | 次の版を決める処理（`.github/scripts/plan-release.sh`）は表駆動の `bash` テストで確かめる：タグなし → `v0.1.0`、最新 `v0.1.9` → `v0.1.10`（数として比較する）、手で打った `v1.0.0` の次は `v1.0.1`、プレリリース形・`v` 無し・`vX.Y` の拒否、main の先頭でないコミット、既に `v*` タグがあるコミット、手で打ったタグが既存の最大以下、を通す。ワークフロー全体は main に入れてからの最初の CI 成功で確かめる（PR 上では `workflow_run` が動かないため、結果は報告に明記する） |
 | NFR-TEST-16 | 自己更新は、実際の GitHub にも実際の `~/bin` にも触れずに確かめる（`httptest` の偽の配信元、`HOME` を一時ディレクトリに差し替え。パスは `$HOME` から決める）：成功（入れ替え・`.old`・マーカー・終了の要求）、`SHA256SUMS` の不一致・行なし・行が複数・形式不正・空のバイナリ、404（`asset_missing`）、サイズ超過、許可されないホストへのリダイレクト、`os.Executable()` が置き場と違う・シンボリックリンク、ダウングレード・同じ版、`update_auto = false`・`update_check = false`、`blocked`（`update-failed` の版以下）、各ステップ（書き込み・リンク・マーカー・rename）の失敗で本体が元のまま残ること、`SIGTERM` での中断と一時ファイルの掃除。試運転は `boots` の 1・2・3 回目、60 秒（`clock`）での確定、`to` が自分の版でないマーカーの掃除、`.old` が無いときの戻し失敗を通す。`working` のペインがあっても待たずに入れ替えることを確かめる。実際の systemd による再起動と戻し（新バイナリの起動失敗）は CI で再現できないので、実機で確認し、未確認なら報告に明記する（NFR-TEST-10 と同じ扱い） |
 
 ## 改訂履歴
@@ -114,3 +116,5 @@
 | 1.1 | 2026-11-01 | NFR-OPS-2 に `setup` を追加、NFR-OPS-8・9、NFR-TEST-12・13 を追加 | Issue #5 |
 | 1.2 | 2026-11-01 | NFR-SEC-15・NFR-AVL-9・NFR-OPS-10・NFR-TEST-14 を追加、NFR-OPS-2 に `version --check` を追加 | Issue #7 |
 | 1.3 | 2026-11-01 | 更新の方式を自己更新で確定：NFR-SEC-14・15 を改訂し NFR-SEC-16・NFR-AVL-10・NFR-TEST-16 を追加、NFR-AVL-8・9、NFR-OPS-1・10 を自己更新に合わせて改訂 | Issue #7（自己更新で確定） |
+| 1.4 | 2026-11-01 | NFR-TEST-11 を自動タグ付きリリースに更新、NFR-TEST-15・NFR-OPS-11 を追加、NFR-AVL-8 を更新 | Issue #8 |
+| 1.5 | 2026-11-01 | NFR-TEST-11 の成果物をアセット名 `swarm-console_vX.Y.Z_linux_amd64`・`SHA256SUMS` に、NFR-AVL-8 を自己更新（Issue #7）に合わせて更新 | Issue #8（Issue #7 の自己更新で確定） |
