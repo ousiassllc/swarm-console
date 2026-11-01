@@ -136,3 +136,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.3 | 2026-11-01 | 300 行超過ファイルを分割（§5 ツール以降を endpoints-pane.md・endpoints-state.md・endpoints-report.md へ移動）。内容の変更なし | Issue #3 |
 | 1.4 | 2026-11-01 | `pane_close` の「`~` のプロンプトだけ」に枠付き複数行プロンプトを含むと明記（実装の取りこぼしを修正。判定の意味は変えない） | Issue #19 |
 | 1.5 | 2026-11-01 | `report` の JSON に `host`（CPU・スワップ・ディスクの使用率）・`usage`・`omp`・`update`・`auth`、`kind` の `auth_expired`・`auth_expiring` を追加（`attention[]` のキー・型は変えない）。`host_status` に同じ値を追加 | Issue #21〜#25 |
+| 1.6 | 2026-11-02 | `report` の `pane` 指定の JSON でも、ログインの要対応・`usage`・`omp`・`update`・`auth`・`host` は絞らず常に入れると明記（ペインの項目だけ絞る）。例の `used` を JSON の数値表記（`48`）にそろえた | Issue #21〜#25（実装時の確認） |

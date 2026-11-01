@@ -43,7 +43,7 @@
     "claude": [
       {"account": "acct-a",
        "five_hour": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null},
-       "seven_day": {"available": true, "used": 48.0, "unit": "percent", "status": "ok", "resets_at": "2026-11-01T07:00:00+09:00"}}
+       "seven_day": {"available": true, "used": 48, "unit": "percent", "status": "ok", "resets_at": "2026-11-01T07:00:00+09:00"}}
     ],
     "cursor": [
       {"account": "acct-a", "window": "monthly",
@@ -84,6 +84,7 @@
 | `attention[]` | 既存の 3 キー `kind`・`pane`・`detail`（どれも文字列）のまま。ログインの項目は `pane` を `""`、`detail` をエージェント名（`omp`・`claude`・`codex`）にする。期限の日時は `auth` の同じエージェントの `expires_at` を見る | — |
 
 - `attention[].kind` は `asking`・`stalled`・`report_waiting`・`auth_expired`・`auth_expiring`。並びは、ペインの項目（質問待ち → 止まってそう → 報告待ち、各ペインの並び順）のあとに `auth_expired` → `auth_expiring`（それぞれ `auth.agents` の順）。`unknown` は入れない（FR-REP-16）。
+- `pane` を指定した JSON では、`panes` と、ペインの項目（`asking`・`stalled`・`report_waiting`）はそのペインだけに絞る。`auth_expired`・`auth_expiring`・`usage`・`omp`・`update`・`auth`・`host` はペインに属さないので絞らず、全体の版と同じ値を常に入れる（markdown の詳しい版が、見出し・要対応・使用状況を全体の版と同じに出すのと同じ。FR-REP-16）。並びは変わらない（ペインの項目 → ログイン）。
 - 既存の `attention[]` のキー・型は変えない（`pane` は常に文字列。ログインの項目だけ空文字列）。
 
 `usage` のキー：

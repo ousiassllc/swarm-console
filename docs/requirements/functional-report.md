@@ -24,8 +24,8 @@
 | FR-REP-12 | 使用状況（Issue #21）：Claude の 5 時間枠・7 日枠、Cursor の使用量、Codex の 5 時間枠・7 日枠を、アカウントごとに返す。Claude は `omp` が返したアカウントを全部返し、ある枠が取れなくてもアカウントを消さない。JSON は `usage`（API 仕様 §5.5）、markdown は「使用状況」の節。取り方・間隔は [report-values.md §2](../architecture/report-values.md#2-使用状況issue-21) |
 | FR-REP-13 | サーバー負荷（Issue #23）：CPU 使用率・スワップの使用量と使用率・`disk_mounts` の各マウントの使用率を、数値で返す。バーなどの見た目は仕様に入れず、値だけを返す。SSD 2 台は既存の `disk_mounts`（既定 `/` と `/mnt/nvme`）。取れない値は FR-REP-11 |
 | FR-REP-14 | ペインの経過（Issue #22）：ペインの表に列「経過」を、状態の右に足す。値は `panes_status` の `elapsed`（エージェントの画面の経過表示、読めなければサーバーが `working` を観測し始めてからの経過。ER §4）をそのまま使い、`null` は `—`。新しい項目・起点は足さない。JSON は既存の `panes[].elapsed` |
-| FR-REP-15 | omp の更新確認（Issue #24）：omp の今の版と、新しい版があるかを返す（`omp.status`：`up_to_date`・`update_available`・`unknown`・`pending`・`disabled`）。`update_check`・`update_check_interval` に従う。swarm-console 自身の状態（`host_status.update` と同じ）も `update` として一緒に返す。取れないときは `unknown` と `reason`（markdown は「取得できず」） |
-| FR-REP-16 | ログイン期限（Issue #25）：`agent_auth_status` と同じ判定を `auth` として返す。`expired`・`expiring_soon`（48 時間以内）だけ要対応の一覧に入れる（`kind`：`auth_expired`・`auth_expiring`）。`unknown` は要対応に入れず、`auth` に `unknown` のまま残し、markdown の見出しに「不明」と出す。閾値・設定は足さない |
+| FR-REP-15 | omp の更新確認（Issue #24）：omp の今の版と、新しい版があるかを返す（`omp.status`：`up_to_date`・`update_available`・`unknown`・`pending`・`disabled`）。`update_check`・`update_check_interval` に従う。swarm-console 自身の状態（`host_status.update` と同じ）も `update` として一緒に返す（JSON は `update`、markdown は見出しの「更新」の 1 行に omp と並べる。FR-UPD-9）。取れないときは `unknown` と `reason`（markdown は「取得できず」） |
+| FR-REP-16 | ログイン期限（Issue #25）：`agent_auth_status` と同じ判定を `auth` として返す。`expired`・`expiring_soon`（48 時間以内）だけ要対応の一覧に入れる（`kind`：`auth_expired`・`auth_expiring`）。`unknown` は要対応に入れず、`auth` に `unknown` のまま残し、markdown の見出しに「不明」と出す。`pane` を指定した場合も、ログインの要対応は入れる（ペインに属さないので絞らない。並びはペインの項目のあと。API 仕様 §5.5）。閾値・設定は足さない |
 | FR-REP-17 | `host_status` は、同じスナップショットの値として `cpu`・`swap`・拡張した `disk`・`usage`・`omp` を返す（キーと形は `report` の JSON と同じ。API 仕様 §5.3）。`format: markdown` に出す新しい値の見た目（行の並び・言葉）は §5.3・§5.4 に従う |
 | FR-REP-18 | メール・`accountId`・`orgId`・トークン・`omp` のコマンド出力の文面・パスは、レポートと `host_status` のどこにも出さない。アカウントは [report-values.md §2.2](../architecture/report-values.md#22-アカウント名) の名前だけで示す（NFR-SEC-5） |
 
@@ -65,28 +65,28 @@
 - 🔴 止まってそう: B3 — 変化なし 20m
 - 📩 報告待ち: T1 — 最終報告あり（`report_read` で読む）
 - 🔑 ログイン期限切れ: claude
-- ⏳ ログイン期限間近: codex — あと 10 時間（2026-11-01 08:10）
+- ⏳ ログイン期限間近: codex — あと 10 時間 5 分（2026-11-01 08:15）
 
 ## 使用状況
 
 ### Claude
 
 | アカウント | 5 時間枠 | 7 日枠 |
-|-----------|---------|-------|
+| --- | --- | --- |
 | acct-a | 取得できず | 48%（リセット 2026-11-01 07:00） |
 | acct-b | 0% | 7%（リセット 2026-11-06 10:00） |
 
 ### Cursor
 
 | アカウント | 枠 | 使用 |
-|-----------|----|------|
+| --- | --- | --- |
 | acct-a | monthly | 0%（リセット 2026-12-01 09:00） |
 | acct-b | weekly | 0 USD（リセット 2026-11-02 09:00） |
 
 ### Codex
 
 | アカウント | 5 時間枠 | 7 日枠 |
-|-----------|---------|-------|
+| --- | --- | --- |
 | acct-a | 0%（リセット 2026-11-02 03:09） | 2%（リセット 2026-11-04 09:00） |
 
 ## 警告
@@ -98,7 +98,7 @@
 - 表のセルは `|` と改行をエスケープし、空は `—`。長いセルは 80 字で `…` に切る。
 - `en` は見出し・ラベル・状態の言葉が英語になり、メモの中身は同じ。
 - `pane` 指定の詳しい版は、上記に加えて「メモ全項目」「質問カード（あれば）」「画面の最後の 15 行（飾りなし）」「最終報告ファイルの有無と更新時刻」を出す。見出し・使用状況は全ペインの版と同じ（`pane` の指定では変わらない）。
-- 見出しの新しい行は値を出すだけで、バー・色分け・警告記号は使わない。時刻は `at` のオフセットで `YYYY-MM-DD HH:MM`。「あと N 時間」は `expires_at` と `at` の差（分未満は切り捨て）から描画で計算する：1 時間未満は「M 分」、24 時間未満は「N 時間 M 分」（M が 0 なら「N 時間」）、24 時間以上は「N 日 M 時間」（M が 0 なら「N 日」）。呼び出し時刻は使わない。
+- 見出しの新しい行は値を出すだけで、バー・色分け・警告記号は使わない。時刻は `at` のオフセットで `YYYY-MM-DD HH:MM`。「あと N 時間」は `expires_at` と `at` の差（分未満は切り捨て）から描画で計算する：1 時間未満は「M 分」、24 時間未満は「N 時間 M 分」（M が 0 なら「N 時間」）、24 時間以上は「N 日 M 時間」（M が 0 なら「N 日」）。呼び出し時刻は使わない。英語は同じ形で単位を `d`・`h`・`min` にし、前に `in` を付ける（`in 5 min`・`in 10 h 5 min`・`in 2 d 3 h`。§5.4）。
 - 使用状況・見出しの行は、`status` が `disabled` なら「無効」、`pending` なら「未取得」、取得できなければ「取得できず」を 1 行で出す（節の見出しは残す）。`stale` は表を出したうえで、節の末尾に「取得できず（最後の成功: 時刻）」を 1 行足す。
 
 ### 5.4 新しい値の言葉（`ja`・`en`）
@@ -114,6 +114,7 @@
 | 枠が上限 `exhausted` | 上限到達 | Exhausted |
 | 枠の名前 | 5 時間枠・7 日枠・リセット | 5-hour・7-day・Resets |
 | 見出しの行 | 更新・ログイン・ディスク・使用状況 | Updates・Login・Disk・Usage |
+| 期限までの時間（`at` との差。分未満は切り捨て） | あと 5 分・あと 10 時間 5 分・あと 2 日 3 時間 | in 5 min・in 10 h 5 min・in 2 d 3 h |
 
 ## 6. 質問カードの操作（FR-ASK）
 
