@@ -58,9 +58,9 @@ graph TD
 | Lint | `golangci-lint` | 元仕様の CI |
 | トークン | 32 バイト乱数（`crypto/rand`）＋ SHA-256 保存 | 高エントロピーなので低速ハッシュは不要 |
 | 版の確認 | 標準の `net/http` ＋ `golang.org/x/mod/semver`（自前で版を解析しない） | GitHub Releases の `/releases/latest` を読んで semver で比較する（P-42）。mam の `updater` と同じ作り |
-| 配布 | GitHub Releases ＋ 手で入れ替え。自己更新（自分で置き換える）にするかは**未決**（機能要件 §12.4・P-46） | 元仕様 |
+| 配布・更新 | GitHub Releases ＋ 自己更新（`serve` が新しい版を見つけたら、ダウンロード・`SHA256SUMS` で検証・入れ替え・自分で正常終了して systemd に立ち上げ直させる。起動に失敗したら `.old` から自動で戻す。機能要件 §12.4・P-46・P-54〜P-58） | 運用者の判断（Issue #7）。標準の `net/http`・`os`・`crypto/sha256` だけで足りる |
 
-DB は使わない（ER ドキュメントは永続ファイルのデータモデル）。動作に外部サービスは要らない（新しい版の確認だけ GitHub Releases を読み、失敗しても動く。FR-UPD）。
+DB は使わない（ER ドキュメントは永続ファイルのデータモデル）。動作に外部サービスは要らない（新しい版の確認と自己更新だけ GitHub Releases に通信し、失敗しても動く。FR-UPD）。
 
 ## 3. レイヤー構造
 
@@ -204,7 +204,7 @@ flowchart TD
 | 項目 | 内容 |
 |------|------|
 | 実行場所 | example-host（tmux サーバーと同じホスト、同じユーザー） |
-| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から手で入れ替え） |
+| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から。`serve` が自分で入れ替える。`update_auto = false` のときは手で入れ替え）。同じフォルダに `swarm-console.new`・`.old`・`.update-pending`・`.update-failed` が一時的にできる（ER §8） |
 | 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`templates/`（任意） |
 | データ | `~/.local/share/swarm-console/notes.json`（600） |
 | 最終報告 | `/tmp/swarm-console/reports/<位置>.md`（エージェントが書く）、`archive/`（サーバーが移す） |
@@ -231,8 +231,9 @@ WantedBy=default.target
 ```
 
 - `listen_addr` は `tailscale ip -4` の値を設定に書く（コードでアドレスを探しにいかない。P-01）。tailscale がまだ上がっていなくても `bind` に失敗したら再試行して立ち上がるように、`Restart=always` に任せる。
-- 更新手順：新バイナリを置く → `systemctl --user restart swarm-console` → `host_status` で確認。
-- 新しい版の確認は `serve` が 24 時間ごとに `api.github.com` を読んで行い（`update_check`。FR-UPD）、結果は `host_status` の `update` と `version --check` で見る。バイナリの入れ替えは今の手順のまま（自己更新は未決）。
+- 更新手順（`update_auto = false` のとき）：新バイナリを置く → `systemctl --user restart swarm-console` → `host_status` で確認。
+- 新しい版の確認は `serve` が 24 時間ごとに `api.github.com` を読んで行い（`update_check`。FR-UPD）、結果は `host_status` の `update` と `version --check` で見る。`update_auto`（既定 `true`）なら、新しい版を見つけたときにダウンロード → 検証 → `rename` → 正常終了し、上の `Restart=always`・`RestartSec=2` が新バイナリを起動する（`systemctl` は実行しない）。
+- 自己更新は `swarm-console.service` の変更を要しない。新バイナリが起動に失敗し続けても、3 回目の起動で `.old` に戻して終了する（`RestartSec=2` なので約 4 秒後。systemd の既定の起動回数の上限（10 秒に 5 回）より前。FR-UPD-17・P-55）。
 
 ## 8. 設定ファイルの全体像
 
@@ -258,6 +259,7 @@ WantedBy=default.target
 | `report_dir` | `/tmp/swarm-console/reports` | 最終報告の置き場 |
 | `update_check` | `true` | `serve` が GitHub Releases で新しい版を確認する（FR-UPD） |
 | `update_check_interval` | `24h`（1h 以上） | 確認の間隔 |
+| `update_auto` | `true` | 新しい版を見つけたら `serve` が自分で入れ替える（FR-UPD-19。`update_check = false` なら無効） |
 | `[pane_names]` | なし | 位置の固定名 |
 | `[agents.<name>]` | 組み込み | アダプタの上書き（コマンド・正規表現・認証ファイル） |
 
@@ -298,14 +300,19 @@ WantedBy=default.target
 | P-29 | `denied_paths` の既定 | **確定：既定 `~/dotfiles`、`config.toml` で変更可**。`denied_paths` を書いたら既定と入れ替わる（足されない）。書かなければ既定。`~` は展開して絶対パスで比較。`cwd`・`file` の両方に効く。オーナーの checkout の一覧は仕様書に無いため、必要なら設定で書く（例は [環境構築](../environment/setup.md#ローカルで動かす)） | **確定** |
 | P-30 | `report_read` の読み取り | 最終報告ファイルは `O_NOFOLLOW` で開く（シンボリックリンクなら `exists: false`）。認証ファイルなどを読み出されないため | 実装時に決めた |
 | P-31 | 仕様書の行数管理 | **確定**：`.linterlyignore` で `docs/**` を Linterly の対象から外す（`api/endpoints.md`・`architecture/er.md` が 300 行を超えるため）。仕様書の分割は別 Issue（#3） | **確定** |
-| P-40 | 新しい版の確認の入口 | **確定（Issue #7 のヒアリングで選択）**：`swarm-console version --check`・`serve` の定期確認・`host_status` の `update` の 3 つ全部。`update` サブコマンドは作らない（自己更新が未決のため） | **確定** |
-| P-41 | 定期確認の既定 | **確定（Issue #7 のヒアリングで選択）**：既定オン・24 時間ごと。`config.toml` の `update_check = false` で止める。設定なしで GitHub へ外向き通信が出る（`api.github.com` の GET 1 本。NFR-SEC-15） | **確定** |
+| P-40 | 新しい版の確認の入口 | **確定（Issue #7 のヒアリングで選択）**：`swarm-console version --check`・`serve` の定期確認・`host_status` の `update` の 3 つ全部。`update` サブコマンドは作らない（入れ替えのきっかけは `serve` の自動だけ。P-46） | **確定** |
+| P-41 | 定期確認の既定 | **確定（Issue #7 のヒアリングで選択）**：既定オン・24 時間ごと。`config.toml` の `update_check = false` で止める。設定なしで GitHub へ外向き通信が出る（確認の `api.github.com` の GET 1 本と、自己更新のダウンロード。NFR-SEC-15） | **確定** |
 | P-42 | 版の形・比較・プレリリース | タグは `vX.Y.Z` だけを受け付ける（Issue #8 が付ける形と同じ）。比較は `golang.org/x/mod/semver`。`/releases/latest` を使うのでプレリリース・ドラフトは通知しない。現在の版がプレリリース形でも semver どおりに比較する | 実装時に決めた。OK 時に確認 |
 | P-43 | `version --check` の終了コード | 最新 0・新しい版あり 10・確認できない 1。スクリプトで 3 つを区別できるようにする | 実装時に決めた |
 | P-44 | 確認の失敗の扱い | 失敗後の再試行は次の周期まで行わない（バックオフなし）。ログは新しい版を見つけたとき 1 回と、失敗の `reason` が変わったときの警告だけ（FR-UPD-8）。`serve` は止めない | 実装時に決めた |
 | P-45 | 最初の確認の遅れ | 起動の 1 分後（起動処理・サンプラーの初回取得と重ねない。`clock` 経由） | 実装時に決めた |
-| P-46 | **更新の方式（確認だけ／自分で更新）** | **未決。** 案 A（確認だけ）と案 B（ダウンロード・検証・入れ替え）を機能要件 §12.4 に並べた。案 B を選ぶなら、検証（ハッシュだけか署名も付けるか）・きっかけ（手動か自動）・再起動・入れ替えの方法・書き込み先（NFR-SEC-14 の改訂）を併せて決める | **未決（運用者の判断待ち）** |
+| P-46 | 更新の方式 | **確定（Issue #7 のヒアリングで選択）：自己更新。** 検証は `SHA256SUMS` のハッシュだけ（署名なし）、きっかけは `serve` の自動、再起動は自分で正常終了して systemd に立ち上げ直してもらう。限界とリスクは機能要件 §12.5 | **確定** |
 | P-47 | 確認に認証を使わない | リポジトリが public である前提（public になった。private に戻すと GitHub は `releases/latest` に 404 を返し、`no_release` になる）。トークンは送らない（NFR-SEC-15） | 実装時に決めた |
+| P-54 | 作業中のペインがあるときの更新 | **確定（Issue #7 の回答）**：待たずにすぐ入れ替えて終了する。ペインは tmux に残り、MCP クライアントはつなぎ直す。進行中のツール呼び出しは NFR-AVL-7 の 10 秒で打ち切る（mam の `SafeGate` のように作業中は更新しない、は採らない） | **確定** |
+| P-55 | 起動失敗の判定と戻し | 戻すこと自体は **確定（Issue #7 の回答）**。判定と再起動ループの防ぎ方は実装案：入れ替え時に `.old`（ハードリンク）と `update-pending`（`boots` 0）を置く → 新バイナリは起動の最初に `boots` を +1 し、**3 回目の起動**で `.old` を戻して終了、`update-failed` に版を記録して同じ版を再試行しない（FR-UPD-17）。閾値 3 は `RestartSec=2` で約 4 秒後 ＝ systemd の起動回数の上限より前。60 秒生きれば確定。bind 失敗（tailscale 未起動）も数える＝旧バイナリでも起きる環境要因と区別しないが、戻したあとは `update-failed` でその版を止めるので、無限には繰り返さない。コードを 1 行も実行できない故障は数えられない（§12.5） | 実装時に決めた。OK 時に確認 |
+| P-56 | `update_auto` の既定 | 運用者の回答は「自動更新を止める設定は `update_auto` を新しく足す」。「止める設定」と読み、**既定 `true`（自動で入れ替わる）、`false` で確認だけ**とした。`update_check = false` なら無効。ハッシュだけの検証と自動の組み合わせなので、既定を `false` にして明示的に有効にする案もある | **OK 時に確認（既定値）** |
+| P-57 | ダウンロード先・アセット名・`SHA256SUMS` の書式 | アセット名は `swarm-console_vX.Y.Z_linux_amd64`（**確定**：版・OS・arch を含める）。`SHA256SUMS` は `sha256sum` の出力どおり（`<ハッシュ>␣␣<アセット名>`）の 1 行。ダウンロード URL は検証済みの `tag_name` から `releases/download/<tag>/…` を組み立て、API 応答の `assets[]` は使わない（応答の文字列を URL にしない）。許可ホストは `github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com`。サイズ上限：`SHA256SUMS` 64 KiB・バイナリ 64 MiB。生産側（`release.yml`）の改訂は Issue #8 | 実装時に決めた。OK 時に確認 |
+| P-58 | 置き場と入れ替えの方法 | 置き場は `~/bin/swarm-console/` に**固定**（**確定**。`os.Executable()` が違えば `not_managed`）。入れ替えは「`.new` に書く → `.old` へハードリンク → マーカー → `.new` を `rename`」で、本体の名前が一度も消えない（途中で落ちても `swarm-console` がある）。旧バイナリは 1 世代だけ | 実装時に決めた。OK 時に確認 |
 
 ## 改訂履歴
 
@@ -314,3 +321,4 @@ WantedBy=default.target
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | P-16・P-24 を確定、P-22 を omp で確定（Claude Code は一部推定、Codex は未確定）。agent-patterns.md・agent-auth.md を追加。P-25〜P-31 を追加 | 実装時確認事項の反映（Issue #1） |
 | 1.2 | 2026-11-01 | 新しい版の確認の選定と設定キー、P-40〜P-47（P-46 は更新の方式で未決）を追加 | Issue #7 |
+| 1.3 | 2026-11-01 | 更新の方式を自己更新で確定（P-40・P-41・P-46 を更新、P-54〜P-58 を追加）。技術選定・デプロイ構成・設定キー（`update_auto`）を自己更新に合わせて改訂 | Issue #7（自己更新で確定） |
