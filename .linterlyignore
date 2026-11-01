@@ -1,0 +1,6 @@
+# 仕様書（markdown）は手書きのソースコードではないため行数管理の対象外にする。
+# 仕様書の 300 行超過（api/endpoints.md・architecture/er.md ほか）の分割は別 Issue で扱う。
+docs/**
+# 自動生成コード（必要になった場合のみ追加する）
+# *.generated.go
+# *.pb.go

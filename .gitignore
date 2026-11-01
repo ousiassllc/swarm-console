@@ -1,0 +1,6 @@
+/.sweep/
+/dist/
+/swarm-console
+*.test
+*.out
+/bin/

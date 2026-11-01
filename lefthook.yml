@@ -1,0 +1,22 @@
+pre-commit:
+  parallel: false
+  commands:
+    format:
+      glob: "*.go"
+      run: golangci-lint fmt {staged_files}
+      stage_fixed: true
+    lint:
+      glob: "*.go"
+      run: golangci-lint run --new-from-rev=HEAD ./...
+    linterly:
+      run: linterly check
+
+pre-push:
+  parallel: false
+  commands:
+    build:
+      run: go build ./...
+    vet:
+      run: go vet ./...
+    test:
+      run: go test -race ./...

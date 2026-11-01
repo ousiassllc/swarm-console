@@ -1,0 +1,27 @@
+
+                                            ████████████
+                                               ██  ██       ▄▀▀▄ █▀▄▀▄ █▀▀▄
+                                               ██  ██       ▀▄▄▀ █ █ █ █▄▄▀
+                                               ▒▒  ██                  █
+                                                   ██       v18.14.1
+
+                                   Tip: Tired of typing "keep going"? Just send a '.'
+
+ Connected to MCP servers: supabase, deepwiki, nano-banana.
+
+
+ Use the ask tool exactly once to ask me the single question "Pick a fruit" with options Apple, Banana, Cherry (mark
+ Banana as recommended). Do nothing else.
+
+
+╭───  Ask ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  Pick a fruit                                                                                                        │
+│   Apple                                                                                                             │
+│   Banana                                                                                                            │
+│   Cherry                                                                                                            │
+│   Mango                                                                                                             │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+  󱊷 Asking fruit choice                                                                  󱁂 FRUIT: Ask Me to Pick a Fruit
+ ⠸ 2m   devbox  󰪣 Sonnet 5.5    sc-probe/wd  󰁑 01a1927c ─3%───󰁨─────1M─  4   139   23K   4.5K
+╰─

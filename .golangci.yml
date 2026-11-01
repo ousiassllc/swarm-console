@@ -1,0 +1,18 @@
+version: "2"
+run:
+  concurrency: 4        # 高負荷ホストで他の作業を圧迫しない
+  timeout: 5m
+linters:
+  default: standard     # errcheck・govet・ineffassign・staticcheck・unused
+  enable:
+    - gosec             # 安全要件（シェル実行なし、パス・ファイル権限）
+    - revive
+    - errorlint         # errors.Is / As の徹底
+    - bodyclose         # HTTP 応答の閉じ忘れ
+    - noctx             # context なしの HTTP / exec
+    - nolintlint
+    - misspell
+formatters:
+  enable:
+    - gofmt
+    - goimports

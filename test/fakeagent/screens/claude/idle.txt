@@ -1,0 +1,40 @@
+
+ ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   /tmp/sc-probe/wd
+
+  Updated to latest. Got 53 features, 386 bugfixes, and 158 other changes.
+  code.claude.com/docs/en/changelog for details
+
+  Get to finished work sooner with Opus 5.5. Switch anytime with /model.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "refactor <filepath>"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts · ← 1 agent

@@ -1,0 +1,21 @@
+# 実画面ではない（推定）: Claude Code の公開された画面の知識から組んだ。ログイン切れで実画面を採取できなかった
+ ▐▛███▛█   Claude Code v2.1.316
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   /tmp/sc-probe/wd
+
+❯ Use the Bash tool to run: touch /tmp/sc-probe/wd/probe-file.txt
+
+● Bash(touch /tmp/sc-probe/wd/probe-file.txt)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command
+
+   touch /tmp/sc-probe/wd/probe-file.txt
+   Create an empty file
+
+ Do you want to proceed?
+   1. Yes
+ ❯ 2. Yes, and don’t ask again for touch commands in /tmp/sc-probe/wd
+   3. No, and tell Claude what to do differently (esc)
+
+ Esc to cancel · Tab to amend

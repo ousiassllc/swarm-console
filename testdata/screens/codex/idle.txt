@@ -1,0 +1,16 @@
+# 実画面ではない（推定）: この機に codex が無く実画面を採取できなかった。公開されている Codex CLI の TUI の知識から組んだ
+╭────────────────────────────────────────────╮
+│ >_ OpenAI Codex (v0.0.0)                   │
+│                                            │
+│ model:     gpt-5-codex   /model to change  │
+│ directory: /tmp/sc-probe/wd                │
+╰────────────────────────────────────────────╯
+
+  To get started, describe a task or try one of these commands:
+
+  /init - create an AGENTS.md file with instructions for Codex
+  /status - show current session configuration
+
+› Ask Codex to do anything
+
+  100% context left · ? for shortcuts

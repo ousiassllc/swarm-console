@@ -1,0 +1,43 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # org のセルフホステッドランナー。macOS のランナーに乗らないよう Linux・X64 まで指定する。
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - uses: actions/checkout@v4
+      # Go・golangci-lint はランナーの既存環境に頼らず action で入れる。
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # go test -race の統合テストは実 tmux を使う。ランナーに無ければ失敗させる（ランナーへは入れない）。
+      - name: Check tmux
+        run: |
+          if ! command -v tmux >/dev/null 2>&1; then
+            echo "::error title=tmux がありません::このセルフホステッドランナーに tmux 3.x が入っていません。ランナーの管理者が導入してください（ジョブからは入れません）。"
+            exit 1
+          fi
+          tmux -V
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.12
+      - name: Linterly
+        run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check
+      - name: Test
+        run: go test -race ./...

@@ -1,0 +1,40 @@
+ Connected to MCP servers: supabase, deepwiki, nano-banana.
+
+
+ Use the ask tool exactly once to ask me the single question "Pick a fruit" with options Apple, Banana, Cherry (mark
+ Banana as recommended). Do nothing else.
+
+
+╭───  Ask ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  Pick a fruit                                                                                                        │
+│   Apple                                                                                                             │
+│   Banana                                                                                                            │
+│   Cherry                                                                                                            │
+│   Mango                                                                                                             │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ You chose a custom answer: Mango.
+
+
+ Use the ask tool once more, with multi-select enabled (multi: true): question "Pick toppings" with options Cheese,
+ Ham, Olives. Do nothing else.
+
+
+Ask tool was cancelled by the user
+
+
+ Write a 12-line poem about tea, slowly.
+
+
+
+
+
+
+
+
+
+
+
+  󱊷 Working…                                                                             󱁂 FRUIT: Ask Me to Pick a Fruit
+ ⠼ 2s   devbox  󰪣 Sonnet 5.5    sc-probe/wd  󰁑 01a1927c ─3%──󰕝󰁨────1M─  10   296   78K   4.7K
+╰─
