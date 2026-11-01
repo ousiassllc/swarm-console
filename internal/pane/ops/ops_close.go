@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -104,7 +105,7 @@ const maxPromptLines = 3
 
 // promptOnly は画面が「エージェントが消え、シェルのプロンプトだけ」か。
 // 非空行が 1 行以下で、あるならプロンプトらしい行（~ を含むか、$ # % > などで終わる）。
-// 複数行は、枠付きプロンプト（先頭が ╭┌ などの上枠、末尾が ╰└ などの下枠で、~ を含む）だけ認める。
+// 複数行は、枠付きプロンプト（framedPrompt）だけ認める。
 func (o *Operator) promptOnly(lines []string) bool {
 	var nonBlank []string
 	for _, l := range lines {
@@ -140,22 +141,27 @@ func (o *Operator) promptOnly(lines []string) bool {
 }
 
 // framedPrompt は非空行（前後の空白は除去済み）が、1 つの枠付きプロンプトか。
-// 先頭行が上枠（╭┌╔┏）、末尾行が下枠（╰└╚┗）、間の行が縦線（│├┃║）で始まり、全体のどこかに ~ がある。
+// 先頭行が上枠（╭┌╔┏）で始まり ~ を含み、末尾行が下枠（╰└╚┗）で始まって promptSuffixes のどれかで終わる。
+// 間の行は無いか、縦線（│├┃║）だけ。枠の中に出力があれば片付いていない。
 // 右端まで閉じた枠（╮┐╗┓ や ╯┘╝┛ で終わる行）は、別のアプリの箱であってプロンプトではない。
 func framedPrompt(nonBlank []string) bool {
 	n := len(nonBlank)
-	if n > maxPromptLines || !startsWithAny(nonBlank[0], "╭┌╔┏") || !startsWithAny(nonBlank[n-1], "╰└╚┗") {
+	first, last := nonBlank[0], nonBlank[n-1]
+	if n > maxPromptLines || !startsWithAny(first, "╭┌╔┏") || !startsWithAny(last, "╰└╚┗") {
 		return false
 	}
-	if endsWithAny(nonBlank[0], "╮┐╗┓") || endsWithAny(nonBlank[n-1], "╯┘╝┛") {
+	if endsWithAny(first, "╮┐╗┓") || endsWithAny(last, "╯┘╝┛") || !strings.Contains(first, "~") {
+		return false
+	}
+	if !slices.ContainsFunc(promptSuffixes, func(s string) bool { return strings.HasSuffix(last, s) }) {
 		return false
 	}
 	for _, l := range nonBlank[1 : n-1] {
-		if !startsWithAny(l, "│├┃║") || utf8.RuneCountInString(l) > 1 && endsWithAny(l, "│┃║") {
+		if strings.Trim(l, "│├┃║ ") != "" {
 			return false
 		}
 	}
-	return strings.Contains(strings.Join(nonBlank, "\n"), "~")
+	return true
 }
 
 // endsWithAny は s が set のどれかの文字で終わるか。
