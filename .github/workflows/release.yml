@@ -8,7 +8,8 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # org のセルフホステッドランナー（Linux・X64 まで指定）
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

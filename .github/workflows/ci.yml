@@ -13,14 +13,22 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # org のセルフホステッドランナー。macOS のランナーに乗らないよう Linux・X64 まで指定する。
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - uses: actions/checkout@v4
+      # Go・golangci-lint はランナーの既存環境に頼らず action で入れる。
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install tmux
-        run: sudo apt-get update && sudo apt-get install -y tmux
+      # go test -race の統合テストは実 tmux を使う。ランナーに無ければ失敗させる（ランナーへは入れない）。
+      - name: Check tmux
+        run: |
+          if ! command -v tmux >/dev/null 2>&1; then
+            echo "::error title=tmux がありません::このセルフホステッドランナーに tmux 3.x が入っていません。ランナーの管理者が導入してください（ジョブからは入れません）。"
+            exit 1
+          fi
+          tmux -V
       - name: Build
         run: go build ./...
       - name: Vet
