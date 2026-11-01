@@ -1,19 +1,32 @@
 # swarm-console レポート
 
 - 時刻: {{.At}}
-- サーバー負荷: load1 {{.Load1}} / メモリ空き {{.MemFree}} GB
+- サーバー負荷: load1 {{.Load1}} / CPU {{.CPU}} / メモリ空き {{.MemFree}} GB / スワップ {{.Swap}}
+- ディスク: {{.Disk}}
+- 更新: {{.Updates}}
+- ログイン: {{.Login}}
 
 ## ペイン
 
-| 位置 | エージェント | 状態 | 依頼元 | リポジトリ / Issue | いまやっていること | 次にやること |
-|------|------------|------|--------|------------------|------------------|------------|
-{{range .Panes}}| {{.Pos}} | {{.Agent}} | {{.State}} | {{.From}} | {{.Repo}} | {{.Activity}} | {{.Next}} |
+| 位置 | エージェント | 状態 | 経過 | 依頼元 | リポジトリ / Issue | いまやっていること | 次にやること |
+|------|------------|------|------|--------|------------------|------------------|------------|
+{{range .Panes}}| {{.Pos}} | {{.Agent}} | {{.State}} | {{.Elapsed}} | {{.From}} | {{.Repo}} | {{.Activity}} | {{.Next}} |
 {{end}}
 ## 要対応
 
 {{range .Attention}}- {{.}}
 {{else}}- なし
 {{end}}
+## 使用状況
+
+{{with .Usage}}{{if .Line}}- {{.Line}}
+{{else}}{{range $i, $s := .Sections}}{{if $i}}
+{{end}}### {{$s.Name}}
+
+{{$s.Body}}
+{{end}}{{if .Stale}}
+- {{.Stale}}
+{{end}}{{end}}{{end}}
 {{- if .Warnings}}
 ## 警告
 

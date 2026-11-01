@@ -25,10 +25,8 @@ type Deps struct {
 	Host      host.Host
 	Profiles  *config.Profiles
 	Templates *render.Templates
-	// Update は host_status.update の元（serve が持つ最後の確認結果と自己更新の状況。呼び出しで通信しない）。
-	Update UpdateSource
-	Clock  clock.Clock // nil なら clock.Real
-	Logger *slog.Logger
+	Clock     clock.Clock // nil なら clock.Real
+	Logger    *slog.Logger
 }
 
 // env はハンドラが共有する、既定値を埋めた依存。
@@ -56,8 +54,6 @@ func New(d Deps) (*Registry, error) {
 		return nil, errors.New("tools: Profiles が必要です")
 	case d.Templates == nil:
 		return nil, errors.New("tools: Templates が必要です")
-	case d.Update == nil:
-		return nil, errors.New("tools: Update が必要です")
 	}
 	if d.Clock == nil {
 		d.Clock = clock.Real{}

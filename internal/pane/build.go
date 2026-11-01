@@ -16,6 +16,8 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 	now := r.clk.Now()
 	cfg := r.deps.Cfg
 	snap := &Snapshot{At: now, Panes: []PaneState{}, Layout: Layout{Cols: []int{}}}
+	snap.Usage, snap.Omp, snap.Update = r.deps.values()
+	snap.Auth = r.deps.authStatuses(now)
 	if st, err := r.deps.Host.Status(ctx, cfg.DiskMounts); err != nil {
 		r.log.Warn("ホストの状態を読めませんでした", "err", err)
 	} else {

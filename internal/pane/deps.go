@@ -18,9 +18,11 @@ type Deps struct {
 	Host     host.Host
 	Adapters map[string]agent.Adapter // キーはアダプタ名（omp・claude・codex）
 	Notes    NoteStore
-	Clock    clock.Clock // nil なら clock.Real
-	FS       ReportFS    // nil なら OSReportFS
-	Logger   *slog.Logger
+	// Values はレポートに足す値の元（serve が持つ最後の結果）。nil なら pending のまま。
+	Values Values
+	Clock  clock.Clock // nil なら clock.Real
+	FS     ReportFS    // nil なら OSReportFS
+	Logger *slog.Logger
 
 	// VersionWarn は tmux -V の出力から警告文を作る（tmux.CheckVersion を渡す）。nil なら確認しない。
 	VersionWarn func(version string) string

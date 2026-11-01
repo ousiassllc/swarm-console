@@ -44,6 +44,7 @@ type serveRig struct {
 	cancel context.CancelFunc
 	done   chan int
 	ctx    context.Context
+	values *valuesRig
 }
 
 func sha(s string) string {
@@ -68,8 +69,11 @@ func newServeRig(t *testing.T, current, extraConfig string) *serveRig {
 	g.writeFile(g.cfg, body, 0o600)
 	_, out, _ := runCLI(t, "token", "add", "boss", "--scope", "ops", "--config", g.cfg)
 	g.token = strings.TrimSpace(out)
+	// 収集器（omp の実行）は、実際の omp を呼ばない偽の Runner と、確認とは別の時計で動かす。
+	g.values = newValuesRig()
 	useVersion(t, current, app.UpdateEnv{
 		Home: home, Transport: g.origin.Transport(), Clock: g.clk,
+		ValuesRunner: g.values, ValuesClock: g.values.clk,
 		Executable: func() (string, error) { return g.exe, nil },
 		FirstDelay: 0,
 	})

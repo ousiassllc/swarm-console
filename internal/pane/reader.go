@@ -22,6 +22,7 @@ const (
 // Run はサンプラー。poll_interval ごとに Refresh し、ctx が終わるまで続く。
 func (r *SnapshotRegistry) Run(ctx context.Context) error {
 	for {
+		r.deps.Host.SampleCPU() // CPU のサンプルを更新するのはサンプラーだけ（report-values.md §3）
 		if _, err := r.Refresh(ctx); err != nil && ctx.Err() == nil {
 			r.log.Warn("スナップショットの更新に失敗しました", "err", err)
 		}

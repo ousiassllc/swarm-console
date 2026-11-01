@@ -57,27 +57,27 @@ func (e *env) panesStatus(ctx context.Context, _ auth.Client, raw json.RawMessag
 	return Result{Text: string(b)}, nil
 }
 
-type diskJSON struct {
-	Mount  string  `json:"mount"`
-	FreeGB float64 `json:"free_gb"`
-}
-
 type agentCounts struct {
 	OMP    int `json:"omp"`
 	Claude int `json:"claude"`
 	Codex  int `json:"codex"`
 }
 
+// hostStatusJSON は API 仕様 §5.3。cpu・swap・disk・usage・omp・update は report の JSON と同じ形・同じ値（FR-REP-17）。
 type hostStatusJSON struct {
-	Load        [3]float64  `json:"load"`
-	CPUs        int         `json:"cpus"`
-	MemTotalGB  float64     `json:"mem_total_gb"`
-	MemFreeGB   float64     `json:"mem_free_gb"`
-	Disk        []diskJSON  `json:"disk"`
-	TmuxSession bool        `json:"tmux_session"`
-	Agents      agentCounts `json:"agents"`
-	Uptime      string      `json:"uptime"`
-	Update      updateJSON  `json:"update"`
+	Load        [3]float64        `json:"load"`
+	CPUs        int               `json:"cpus"`
+	MemTotalGB  float64           `json:"mem_total_gb"`
+	MemFreeGB   float64           `json:"mem_free_gb"`
+	CPU         render.CPUJSON    `json:"cpu"`
+	Swap        render.SwapJSON   `json:"swap"`
+	Disk        []render.DiskJSON `json:"disk"`
+	TmuxSession bool              `json:"tmux_session"`
+	Agents      agentCounts       `json:"agents"`
+	Uptime      string            `json:"uptime"`
+	Usage       render.UsageJSON  `json:"usage"`
+	Omp         render.OmpJSON    `json:"omp"`
+	Update      render.UpdateJSON `json:"update"`
 }
 
 func (e *env) hostStatusTool() Tool {
@@ -102,14 +102,12 @@ func (e *env) hostStatus(ctx context.Context, _ auth.Client, raw json.RawMessage
 	h := snap.Host
 	out := hostStatusJSON{
 		CPUs: h.CPUs, MemTotalGB: round1(h.MemTotalGB), MemFreeGB: round1(h.MemFreeGB),
-		Disk: make([]diskJSON, 0, len(h.Disk)), TmuxSession: snap.TmuxSession,
-		Agents: countAgents(snap.Panes), Uptime: formatUptime(h.Uptime), Update: newUpdateJSON(e.Update.UpdateInfo()),
+		CPU: render.NewCPUJSON(snap), Swap: render.NewSwapJSON(snap), Disk: render.NewDiskJSON(snap),
+		TmuxSession: snap.TmuxSession, Agents: countAgents(snap.Panes), Uptime: formatUptime(h.Uptime),
+		Usage: render.NewUsageJSON(snap), Omp: render.NewOmpJSON(snap), Update: render.NewUpdateJSON(snap),
 	}
 	for i, l := range h.Load {
 		out.Load[i] = round1(l)
-	}
-	for _, d := range h.Disk {
-		out.Disk = append(out.Disk, diskJSON{Mount: d.Mount, FreeGB: round1(d.FreeGB)})
 	}
 	return marshalResult(out)
 }

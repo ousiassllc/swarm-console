@@ -20,6 +20,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/ops"
 	"github.com/ousiassllc/swarm-console/internal/render"
+	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 	"github.com/ousiassllc/swarm-console/internal/safety"
 	"github.com/ousiassllc/swarm-console/internal/server"
 	"github.com/ousiassllc/swarm-console/internal/tmux"
@@ -52,6 +53,7 @@ type App struct {
 	Server   *server.Server
 	logger   *slog.Logger
 	update   *updateRuntime
+	values   *reportvalues.Collector
 }
 
 // New は設定を読み、テンプレート・プロファイル・アダプタ・tokens.toml を検証して一式を組み立てる。
@@ -92,20 +94,25 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 	}
 	policy := safety.NewPolicy(cfg)
 	hostReader := host.NewReader(clk)
-	reg, err := pane.NewRegistry(pane.Deps{
-		Cfg: cfg, Tmux: tmux.New(cfg.TmuxSocket), Host: hostReader, Adapters: adapters, Notes: store,
-		Clock: clk, Logger: logger, VersionWarn: tmux.CheckVersion, CheckText: policy.CheckText,
-	})
+	up, err := newUpdateRuntime(cfg, version, logger, ao)
 	if err != nil {
 		return nil, err
 	}
-	up, err := newUpdateRuntime(cfg, version, logger, ao)
+	col, err := newValuesCollector(cfg, logger, ao)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := pane.NewRegistry(pane.Deps{
+		Cfg: cfg, Tmux: tmux.New(cfg.TmuxSocket), Host: hostReader, Adapters: adapters, Notes: store,
+		Values: valuesSource{col, up},
+		Clock:  clk, Logger: logger, VersionWarn: tmux.CheckVersion, CheckText: policy.CheckText,
+	})
 	if err != nil {
 		return nil, err
 	}
 	registry, err := tools.New(tools.Deps{
 		Cfg: cfg, Registry: reg, Ops: ops.New(reg), Notes: store, Safety: policy, Host: hostReader,
-		Profiles: profiles, Templates: tpl, Update: up, Clock: clk, Logger: logger,
+		Profiles: profiles, Templates: tpl, Clock: clk, Logger: logger,
 	})
 	if err != nil {
 		return nil, err
@@ -119,7 +126,7 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 	if err != nil {
 		return nil, err
 	}
-	return &App{Cfg: cfg, Registry: reg, Server: srv, logger: logger, update: up}, nil
+	return &App{Cfg: cfg, Registry: reg, Server: srv, logger: logger, update: up, values: col}, nil
 }
 
 // newAdapters は登録済みの全アダプタを、設定の上書きを適用して作る。正規表現が不正なら起動拒否。
@@ -133,6 +140,49 @@ func newAdapters(cfg *config.Config) (map[string]agent.Adapter, error) {
 		out[name] = a
 	}
 	return out, nil
+}
+
+// valuesSource は pane.Values。omp の使用状況・更新確認（収集器）と、swarm-console 自身の更新状態（updateRuntime）を束ねる。
+type valuesSource struct {
+	*reportvalues.Collector
+	up *updateRuntime
+}
+
+func (v valuesSource) UpdateInfo() pane.UpdateInfo { return v.up.UpdateInfo() }
+
+// newValuesCollector は `omp usage --json`・`omp update --check` の収集器を作る（NFR-OPS-12）。
+// 実行ファイルは `[agents.omp] command` の先頭の語（既定 omp）。テストは UpdateEnv で Runner を差し替える。
+func newValuesCollector(cfg *config.Config, logger *slog.Logger, o options) (*reportvalues.Collector, error) {
+	env := o.env
+	home := env.Home
+	if home == "" {
+		h, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("ホームフォルダを決められません: %w", err)
+		}
+		home = h
+	}
+	runner := env.ValuesRunner
+	if runner == nil {
+		var command string
+		if ov, ok := cfg.Agents["omp"]; ok && ov.Command != nil {
+			command = *ov.Command
+		}
+		runner = &reportvalues.ExecRunner{Command: command, Home: home}
+	}
+	var clk clock.Clock = clock.Real{}
+	switch {
+	case env.ValuesClock != nil:
+		clk = env.ValuesClock
+	case env.Clock != nil:
+		clk = env.Clock
+	}
+	return reportvalues.New(reportvalues.Options{
+		Runner: runner, Clock: clk, Logger: logger,
+		UsageCheck: cfg.UsageCheck, UsageInterval: cfg.UsageInterval,
+		OmpCheck: cfg.UpdateCheck, OmpInterval: cfg.UpdateCheckInterval,
+		UsageFirstDelay: env.ValuesFirstDelay, OmpFirstDelay: env.ValuesFirstDelay,
+	}), nil
 }
 
 // Run はサンプラー・HTTP サーバー・新しい版の確認（と自己更新）を動かす。ctx が終わるとサーバーは進行中の操作を待って止まり、
@@ -151,9 +201,11 @@ func (a *App) Run(parent context.Context) error {
 		}
 	}()
 	waitUpdate := a.update.start(ctx, a.Server.Ready())
+	waitValues := a.values.Start(ctx)
 	err := a.Server.Serve(ctx)
-	exit() // 待ち受けの失敗でも、確認と自己更新の通信を止める
+	exit() // 待ち受けの失敗でも、確認と自己更新の通信・omp の実行を止める
 	waitUpdate()
+	waitValues()
 	stopSampler()
 	<-samplerDone
 	return err

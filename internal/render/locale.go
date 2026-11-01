@@ -6,6 +6,7 @@ import (
 
 // locale は言語ごとの語句（FR-REP §5.2・§5.3）。見出し・表頭はテンプレート側に置く。
 type locale struct {
+	words
 	states      map[agent.State]string
 	asking      string // 要対応の行頭
 	stalled     string
@@ -21,6 +22,7 @@ type locale struct {
 
 var locales = map[string]locale{
 	LangJA: {
+		words: jaWords,
 		states: map[agent.State]string{
 			agent.StateWorking: "🟢 作業中",
 			agent.StateAsking:  "🟡 質問待ち",
@@ -38,6 +40,7 @@ var locales = map[string]locale{
 		},
 	},
 	LangEN: {
+		words: enWords,
 		states: map[agent.State]string{
 			agent.StateWorking: "🟢 Working",
 			agent.StateAsking:  "🟡 Asking",

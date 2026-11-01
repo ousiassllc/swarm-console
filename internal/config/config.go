@@ -30,6 +30,11 @@ type Config struct {
 	UpdateCheckInterval time.Duration // 1h 以上
 	UpdateAuto          bool
 
+	// UsageCheck は serve が `omp usage --json` で使用状況を取るか（FR-REP-12・NFR-OPS-12）。UsageInterval は 1m 以上。
+	// omp の更新確認（FR-REP-15）は UpdateCheck・UpdateCheckInterval に従う。
+	UsageCheck    bool
+	UsageInterval time.Duration
+
 	TitlePrefix  string
 	AllowedRoots []string
 	DeniedPaths  []string

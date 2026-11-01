@@ -12,8 +12,9 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/clock"
 	"github.com/ousiassllc/swarm-console/internal/config"
+	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 	"github.com/ousiassllc/swarm-console/internal/selfupdate"
-	"github.com/ousiassllc/swarm-console/internal/tools"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck"
 )
 
@@ -45,6 +46,12 @@ type UpdateEnv struct {
 	Clock clock.Clock
 	// FirstDelay は最初の確認までの待ち（0 なら 1 分）。
 	FirstDelay time.Duration
+	// ValuesRunner は omp の実行（nil なら実際の omp を `[agents.omp] command` の先頭の語で実行）。
+	// ValuesFirstDelay は 0 なら使用状況 10 秒・omp の確認 90 秒。
+	ValuesRunner reportvalues.Runner
+	// ValuesClock は収集器の待ちに使う（nil なら Clock）。確認の待ちと別に進められる。
+	ValuesClock      clock.Clock
+	ValuesFirstDelay time.Duration
 }
 
 // updateRuntime は serve の確認（Runner）と自己更新（Updater）をつなぎ、host_status.update の元になる。
@@ -65,7 +72,7 @@ type updateRuntime struct {
 	applied  bool   // 入れ替えが済んだ（終了を要求した）。以後は入れ替えない
 }
 
-var _ tools.UpdateSource = (*updateRuntime)(nil)
+var _ interface{ UpdateInfo() pane.UpdateInfo } = (*updateRuntime)(nil)
 
 func newUpdateRuntime(cfg *config.Config, version string, logger *slog.Logger, o options) (*updateRuntime, error) {
 	home := o.env.Home
@@ -185,15 +192,15 @@ func (u *updateRuntime) start(ctx context.Context, ready <-chan struct{}) (wait 
 }
 
 // UpdateInfo は host_status.update の元（API 仕様 §5.3）。メモリの値を返すだけで、通信しない（FR-UPD-9）。
-func (u *updateRuntime) UpdateInfo() tools.UpdateInfo {
+func (u *updateRuntime) UpdateInfo() pane.UpdateInfo {
 	s, a := u.runner.Snapshot(), u.updater.Status()
 	state := string(a.State)
 	// off は「自己更新しない」設定。ただし試運転中（入れ替えがすでに起きている）は、設定によらず probation を見せる。
 	if (!u.cfg.UpdateCheck || !u.cfg.UpdateAuto) && a.State != selfupdate.StateProbation {
 		state = "off"
 	}
-	return tools.UpdateInfo{
+	return pane.UpdateInfo{
 		Status: string(s.Status), Current: s.Current, Latest: s.Latest, Reason: string(s.Reason), CheckedAt: s.CheckedAt,
-		Apply: tools.ApplyInfo{State: state, Reason: string(a.Reason), At: a.At, From: a.From, Version: a.Version},
+		Apply: pane.ApplyInfo{State: state, Reason: string(a.Reason), At: a.At, From: a.From, Version: a.Version},
 	}
 }

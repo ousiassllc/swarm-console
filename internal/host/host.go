@@ -6,10 +6,27 @@ import (
 	"time"
 )
 
-// Disk は監視マウントの空き容量。
+// Disk は監視マウントの使用状況。statfs に失敗したマウントは Available が false で残る（FR-REP-11）。
 type Disk struct {
-	Mount  string
-	FreeGB float64
+	Mount       string
+	Available   bool
+	FreeGB      float64 // 一般ユーザーが使える空き
+	TotalGB     float64
+	UsedPercent int // df の Use% と同じ（使用 ÷（使用 ＋ 一般ユーザーが使える空き）、切り上げ）
+}
+
+// CPU は CPU 使用率（/proc/stat の前回のサンプルとの差。FR-REP-13）。Available が false なら取得できず。
+type CPU struct {
+	Available   bool
+	UsedPercent int
+}
+
+// Swap はスワップの使用量。スワップ無しは Available が true で TotalGB・UsedGB・UsedPercent が 0。
+type Swap struct {
+	Available   bool
+	TotalGB     float64
+	UsedGB      float64
+	UsedPercent int
 }
 
 // Status は host_status・スナップショットの host。
@@ -18,6 +35,8 @@ type Status struct {
 	CPUs       int
 	MemTotalGB float64
 	MemFreeGB  float64
+	CPU        CPU
+	Swap       Swap
 	Disk       []Disk
 	Uptime     time.Duration
 }
@@ -46,8 +65,11 @@ type Auth struct {
 
 // Host はドメイン層が使う読み取り口（テストでは差し替える）。
 type Host interface {
-	// Status は負荷・メモリ・ディスク・稼働時間を返す。diskMounts は監視するマウント。
+	// Status は負荷・メモリ・スワップ・ディスク・稼働時間と、最後の CPU サンプルの値を返す。diskMounts は監視するマウント。
 	Status(ctx context.Context, diskMounts []string) (Status, error)
+	// SampleCPU は /proc/stat を読み、前回のサンプルとの差から CPU 使用率を更新する。サンプラーだけが poll_interval ごとに呼ぶ
+	// （Status は最後のサンプルの値を返すだけなので、読み取りの呼び出しで値がぶれない）。
+	SampleCPU()
 	// ProcTree は pid を根とするプロセス木（pid 自身を含む）を返す。
 	ProcTree(pid int) ([]Proc, error)
 	// AuthStatus は agent の認証期限を読む。authFile が空なら組み込みの既定（P-16）。

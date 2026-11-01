@@ -31,6 +31,11 @@ type Reader struct {
 	home   string // 認証ファイルの既定の場所の基準（"" なら os.UserHomeDir）
 	statfs func(path string, st *syscall.Statfs_t) error
 
+	cpuMu   sync.Mutex // CPU のサンプル（サンプラーだけが更新する）
+	cpuPrev cpuCounters
+	cpuHave bool
+	cpu     CPU
+
 	tblMu sync.Mutex // 親子表の更新を 1 つにまとめる（単一飛行）
 	tbl   *procTable
 	scans atomic.Int64 // /proc を走査した回数（テスト用）
@@ -46,8 +51,8 @@ func NewReader(c clock.Clock) *Reader {
 	return &Reader{clock: c, proc: defaultFS, statfs: syscall.Statfs}
 }
 
-// Status は負荷・メモリ・ディスク・稼働時間を返す。メモリの単位は GiB（1024^3）。
-// 読めない /proc ファイルはエラー。diskMounts のうち statfs に失敗したものは Disk に含めない。
+// Status は負荷・メモリ・スワップ・ディスク・稼働時間と最後の CPU サンプルを返す。メモリの単位は GiB（1024^3）。
+// 読めない /proc ファイル（スワップ・CPU を除く）はエラー。statfs に失敗したマウントは Available が false で残す。
 func (r *Reader) Status(ctx context.Context, diskMounts []string) (Status, error) {
 	var st Status
 	if err := ctx.Err(); err != nil {
@@ -65,14 +70,15 @@ func (r *Reader) Status(ctx context.Context, diskMounts []string) (Status, error
 	if st.Uptime, err = r.readUptime(); err != nil {
 		return st, err
 	}
+	st.CPU = r.lastCPU()
+	st.Swap = r.readSwap()
 	for _, m := range diskMounts {
 		var fs syscall.Statfs_t
 		if err := r.statfs(m, &fs); err != nil {
+			st.Disk = append(st.Disk, Disk{Mount: m}) // 残して取得できず（FR-REP-11）
 			continue
 		}
-		// Bavail は一般ユーザーが使える空き。
-		free := float64(fs.Bavail) * float64(fs.Bsize) / gib
-		st.Disk = append(st.Disk, Disk{Mount: m, FreeGB: free})
+		st.Disk = append(st.Disk, diskOf(m, &fs))
 	}
 	return st, nil
 }
