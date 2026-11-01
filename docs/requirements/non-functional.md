@@ -62,12 +62,14 @@
 | ID | 要件 |
 |----|------|
 | NFR-OPS-1 | 置き場所：バイナリ `~/bin/swarm-console/`、設定 `~/.config/swarm-console/`、データ `~/.local/share/swarm-console/`。`~/dotfiles` には触らない |
-| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console version` |
+| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console setup`（対話型の設定。FR-SET）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console version` |
 | NFR-OPS-3 | エージェントの画面が変わったら、設定ファイルの正規表現の上書きだけで直せる（再ビルド不要）。設定は `serve` の再起動で反映 |
 | NFR-OPS-4 | レポートのテンプレート（`templates/report.ja.md`・`report.en.md`）と条件のひな形（`profiles.toml`）は設定フォルダに置け、再ビルド不要。テンプレートの構文エラーは起動時に検出して拒否する |
 | NFR-OPS-5 | ログは構造化（JSON Lines）で標準エラーへ出し、systemd の journal で見る |
 | NFR-OPS-6 | 新しいエージェントを足すには、アダプタを 1 つ実装して登録するだけで済む構造にする |
 | NFR-OPS-7 | 認証の期限情報（`agent_auth_status`）はファイルの場所を設定で変えられる。取れなければ「不明」を返し、エラーにしない |
+| NFR-OPS-8 | `config.toml` は手書きと `setup` のどちらでも作れ、`setup` は手で書いた内容（コメント・並び・書式・`setup` が聞かないキー）を壊さない（FR-SET-3）。`setup` が書くのは設定の置き場（`~/.config/swarm-console`）の `config.toml` と、発行したときの `tokens.toml` だけ（NFR-SEC-14）。`config.toml` がシンボリックリンクのときは書かず中止する（リンク先が置き場の外のため。P-35） |
+| NFR-OPS-9 | `setup` は `tmux`・`tailscale` などの外部コマンドを実行せず、ネットワークにも出ない。tailnet の候補はインターフェースの列挙だけで出す（NFR-SEC-7 と同じ方針。P-33） |
 
 ## 6. 互換性・前提環境
 
@@ -94,9 +96,12 @@
 | NFR-TEST-9 | バグ修正には回帰テストを付ける |
 | NFR-TEST-10 | 受け入れ確認（機能要件 §8）は、自動テストで担保できる範囲を CI で、実クライアント接続（Claude Code・Codex・Cursor・curl）が要る範囲を実機で行い、未確認の部分は報告に明記する |
 | NFR-TEST-11 | タグ `v*` の push で、GitHub Releases に linux/amd64 のバイナリを載せるワークフローを用意する（P-20） |
+| NFR-TEST-12 | `setup` の書き戻し（`config` の編集部品）は表駆動の単体テストで確かめる：コメント・空行・並び・CRLF・複数行配列・dotted key・表の有無・未知のキー（`serve` では拒否されるが編集部品は壊さない）。変更した値の範囲の外のバイト列が入力と同一であること、読み直した値が期待どおりであること、`serve` と同じ読み込みで落ちる結果は書かないことを確かめる |
+| NFR-TEST-13 | `setup` の画面は、実 tmux の専用ソケットのペインで `swarm-console setup` を起動し、`send-keys` で入力して確かめる（NFR-TEST-1 と同じ方式。待ちは NFR-TEST-7）。新規作成 → そのまま `serve` が起動できる、手書きの `config.toml` を開いて 1 項目だけ変えても他が 1 バイトも変わらない、TTY でない起動が終了コード 1 で終わる、中止で何も書かれない、を通す |
 
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | NFR-OPS-2 に `setup` を追加、NFR-OPS-8・9、NFR-TEST-12・13 を追加 | Issue #5 |

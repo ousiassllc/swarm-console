@@ -60,9 +60,11 @@ graph TD
 
 ```
 swarm-console/
-├── cmd/swarm-console/        main.go（serve / token add|revoke / version）
+├── cmd/swarm-console/        main.go（serve / setup / token add|revoke / version）。setup.go は引数と TTY 判定だけ
 ├── internal/
 │   ├── config/               config.toml・profiles.toml の読み込み・検証・既定値
+│   │   └── tomledit/         config.toml の部分編集（値の範囲の置き換え・キーの追加。I/O なしの純関数）
+│   ├── setup/                `setup` の画面（huh）、tailnet 候補の列挙、入力 → 編集操作の変換、保存（競合・検査・原子的書き込み）
 │   ├── server/               HTTP サーバー、窓口ルーティング、リクエスト上限、監査ログ
 │   ├── auth/                 tokens.toml、Bearer 検証、スコープ、token CLI
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
@@ -95,7 +97,9 @@ swarm-console/
 
 | コンポーネント | 責務 | 主な公開 IF | 依存する要件 |
 |---------------|------|-----------|-------------|
-| `config` | 設定の読み込み・検証（未知キー拒否）、既定値、`~` 展開、`profiles.toml` | `Load(path) (*Config, error)`、`Profiles` | FR-POS-1, FR-AD-2, FR-DIS-3 |
+| `config` | 設定の読み込み・検証（未知キー拒否）、既定値、`~` 展開、`profiles.toml`。`setup` も同じ検証を使えるよう、検証関数と読み込み本体を公開する（コピーしない） | `Load(path) (*Config, error)`、`ParseBytes(data, path)`、`CheckListenAddr`・`CheckSessions`・`ExpandPath`、`Profiles` | FR-POS-1, FR-AD-2, FR-DIS-3, FR-SET-5 |
+| `config/tomledit` | `go-toml/v2` の `unstable.Parser` で値のバイト範囲を取り、変更したキーの値だけを置き換える・無いキーを足す。変更範囲の外を 1 バイトも変えない（ER §5.1） | `Edit(src []byte, ops []Op) ([]byte, error)`、`Op{Key []string, Value any}` | FR-SET-3, NFR-OPS-8 |
+| `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options` は設定パス・入出力・インターフェース列挙・時計の差し替え） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
 | `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(cfg, handlers)`、`Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
 | `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、定数時間照合、スコープ判定、`token add/revoke` | `Authenticate(header) (Client, error)`、`Client{Name, Scope}` | NFR-SEC-3〜6 |
 | `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録 | `NewReportServer(tools)`、`NewOpsServer(tools)` | FR-SAFE-6 |
@@ -228,6 +232,7 @@ type Tool struct {
 | 認証 | `httptest` | 401・403・失効・定数時間の経路・`/report` の `tools/list` |
 | 統合 | 実 tmux（専用ソケット `-L`、一時セッション）＋ `test/fakeagent` | 各ツールの正常系と拒否（NFR-TEST-1〜4）、`pane_close` の画面確認、並び変更の警告 |
 | 受け入れ（自動化分） | MCP クライアント（SDK の client）で `/report`・`/ops` に接続 | AC-1〜AC-5 のうち自動で担保できる範囲 |
+| 設定の編集（`setup`） | `tomledit` の表駆動の単体テスト ＋ 手書きの見本ファイル（`testdata/config/handwritten.toml`）に対する「入力値 → 編集」の検査 ＋ 実 tmux のペインで `setup` を起動して `send-keys` で入力 | 変更範囲の外のバイト列が同一・`serve` と同じ検証・TTY でない起動の拒否・中止で書かない（NFR-TEST-12・13） |
 
 ### 6.1 擬似エージェント `test/fakeagent`
 
@@ -247,3 +252,4 @@ type Tool struct {
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | `setup`・`config/tomledit` を追加、`config` の公開 IF を拡張、テスト構成に `setup` を追加 | Issue #5 |
