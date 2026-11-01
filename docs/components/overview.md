@@ -88,7 +88,7 @@ swarm-console/
 ├── test/integration/         実 tmux ＋ fakeagent ＋ MCP クライアントの統合・受け入れテスト
 ├── deploy/                   swarm-console.service（systemd ユーザーサービス）
 ├── docs/                     仕様書
-└── .github/workflows/        ci.yml・release.yml
+└── .github/                  workflows/ci.yml・release.yml、scripts/plan-release.sh（次の版を決める）と、そのテスト
 ```
 
 ## 3. コンポーネントの責務
@@ -240,10 +240,11 @@ type Tool struct {
 | ワークフロー | トリガー | 内容 |
 |-------------|---------|------|
 | `ci.yml` | push・PR | `go build ./...` → `go vet ./...` → `golangci-lint run` → `go test -race ./...`（tmux を `apt-get install tmux` で入れ、`tmux -V` で確かめる）。各コマンドは別ステップ。`runs-on: ubuntu-latest` |
-| `release.yml` | タグ `v*` | `GOOS=linux GOARCH=amd64` でビルドし、GitHub Releases に載せる（P-20）。`runs-on: ubuntu-latest` |
+| `release.yml` | `ci.yml` の `workflow_run`（main への push の CI が成功）、タグ `v*` の push | `plan`（次の版を決め、main の先頭だけ通す）→ `verify`（main の履歴・CI 成功）→ `build`（`GOOS=linux GOARCH=amd64`）→ `release`（`gh release create --target` でタグとリリースを同時に作り、Releases に載せる）。`release` だけが `contents: write`。`concurrency: release`（P-20・P-48〜P-53。環境構築 CI/CD） |
 
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
+| 1.1 | 2026-11-01 | §2 の `.github/`、§7 の `release.yml` を自動タグ付きに更新 | Issue #8 |

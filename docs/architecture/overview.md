@@ -203,7 +203,7 @@ flowchart TD
 | 項目 | 内容 |
 |------|------|
 | 実行場所 | example-host（tmux サーバーと同じホスト、同じユーザー） |
-| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から手で入れ替え） |
+| バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から手で入れ替え。Releases への掲載は main の CI 成功ごとに自動） |
 | 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`templates/`（任意） |
 | データ | `~/.local/share/swarm-console/notes.json`（600） |
 | 最終報告 | `/tmp/swarm-console/reports/<位置>.md`（エージェントが書く）、`archive/`（サーバーが移す） |
@@ -282,7 +282,7 @@ WantedBy=default.target
 | P-17 | 数量と文字数の上限 | 総ペイン 32、文字列項目 2000 字（`memo` 4000 字）、`items`・`rules` 50 件、`note_log` 1 行 500 字、リクエスト本文 256 KiB、`pane_tail` 20,000 字、`report_read` 20,000 字 | OK 時 |
 | P-18 | 指示文の形 | `command` → 空行 → 「## やること」`task` → 空行 → 「## 条件」の箇条書き（共通 → プロファイル → `extra_rules`）。`{report_path}` は最終報告ファイルの実パスに置換 | OK 時 |
 | P-19 | `pane_close` の許可状態 | `idle`・`shell` のみ。`working`・`stalled`・`asking`・`unknown` は拒否（元仕様は `working` のみ明記） | OK 時 |
-| P-20 | リリース | タグ `v*` の push で linux/amd64 バイナリを GitHub Releases に載せるワークフロー | OK 時 |
+| P-20 | リリース | タグ `v*` の push で linux/amd64 バイナリを GitHub Releases に載せるワークフロー。P-48 で自動のタグ付けを足した | OK 時 |
 | P-21 | テスト用の tmux | `tmux_socket`（`-L`）で専用サーバーを使う | OK 時 |
 | P-22 | 状態判定・カードの正規表現の具体値 | [agent-patterns.md](agent-patterns.md) のとおり。既定値は組み込み、`[agents.<name>]` で上書き可。**omp は実画面で確定**。Claude Code は idle・信頼確認・`/model` が実画面、作業中・許可確認・質問は推定（ログイン切れで採れず）。**Codex は実画面で未確定**（この機に `codex` が無い。推定値） | **未完了**：Claude Code の作業中・許可確認・質問、Codex の全画面は、実画面で確かめて値を直す |
 | P-23 | `dispatch` の `note` 保存 | 送信が行われた後に保存（拒否・事前検証失敗では保存しない）。受理に失敗しても保存し `note_saved: true` を返す | OK 時 |
@@ -294,6 +294,12 @@ WantedBy=default.target
 | P-29 | `denied_paths` の既定 | **確定：既定 `~/dotfiles`、`config.toml` で変更可**。`denied_paths` を書いたら既定と入れ替わる（足されない）。書かなければ既定。`~` は展開して絶対パスで比較。`cwd`・`file` の両方に効く。オーナーの checkout の一覧は仕様書に無いため、必要なら設定で書く（例は [環境構築](../environment/setup.md#ローカルで動かす)） | **確定** |
 | P-30 | `report_read` の読み取り | 最終報告ファイルは `O_NOFOLLOW` で開く（シンボリックリンクなら `exists: false`）。認証ファイルなどを読み出されないため | 実装時に決めた |
 | P-31 | 仕様書の行数管理 | **確定**：`.linterlyignore` で `docs/**` を Linterly の対象から外す（`api/endpoints.md`・`architecture/er.md` が 300 行を超えるため）。仕様書の分割は別 Issue（#3） | **確定** |
+| P-48 | 自動リリースのきっかけ | mam の `release.yml` に合わせる：`ci.yml` の `workflow_run`（main への push の CI が成功）で、main の先頭のコミットに次の版を付けてリリースする。古いコミット・PR・フォークの CI は対象外。手で打ったタグ `v*` の push も同じワークフローが受ける（マイナー・メジャーを上げる） | OK 時に確認 |
+| P-49 | タグを付ける方法 | `GITHUB_TOKEN` で push したタグは他のワークフローを起動しないので、同じ `release.yml` の中で `gh release create --target <コミット>` によりリリースとタグを同時に作る。タグ専用の別ワークフロー・PAT・GitHub App は使わない（秘密を増やさない）。ビルドが落ちればタグは作られない | 実装時に決めた |
+| P-50 | 版の上げ方 | **確定（Issue #8 のヒアリングで選択）**：毎回パッチを上げる（mam と同じ）。コミットメッセージ（`feat:`・`fix:`）は見ない。タグなしなら `v0.1.0`。docs だけの変更でも版が進む。この前提は、マージコミット方式（squash しない）でもコミットの書き方に依らないこと | **確定** |
+| P-51 | 同時実行とキャンセル | `concurrency: group: release`・`cancel-in-progress: false`。GitHub は待ちを 1 つしか持てず古い待ちをキャンセルする。main の古いコミットのリリースが落ちるのは設計どおり。手で打ったタグの実行が落ちたら再実行する | 実装時に決めた |
+| P-52 | 変更履歴 | `gh release create --generate-notes` だけ。`CHANGELOG.md` は作らず、マージ（PR）の一覧が GitHub のリリースノートになる。コミットが PR 経由でないと一覧が薄くなる | 実装時に決めた。OK 時に確認 |
+| P-53 | 手で打ったタグの検査 | 既存の他の `vX.Y.Z` より大きいこと・main の履歴にあり CI が成功していること。GitHub の「最新のリリース」が日時順で決まり、版が戻ると Issue #7 の確認が古い版を「最新」と読むため。違えばエラーにしてリリースしない（タグは自動では消さない。リモートのタグも消さない方針） | 実装時に決めた。OK 時に確認 |
 
 ## 改訂履歴
 
@@ -301,3 +307,4 @@ WantedBy=default.target
 |----|------|---------|---------|
 | 1.0 | 2026-10-31 | 新規作成 | 初版 |
 | 1.1 | 2026-11-01 | P-16・P-24 を確定、P-22 を omp で確定（Claude Code は一部推定、Codex は未確定）。agent-patterns.md・agent-auth.md を追加。P-25〜P-31 を追加 | 実装時確認事項の反映（Issue #1） |
+| 1.2 | 2026-11-01 | P-20 を更新、P-48〜P-53（自動タグ付きリリース）を追加 | Issue #8 |
