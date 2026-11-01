@@ -234,6 +234,9 @@ func TestCloseNotCleanScreensStayFalse(t *testing.T) {
 		"プロンプトが 4 行": "╭─\n│\n│ ~\n╰─❯",
 		"閉じた箱":       "╭──────╮\n│ ~/x  │\n╰──────╯",
 		"閉じた箱の途中行":   "╭─  ~\n│ 出力 │\n╰─❯",
+		"右が開いた間の行":   "╭─  ~\n│ error: foo\n╰─❯",
+		"2 行で末尾が出力":  "╭─ ~/proj\n╰─ done: 3 files changed",
+		"~ が末尾行だけ":   "╭─ proj\n╰─❯ ~",
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)
