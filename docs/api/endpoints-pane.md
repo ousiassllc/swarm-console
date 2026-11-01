@@ -96,7 +96,7 @@
 {"ok": true, "state": "working", "picked": {"n": 1, "label": "TS 仕様どおり"}, "card_closed": true}
 ```
 
-カーソルが 3 回の試行で合わなければ `cursor_mismatch`（Enter は送らない）。カードが閉じず `working` にもならなければ `{"ok": false, "state": "asking", "card_closed": false}`。
+キーを送ったあとは、画面にカーソルの移動が映るまで（1 試行あたり最大 1 秒）画面を取り直して確かめる。映る前に次のキーを送らない。カーソルが 3 回の試行で合わなければ（最大 3 秒）`cursor_mismatch`（Enter は送らない）。カードが閉じず `working` にもならなければ `{"ok": false, "state": "asking", "card_closed": false}`。
 
 #### `send_text`
 
@@ -153,5 +153,7 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 ```
 
 終了コマンド → `cd ~` → `clear` → タイトル消し、を 1 つずつ「文字列 → 1 秒 → Enter → 1 秒」で送る（`shell` のペインは終了コマンドを飛ばす）。最後に画面が `~` のプロンプトだけになったかを確かめ、なっていなければ `ok: false`。確かめられたとき（`ok: true`）だけ、ペインのメモを履歴へ移し（`note_archived: true`）、最終報告ファイルを `archive/` へ移す。`idle`・`shell` 以外は `invalid_state`。
+
+「`~` のプロンプトだけ」には、fish・starship のように枠で囲んだ複数行のプロンプトも含む。含むのは次を全部満たすものだけ：3 行以内、先頭行が `╭┌╔┏` で始まり `~` を含む、末尾行が `╰└╚┗` で始まりプロンプトの記号（`$ # % > ❯ ➜ »`）で終わる、間の行は無いか縦線（`│├┃║`）だけ。枠の中に出力が残っていれば片付いていない。右端まで閉じた箱（行末が `╮╯` など）もプロンプトとみなさない。
 
 #### `dispatch` → §5.6

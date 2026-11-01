@@ -2,7 +2,9 @@ package ops
 
 import (
 	"context"
+	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/notes"
@@ -98,8 +100,12 @@ func (o *Operator) archiveClosed(ctx context.Context, p pane.PaneState, res *pan
 	}
 }
 
+// maxPromptLines は枠付きプロンプトとして認める最大の行数（fish・starship の 2〜3 行）。
+const maxPromptLines = 3
+
 // promptOnly は画面が「エージェントが消え、シェルのプロンプトだけ」か。
 // 非空行が 1 行以下で、あるならプロンプトらしい行（~ を含むか、$ # % > などで終わる）。
+// 複数行は、枠付きプロンプト（framedPrompt）だけ認める。
 func (o *Operator) promptOnly(lines []string) bool {
 	var nonBlank []string
 	for _, l := range lines {
@@ -107,7 +113,7 @@ func (o *Operator) promptOnly(lines []string) bool {
 			nonBlank = append(nonBlank, t)
 		}
 	}
-	if len(nonBlank) > 1 {
+	if len(nonBlank) > 1 && !framedPrompt(nonBlank) {
 		return false
 	}
 	scr := agent.NewScreen(lines)
@@ -117,6 +123,9 @@ func (o *Operator) promptOnly(lines []string) bool {
 		}
 	}
 	if len(nonBlank) == 0 {
+		return true
+	}
+	if len(nonBlank) > 1 {
 		return true
 	}
 	l := nonBlank[0]
@@ -129,4 +138,40 @@ func (o *Operator) promptOnly(lines []string) bool {
 		}
 	}
 	return false
+}
+
+// framedPrompt は非空行（前後の空白は除去済み）が、1 つの枠付きプロンプトか。
+// 先頭行が上枠（╭┌╔┏）で始まり ~ を含み、末尾行が下枠（╰└╚┗）で始まって promptSuffixes のどれかで終わる。
+// 間の行は無いか、縦線（│├┃║）だけ。枠の中に出力があれば片付いていない。
+// 右端まで閉じた枠（╮┐╗┓ や ╯┘╝┛ で終わる行）は、別のアプリの箱であってプロンプトではない。
+func framedPrompt(nonBlank []string) bool {
+	n := len(nonBlank)
+	first, last := nonBlank[0], nonBlank[n-1]
+	if n > maxPromptLines || !startsWithAny(first, "╭┌╔┏") || !startsWithAny(last, "╰└╚┗") {
+		return false
+	}
+	if endsWithAny(first, "╮┐╗┓") || endsWithAny(last, "╯┘╝┛") || !strings.Contains(first, "~") {
+		return false
+	}
+	if !slices.ContainsFunc(promptSuffixes, func(s string) bool { return strings.HasSuffix(last, s) }) {
+		return false
+	}
+	for _, l := range nonBlank[1 : n-1] {
+		if strings.Trim(l, "│├┃║ ") != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// endsWithAny は s が set のどれかの文字で終わるか。
+func endsWithAny(s, set string) bool {
+	r, _ := utf8.DecodeLastRuneInString(s)
+	return r != utf8.RuneError && strings.ContainsRune(set, r)
+}
+
+// startsWithAny は s が set のどれかの文字で始まるか。
+func startsWithAny(s, set string) bool {
+	r, _ := utf8.DecodeRuneInString(s)
+	return r != utf8.RuneError && strings.ContainsRune(set, r)
 }
