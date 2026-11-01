@@ -133,3 +133,45 @@ func TestNewRequiresHandlers(t *testing.T) {
 		t.Error("Auth なしで作れてしまいます")
 	}
 }
+
+// Ready は待ち受けを始めるまで閉じず、始めたら閉じる（自己更新の試運転の 60 秒の起点。FR-UPD-17）。
+func TestReadyClosesWhenListening(t *testing.T) {
+	srv, err := server.New(server.Options{Auth: fakeAuth{}, Report: http.NotFoundHandler(), Ops: http.NotFoundHandler()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-srv.Ready():
+		t.Fatal("待ち受け前に Ready が閉じています")
+	default:
+	}
+	ln := listen(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.ServeListener(ctx, ln) }()
+	select {
+	case <-srv.Ready():
+	case <-time.After(10 * time.Second):
+		t.Fatal("待ち受けを始めても Ready が閉じません")
+	}
+	cancel()
+	<-done
+}
+
+// 待ち受けに失敗（bind 失敗）したら Ready は閉じない（試運転を確定させない）。
+func TestReadyStaysOpenWhenBindFails(t *testing.T) {
+	ln := listen(t)
+	defer func() { _ = ln.Close() }()
+	srv, err := server.New(server.Options{Auth: fakeAuth{}, Report: http.NotFoundHandler(), Ops: http.NotFoundHandler(), ListenAddr: ln.Addr().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := srv.Serve(context.Background()); err == nil {
+		t.Fatal("使用中のアドレスで待ち受けられてしまいます")
+	}
+	select {
+	case <-srv.Ready():
+		t.Fatal("bind に失敗したのに Ready が閉じています")
+	default:
+	}
+}

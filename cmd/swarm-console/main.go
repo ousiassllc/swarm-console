@@ -4,7 +4,7 @@
 //	swarm-console setup [--config <path>]
 //	swarm-console token add <名前> --scope ops|report [--config <path>]
 //	swarm-console token revoke <名前> [--config <path>]
-//	swarm-console version
+//	swarm-console version [--check]
 package main
 
 import (
@@ -26,7 +26,7 @@ const usage = `使い方:
   swarm-console setup [--config <path>]
   swarm-console token add <名前> --scope ops|report [--config <path>]
   swarm-console token revoke <名前> [--config <path>]
-  swarm-console version
+  swarm-console version [--check]
 `
 
 func main() {
@@ -51,16 +51,19 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	case "token":
 		err = runToken(args[1:], stdout, stderr)
 	case "version":
-		_, err = fmt.Fprintln(stdout, version)
+		err = runVersion(ctx, args[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		_, _ = io.WriteString(stdout, usage)
 	default:
 		_, _ = fmt.Fprintf(stderr, "未知のコマンド: %q\n%s", args[0], usage)
 		return 2
 	}
+	var code exitCode
 	switch {
 	case err == nil:
 		return 0
+	case errors.As(err, &code):
+		return int(code)
 	case errors.Is(err, flag.ErrHelp):
 		return 0
 	case errors.Is(err, errSilent):

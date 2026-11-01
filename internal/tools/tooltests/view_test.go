@@ -108,7 +108,8 @@ func TestHostStatus(t *testing.T) {
 	}
 	want := `{"load":[98.2,95.1,90.4],"cpus":32,"mem_total_gb":128,"mem_free_gb":41.3,` +
 		`"disk":[{"mount":"/","free_gb":120},{"mount":"/mnt/nvme","free_gb":830}],` +
-		`"tmux_session":true,"agents":{"omp":2,"claude":1,"codex":0},"uptime":"12d 4h"}`
+		`"tmux_session":true,"agents":{"omp":2,"claude":1,"codex":0},"uptime":"12d 4h",` +
+		`"update":{"status":"pending","current":"v0.1.4","apply":{"state":"idle"}}}`
 	if text != want {
 		t.Errorf("host_status =\n%s\nwant\n%s", text, want)
 	}

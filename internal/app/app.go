@@ -51,11 +51,16 @@ type App struct {
 	Registry *pane.SnapshotRegistry
 	Server   *server.Server
 	logger   *slog.Logger
+	update   *updateRuntime
 }
 
 // New は設定を読み、テンプレート・プロファイル・アダプタ・tokens.toml を検証して一式を組み立てる。
 // 構文エラーのテンプレート・不正な正規表現・権限が 600 でない tokens.toml・壊れた設定は、ここでエラーにして起動を拒否する。
-func New(configPath, version string, logger *slog.Logger) (*App, error) {
+func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App, error) {
+	var ao options
+	for _, opt := range opts {
+		opt(&ao)
+	}
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return nil, err
@@ -94,9 +99,13 @@ func New(configPath, version string, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	up, err := newUpdateRuntime(cfg, version, logger, ao)
+	if err != nil {
+		return nil, err
+	}
 	registry, err := tools.New(tools.Deps{
 		Cfg: cfg, Registry: reg, Ops: ops.New(reg), Notes: store, Safety: policy, Host: hostReader,
-		Profiles: profiles, Templates: tpl, Clock: clk, Logger: logger,
+		Profiles: profiles, Templates: tpl, Update: up, Clock: clk, Logger: logger,
 	})
 	if err != nil {
 		return nil, err
@@ -110,7 +119,7 @@ func New(configPath, version string, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &App{Cfg: cfg, Registry: reg, Server: srv, logger: logger}, nil
+	return &App{Cfg: cfg, Registry: reg, Server: srv, logger: logger, update: up}, nil
 }
 
 // newAdapters は登録済みの全アダプタを、設定の上書きを適用して作る。正規表現が不正なら起動拒否。
@@ -126,9 +135,13 @@ func newAdapters(cfg *config.Config) (map[string]agent.Adapter, error) {
 	return out, nil
 }
 
-// Run はサンプラーと HTTP サーバーを動かす。ctx が終わるとサーバーは進行中の操作を待って止まり、
-// そのあとサンプラーを止める。待ち受けに失敗したらエラーで戻る（systemd の Restart=always に任せる）。
-func (a *App) Run(ctx context.Context) error {
+// Run はサンプラー・HTTP サーバー・新しい版の確認（と自己更新）を動かす。ctx が終わるとサーバーは進行中の操作を待って止まり、
+// 確認は通信を中断して止まり、そのあとサンプラーを止める。待ち受けに失敗したらエラーで戻る（systemd の Restart=always に任せる）。
+// 自己更新で入れ替えたあとは、ctx が終わったときと同じ経路で止まり nil で戻る（終了コード 0。FR-UPD-16）。
+func (a *App) Run(parent context.Context) error {
+	ctx, exit := context.WithCancel(parent)
+	defer exit()
+	a.update.setExit(exit)
 	samplerCtx, stopSampler := context.WithCancel(context.WithoutCancel(ctx))
 	samplerDone := make(chan struct{})
 	go func() {
@@ -137,7 +150,10 @@ func (a *App) Run(ctx context.Context) error {
 			a.logger.Error("サンプラーが止まりました", "err", err)
 		}
 	}()
+	waitUpdate := a.update.start(ctx, a.Server.Ready())
 	err := a.Server.Serve(ctx)
+	exit() // 待ち受けの失敗でも、確認と自己更新の通信を止める
+	waitUpdate()
 	stopSampler()
 	<-samplerDone
 	return err

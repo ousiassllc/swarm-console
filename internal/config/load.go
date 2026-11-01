@@ -28,8 +28,12 @@ const (
 	defaultTitlePrefix      = "agent: "
 	defaultReportDir        = "/tmp/swarm-console/reports"
 
+	defaultUpdateCheckInterval = 24 * time.Hour
+
 	minPollInterval = time.Second
 	minSnapshotTTL  = 100 * time.Millisecond
+
+	minUpdateCheckInterval = time.Hour
 )
 
 // rawConfig は config.toml のキーそのまま。未指定を区別するため、既定値のあるものはポインタ・nil スライスで持つ。
@@ -54,6 +58,10 @@ type rawConfig struct {
 	ReportDir        string                     `toml:"report_dir"`
 	PaneNames        map[string]string          `toml:"pane_names"`
 	Agents           map[string]agent.Overrides `toml:"agents"`
+
+	UpdateCheck         *bool   `toml:"update_check"`
+	UpdateCheckInterval *string `toml:"update_check_interval"`
+	UpdateAuto          *bool   `toml:"update_auto"`
 }
 
 // Load は config.toml を読み、未知キーの拒否・検証・既定値の適用・`~` 展開・パスの Clean を行う。
@@ -152,7 +160,17 @@ func build(r *rawConfig, home string) (*Config, error) {
 	if c.Agents, err = checkAgents(r.Agents, home); err != nil {
 		return nil, err
 	}
+	c.UpdateCheck = boolOr(r.UpdateCheck, true)
+	c.UpdateAuto = boolOr(r.UpdateAuto, true)
 	return c, nil
+}
+
+// boolOr は未指定（nil）なら def を返す。
+func boolOr(p *bool, def bool) bool {
+	if p == nil {
+		return def
+	}
+	return *p
 }
 
 func checkLang(s string) (string, error) {

@@ -24,6 +24,12 @@ type Config struct {
 	StartTimeout     time.Duration
 	LockTimeout      time.Duration
 
+	// UpdateCheck は serve の定期確認（FR-UPD-7）、UpdateAuto は見つけた新しい版への自己更新（FR-UPD-19）。
+	// UpdateCheck が false なら UpdateAuto に関わらず確認も入れ替えもしない。
+	UpdateCheck         bool
+	UpdateCheckInterval time.Duration // 1h 以上
+	UpdateAuto          bool
+
 	TitlePrefix  string
 	AllowedRoots []string
 	DeniedPaths  []string

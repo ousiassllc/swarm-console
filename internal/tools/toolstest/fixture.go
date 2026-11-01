@@ -27,6 +27,7 @@ type Fixture struct {
 	Ops      *Ops
 	Notes    notes.Store
 	Host     *Host
+	Update   *Update
 	Clock    *clock.Fake
 	Root     string // allowed_roots・file_roots の根（一時ディレクトリ）
 	Tools    *tools.Registry
@@ -64,15 +65,21 @@ func New(t *testing.T) *Fixture {
 	f := &Fixture{
 		Cfg: cfg, Registry: &Registry{Snap: DefaultSnapshot(), DefaultTail: pane.Tail{Text: "line1\nline2"}},
 		Ops: &Ops{}, Notes: store, Host: &Host{St: DefaultHostStatus()}, Clock: clk, Root: root,
+		Update: &Update{Info: DefaultUpdateInfo()},
 	}
 	f.Deps = tools.Deps{
 		Cfg: cfg, Registry: f.Registry, Ops: f.Ops, Notes: store, Safety: safety.NewPolicy(cfg), Host: f.Host,
-		Profiles: DefaultProfiles(), Templates: tpl, Clock: clk, Logger: slog.New(slog.DiscardHandler),
+		Profiles: DefaultProfiles(), Templates: tpl, Update: f.Update, Clock: clk, Logger: slog.New(slog.DiscardHandler),
 	}
 	if f.Tools, err = tools.New(f.Deps); err != nil {
 		t.Fatal(err)
 	}
 	return f
+}
+
+// DefaultUpdateInfo は host_status.update の固定値（確認前）。
+func DefaultUpdateInfo() tools.UpdateInfo {
+	return tools.UpdateInfo{Status: "pending", Current: "v0.1.4", Apply: tools.ApplyInfo{State: "idle"}}
 }
 
 // DefaultProfiles は fix プロファイルを持つ profiles。

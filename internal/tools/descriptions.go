@@ -9,9 +9,10 @@ const (
 		"画面変化からの時間・メモ要約）。ホスト負荷・並びの警告・layout も返す。"
 	descPaneTail = "1 ペインの最後の n 行を、枠線・TODO 表示・ステータス行を取り除いた本文だけで返す。" +
 		"raw=true なら飾りも残す。unknown のペインは飾りの除去をしない。"
-	descAskCard         = "ペインの質問カード（質問・選択肢・カーソル・自由入力の可否）を返す。質問中でなければ {\"asking\":false}。"
-	descReportRead      = "ペインの最終報告ファイル（<位置>.md）を読む。ファイルがなければ {\"exists\":false}。"
-	descHostStatus      = "サーバーの負荷・CPU 数・メモリ・ディスク・tmux セッションの有無・エージェント種別ごとのペイン数・稼働時間を返す。"
+	descAskCard    = "ペインの質問カード（質問・選択肢・カーソル・自由入力の可否）を返す。質問中でなければ {\"asking\":false}。"
+	descReportRead = "ペインの最終報告ファイル（<位置>.md）を読む。ファイルがなければ {\"exists\":false}。"
+	descHostStatus = "サーバーの負荷・CPU 数・メモリ・ディスク・tmux セッションの有無・エージェント種別ごとのペイン数・稼働時間と、" +
+		"新しい版の確認の結果・自己更新の状況（update）を返す。"
 	descAgentAuthStatus = "エージェント（omp・claude・codex）ごとのログイン状態（valid・expired・expiring_soon・unknown）と期限日時を返す。" +
 		"鍵・トークンの中身は返さない。"
 	descNoteGet     = "1 ペインのメモを全項目返す。メモがなければ note は null。"

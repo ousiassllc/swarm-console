@@ -77,6 +77,7 @@ type hostStatusJSON struct {
 	TmuxSession bool        `json:"tmux_session"`
 	Agents      agentCounts `json:"agents"`
 	Uptime      string      `json:"uptime"`
+	Update      updateJSON  `json:"update"`
 }
 
 func (e *env) hostStatusTool() Tool {
@@ -102,7 +103,7 @@ func (e *env) hostStatus(ctx context.Context, _ auth.Client, raw json.RawMessage
 	out := hostStatusJSON{
 		CPUs: h.CPUs, MemTotalGB: round1(h.MemTotalGB), MemFreeGB: round1(h.MemFreeGB),
 		Disk: make([]diskJSON, 0, len(h.Disk)), TmuxSession: snap.TmuxSession,
-		Agents: countAgents(snap.Panes), Uptime: formatUptime(h.Uptime),
+		Agents: countAgents(snap.Panes), Uptime: formatUptime(h.Uptime), Update: newUpdateJSON(e.Update.UpdateInfo()),
 	}
 	for i, l := range h.Load {
 		out.Load[i] = round1(l)
