@@ -45,13 +45,14 @@ func TestAuthStatus(t *testing.T) {
 		{"claude 48h を 1 秒超えたら valid", "claude", claude(ms(0), ms(48*h+time.Second)), AuthValid, 48*h + time.Second, false},
 		{"claude アクセスだけ（更新なし）で未来", "claude", claude(ms(5*24*h), ""), AuthValid, 5 * 24 * h, false},
 		{"claude 更新トークン切れ", "claude", claude(ms(-48*h), ms(-h)), AuthExpired, -h, false},
-		{"claude 実ファイルの形: expiresAt=0・更新は過去", "claude", claude("0", ms(-20*24*h)), AuthExpired, -20 * 24 * h, false},
+		{"claude 実ファイルの形: expiresAt=0・更新は過去", "claude", claude("0", ms(-20*24*h)), AuthExpired, 0, true},
 		{"claude expiresAt=0・更新なし＝ログアウト", "claude", claude("0", ""), AuthExpired, 0, true},
 		{"claude 両方 0", "claude", claude("0", "0"), AuthExpired, 0, true},
 		{"claude expiresAt・更新とも欠落（空）", "claude", `{"claudeAiOauth":{"accessToken":"dummy"}}`, AuthExpired, 0, true},
 		{"claude expiresAt・更新とも null", "claude", `{"claudeAiOauth":{"expiresAt":null,"refreshTokenExpiresAt":null}}`, AuthExpired, 0, true},
 		{"claude expiresAt 欠落・更新は未来", "claude", `{"claudeAiOauth":{"refreshTokenExpiresAt":` + ms(10*24*h) + `}}`, AuthValid, 10 * 24 * h, false},
-		{"claude expiresAt=0 でも更新トークンが未来なら valid（判定表 ①）", "claude", claude("0", ms(10*24*h)), AuthValid, 10 * 24 * h, false},
+		{"claude expiresAt=0・更新トークンが未来でも expired（判定表 ①）", "claude", claude("0", ms(10*24*h)), AuthExpired, 0, true},
+		{"claude expiresAt が過去（>0）・更新トークンが未来は valid（通常の自動更新）", "claude", claude(ms(-24*h), ms(10*24*h)), AuthValid, 10 * 24 * h, false},
 		{"claude トークン文字列が空でも期限が未来なら valid（判定表 ③。文字列は読まない）", "claude", `{"claudeAiOauth":{"accessToken":"","refreshToken":"","expiresAt":` + ms(5*24*h) + `}}`, AuthValid, 5 * 24 * h, false},
 		{"claude expiresAt が文字列", "claude", `{"claudeAiOauth":{"expiresAt":"soon"}}`, AuthUnknown, 0, true},
 		{"claude claudeAiOauth なし", "claude", `{"mcpOAuth":{}}`, AuthUnknown, 0, true},
@@ -133,7 +134,7 @@ func TestAuthStatusMissingAndDefaults(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write(".claude/.credentials.json", claude("0", ms(7*24*time.Hour)))
+	write(".claude/.credentials.json", claude(ms(-time.Hour), ms(7*24*time.Hour)))
 	write(".codex/auth.json", `{"tokens":{"access_token":"`+jwt(`{"exp":`+sec(time.Hour)+`}`)+`"}}`)
 	if got := r.AuthStatus("claude", "", testNow); got.Status != AuthValid {
 		t.Errorf("claude 既定: %+v", got)

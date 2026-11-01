@@ -107,10 +107,11 @@ func readLimited(path string) ([]byte, error) {
 //
 //	{"claudeAiOauth": {"expiresAt": <epoch ミリ秒>, "refreshTokenExpiresAt": <epoch ミリ秒>, ...}}
 //
-// アクセストークンは数時間で切れ、リフレッシュトークンで自動更新されるため、ログインとして
-// 有効かどうかの目安は refreshTokenExpiresAt（> 0 のときは expiresAt との遅いほう）。
-// expiresAt・refreshTokenExpiresAt が 0・null・欠落のものだけ（有効な値が 1 つも無い）なら、
-// トークンが消された（ログアウト）状態として失効扱い（P-16）。
+// expiresAt が文字どおり 0 なら、refreshTokenExpiresAt が未来でも失効（expired・期限なし）。
+// 0 は正常なトークンでは書かれない値で、ログアウト状態や書き込みの不具合を示す（P-16）。
+// expiresAt が 0 より大きい過去の値でも、refreshTokenExpiresAt が未来なら通常の自動更新として
+// 更新トークンの期限で判定する（expiresAt との遅いほう）。
+// expiresAt が null・欠落で更新トークンの期限も無い（有効な値が 1 つも無い）場合も失効扱い。
 // claudeAiOauth が無い（CLAUDE_CODE_OAUTH_TOKEN の長期トークンはここに入らない）・数値でないときは不明。
 func parseClaude(data []byte) (expiry, bool) {
 	var f struct {
@@ -121,6 +122,9 @@ func parseClaude(data []byte) (expiry, bool) {
 	}
 	if json.Unmarshal(data, &f) != nil || f.OAuth == nil {
 		return expiry{}, false
+	}
+	if v := f.OAuth.ExpiresAt; v != nil && *v == 0 {
+		return expiry{cleared: true}, true
 	}
 	var ms float64
 	for _, v := range []*float64{f.OAuth.ExpiresAt, f.OAuth.RefreshExpiresAt} {
