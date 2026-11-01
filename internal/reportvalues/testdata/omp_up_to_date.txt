@@ -1,0 +1,2 @@
+[1mCurrent version:[0m 18.14.2
+[32mAlready up to date[0m

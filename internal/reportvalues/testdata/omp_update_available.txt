@@ -1,0 +1,2 @@
+Current version: 18.14.2
+New version available: 18.15.0
