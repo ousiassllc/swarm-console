@@ -32,16 +32,16 @@
   "layout": {"rows": 2, "cols": [4, 4]},
   "panes": ["... panes_status と同じ（elapsed を含む）"],
   "attention": [
-    {"kind": "asking", "pane": "T2", "agent": null, "detail": "(2) の Go での範囲をどうしますか？"},
-    {"kind": "stalled", "pane": "B3", "agent": null, "detail": "20m"},
-    {"kind": "report_waiting", "pane": "T1", "agent": null, "detail": "/tmp/swarm-console/reports/T1.md"},
-    {"kind": "auth_expired", "pane": null, "agent": "claude", "detail": null},
-    {"kind": "auth_expiring", "pane": null, "agent": "codex", "detail": "2026-11-01T08:00:00+09:00"}
+    {"kind": "asking", "pane": "T2", "detail": "(2) の Go での範囲をどうしますか？"},
+    {"kind": "stalled", "pane": "B3", "detail": "20m"},
+    {"kind": "report_waiting", "pane": "T1", "detail": "/tmp/swarm-console/reports/T1.md"},
+    {"kind": "auth_expired", "pane": "", "detail": "claude"},
+    {"kind": "auth_expiring", "pane": "", "detail": "codex"}
   ],
   "usage": {
     "status": "ok", "reason": null, "fetched_at": "2026-10-31T22:09:30+09:00",
     "claude": [
-      {"account": "eidos",
+      {"account": "acct-a",
        "five_hour": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null},
        "seven_day": {"available": true, "used": 48.0, "unit": "percent", "status": "ok", "resets_at": "2026-11-01T07:00:00+09:00"}}
     ],
@@ -62,7 +62,7 @@
   "auth": {"agents": [
     {"agent": "omp", "status": "unknown", "expires_at": null},
     {"agent": "claude", "status": "expired", "expires_at": null},
-    {"agent": "codex", "status": "expiring_soon", "expires_at": "2026-11-01T08:00:00+09:00"}
+    {"agent": "codex", "status": "expiring_soon", "expires_at": "2026-11-01T08:10:00+09:00"}
   ]},
   "warnings": []
 }
@@ -81,10 +81,10 @@
 | `omp` | 下の表 | `status: unknown` と `reason` |
 | `update` | `host_status.update` と同じ（[§5.3](endpoints-state.md#53-サーバーの状態)） | 同じ |
 | `auth` | `agent_auth_status` と同じ（`agent`・`status`・`expires_at`）。順は `omp`・`claude`・`codex` | `status: unknown`・`expires_at: null` |
-| `attention[]` | `kind`・`pane`・`agent`・`detail` の 4 キー。ペインの項目は `agent: null`、ログインの項目は `pane: null` | — |
+| `attention[]` | 既存の 3 キー `kind`・`pane`・`detail`（どれも文字列）のまま。ログインの項目は `pane` を `""`、`detail` をエージェント名（`omp`・`claude`・`codex`）にする。期限の日時は `auth` の同じエージェントの `expires_at` を見る | — |
 
-- `attention[].kind` は `asking`・`stalled`・`report_waiting`・`auth_expired`・`auth_expiring`。並びは、ペインの項目（質問待ち → 止まってそう → 報告待ち、各ペインの並び順）のあとに `auth_expired` → `auth_expiring`（`auth.agents` の順）。`detail` は `auth_expiring` では `expires_at`、`auth_expired` では `expires_at`（無ければ `null`）。`unknown` は入れない（FR-REP-16）。
-- 既存の `attention[]` に `agent` キーが足される（`null`）。ほかの既存キーは変えない。
+- `attention[].kind` は `asking`・`stalled`・`report_waiting`・`auth_expired`・`auth_expiring`。並びは、ペインの項目（質問待ち → 止まってそう → 報告待ち、各ペインの並び順）のあとに `auth_expired` → `auth_expiring`（それぞれ `auth.agents` の順）。`unknown` は入れない（FR-REP-16）。
+- 既存の `attention[]` のキー・型は変えない（`pane` は常に文字列。ログインの項目だけ空文字列）。
 
 `usage` のキー：
 
