@@ -70,7 +70,9 @@
 
 同じスナップショットなら、クライアントによらず同じ出力（FR-REP-7）。
 
-#### 足した値の形（`report` の JSON と `host_status` で共通）
+#### 足した値の形
+
+`host.cpu`・`host.swap`・`host.disk[]`・`usage`・`omp`・`update` は `report` の JSON と `host_status` で共通（`host_status` では `host.` を付けず、`cpu`・`swap`・`disk` として直下に返す。FR-REP-17）。`auth`・`attention[]` は `report` の JSON だけで、`host_status` は返さない（ログイン期限は `agent_auth_status`）。
 
 | キー | 形 | 取れないとき |
 |------|-----|-------------|
@@ -80,8 +82,8 @@
 | `usage` | 下の表 | `status` と `reason` で示す |
 | `omp` | 下の表 | `status: unknown` と `reason` |
 | `update` | `host_status.update` と同じ（[§5.3](endpoints-state.md#53-サーバーの状態)） | 同じ |
-| `auth` | `agent_auth_status` と同じ（`agent`・`status`・`expires_at`）。順は `omp`・`claude`・`codex` | `status: unknown`・`expires_at: null` |
-| `attention[]` | 既存の 3 キー `kind`・`pane`・`detail`（どれも文字列）のまま。ログインの項目は `pane` を `""`、`detail` をエージェント名（`omp`・`claude`・`codex`）にする。期限の日時は `auth` の同じエージェントの `expires_at` を見る | — |
+| `auth`（`report` のみ） | `agent_auth_status` と同じ（`agent`・`status`・`expires_at`）。順は `omp`・`claude`・`codex` | `status: unknown`・`expires_at: null` |
+| `attention[]`（`report` のみ） | 既存の 3 キー `kind`・`pane`・`detail`（どれも文字列）のまま。ログインの項目は `pane` を `""`、`detail` をエージェント名（`omp`・`claude`・`codex`）にする。期限の日時は `auth` の同じエージェントの `expires_at` を見る | — |
 
 - `attention[].kind` は `asking`・`stalled`・`report_waiting`・`auth_expired`・`auth_expiring`。並びは、ペインの項目（質問待ち → 止まってそう → 報告待ち、各ペインの並び順）のあとに `auth_expired` → `auth_expiring`（それぞれ `auth.agents` の順）。`unknown` は入れない（FR-REP-16）。
 - `pane` を指定した JSON では、`panes` と、ペインの項目（`asking`・`stalled`・`report_waiting`）はそのペインだけに絞る。`auth_expired`・`auth_expiring`・`usage`・`omp`・`update`・`auth`・`host` はペインに属さないので絞らず、全体の版と同じ値を常に入れる（markdown の詳しい版が、見出し・要対応・使用状況を全体の版と同じに出すのと同じ。FR-REP-16）。並びは変わらない（ペインの項目 → ログイン）。

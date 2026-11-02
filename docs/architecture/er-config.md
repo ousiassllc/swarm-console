@@ -64,9 +64,10 @@ erDiagram
 | `listen_addr` | 必須。`0.0.0.0`・`::`・ホスト名ワイルドカードは拒否。tailnet の範囲またはループバックのみ（P-01）。ゾーン付き IPv6（`fe80::1%eth0` など）は拒否。ループバック以外はポート 0 も拒否 |
 | `tmux_socket` | 省略（既定のソケット）か `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`（英数字で始まり 64 字まで） |
 | `sessions` | 1 つ以上。重複なし。名前は空（空白だけを含む）・`.`・`:`・制御文字を含まない（tmux が `.`・`:` を `_` に置き換えて一致しなくなるため）。`default_session` は `sessions` のどれか |
-| `pane_names` | 名前は `^[A-Za-z][A-Za-z0-9_-]*$`、他の固定名・自動名（`T1` など）・`%` 始まりと衝突しない |
+| `default_lang` | 省略（`ja`）か `"ja"`・`"en"`。それ以外は起動拒否 |
+| `pane_names` | キーは `<セッション>:<ウィンドウ>.<ペイン番号>`（`^(.+):([0-9]+)\.([0-9]+)$`）の形で、セッションは `sessions` のどれか（FR-POS-5）。名前は `^[A-Za-z][A-Za-z0-9_-]*$`（英字始まりなので tmux のペイン ID の `%` 始まりとは重ならない）で、自動名（`T1`・`B2`・`R12` など）と衝突せず、名前どうしも大文字小文字を区別せず重ならない。どれかに反したら起動拒否 |
 | `allowed_roots` | 1 つ以上（空配列は起動拒否）。書かなければ既定を使う |
-| `allowed_roots`・`file_roots`・`denied_paths`・`disk_mounts` | 絶対パス（空文字・制御文字を含むものは不可。`~` は `~/` の形だけ）。`~` は展開。比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file` の両方） |
+| `allowed_roots`・`file_roots`・`denied_paths`・`disk_mounts`・`report_dir` | 絶対パス（空文字・制御文字を含むもの・相対パスは不可）。`~` は `~` 単体（ホームそのもの）か `~/…` の形だけで、`~user` のような他ユーザー形式は不可。`~` は展開。`report_dir` は 1 つの文字列で、省略か空文字なら既定（`/tmp/swarm-console/reports`）。`allowed_roots`・`file_roots`・`denied_paths` の比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file` の両方） |
 | `denied_paths` の既定 | 既定は `["~/dotfiles"]`。`config.toml` に書いたら既定と**入れ替わる**（足されない。書き方の例は [環境構築](../environment/setup.md#ローカルで動かす)）。P-29 |
 | 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h、`usage_interval` ≥ 1m。`stalled_after`・`layout_warning_ttl`・`accept_timeout`・`start_timeout`・`lock_timeout` は 0 より大きい期間（下限は決めていない） |
 | `title_prefix` | 改行・制御文字を含まない 1 行 |
