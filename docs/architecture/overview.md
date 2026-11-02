@@ -59,7 +59,7 @@ graph TD
 | tmux 操作 | `tmux` コマンド（`os/exec`、引数配列）。専用ソケットを `tmux_socket` で指定可 | 元仕様。`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`select-pane -T`・`display -p` |
 | 設定・ひな形 | TOML（`github.com/pelletier/go-toml/v2`） | 人が編集する設定・トークン・プロファイル。コメントが書ける |
 | メモ | JSON 1 ファイル（`encoding/json`） | 元仕様。500 件までで十分小さい |
-| テンプレート | `text/template`（`go:embed` で既定を同梱） | レポート・指示文を言語ごとに差し替えるため |
+| テンプレート | `text/template`（`go:embed` で既定を同梱） | レポートを言語ごとに差し替えるため（指示文はテンプレートではなく `profiles.toml` の条件から組み立てる） |
 | ログ | `log/slog`（JSON Lines） | 標準。journald で見る |
 | Lint | `golangci-lint` | 元仕様の CI |
 | トークン | 32 バイト乱数（`crypto/rand`）＋ SHA-256 保存 | 高エントロピーなので低速ハッシュは不要 |
@@ -224,3 +224,4 @@ flowchart TD
 | 1.9 | 2026-11-01 | §7 デプロイ構成に最初の導入（`make install`）を追加 | Issue #18 |
 | 1.10 | 2026-11-02 | §4：`host_status.update` もスナップショットの値として返す（FR-UPD-9）。P-64 を実機の出力で確定、P-65 を確定し、P-68・P-69 を追加 | Issue #21〜#25（実装時の確認） |
 | 1.11 | 2026-11-02 | P-70 を追加（`pane_close` が終了コマンドのあと `shell` に戻るまで待ち、上限で `exit_timeout`） | Issue #30 |
+| 1.12 | 2026-11-02 | §2 のテンプレートの理由を実装どおりに直した（言語ごとに差し替えるのはレポートだけ。指示文は `profiles.toml` の条件から組み立てる） | Issue #42 |

@@ -31,12 +31,15 @@ swarm-console の開発環境・CI/CD・Lint・Format・Linterly・Git Hooks の
 swarm-console/
 ├── .github/workflows/ci.yml        CI
 ├── .github/workflows/release.yml   main の CI 成功（または手で打ったタグ v*）でタグを付け、バイナリを GitHub Releases へ
+├── .github/scripts/                plan-release.sh（`release.yml` の `plan` ジョブが次の版を決める）とそのテスト plan-release_test.sh（`make plan-test`。NFR-TEST-15）
+├── .gitignore                      生成物・キャッシュの除外（`/bin/`・`/dist/`・`/.cache/`（golangci-lint のキャッシュ）・`/swarm-console`・`*.test`・`*.out`・`/.sweep/`）
 ├── .golangci.yml                   lint / format 設定
 ├── .linterly.yml                   行数管理設定
 ├── .linterlyignore                 行数管理の除外（自動生成コードが出たときだけ書く。今は何も除外しない。P-31）
 ├── lefthook.yml                    Git Hooks
 ├── Makefile                        タスクランナー（`make install` で運用ホストに導入。golangci-lint のキャッシュは worktree ごと）
-├── scripts/                        install.sh（`make install`）とそのテスト install_test.sh
+├── scripts/                        install.sh（`make install`）とそのテスト install_test.sh（`make install-test`。NFR-TEST-18）
+├── deploy/                         swarm-console.service（systemd ユーザーサービスの unit。`make install` が `~/.config/systemd/user/` へ置く。FR-INS-7）
 ├── go.mod / go.sum
 └── docs/environment/               このドキュメント（setup.md・setup-ci.md・setup-quality.md）
 ```
@@ -62,7 +65,7 @@ git clone git@github.com:ousiassllc/swarm-console.git
 cd swarm-console
 go mod download
 lefthook install        # pre-commit / pre-push を有効化
-make check              # build → vet → lint → linterly → test を順に実行
+make check              # build → vet → lint → linterly → plan-test → install-test → test を順に実行
 ```
 
 ### ローカルで動かす
@@ -125,3 +128,4 @@ make install
 | 1.6 | 2026-11-01 | 300 行超過ファイルを分割（§CI/CD を setup-ci.md、Lint 以降を setup-quality.md へ移動。`.linterlyignore` の `docs/**` 除外を廃止（P-31）、ほかの内容は変更なし） | Issue #3 |
 | 1.7 | 2026-11-01 | 「運用ホストに入れる（`make install`）」を追加、ディレクトリ構造に `scripts/`、Makefile に `install`・`install-test` を追加 | Issue #18 |
 | 1.8 | 2026-11-02 | golangci-lint のキャッシュを worktree ごとに分ける（Makefile の `GOLANGCI_LINT_CACHE`、lefthook、`.gitignore` の `/.cache/`）。setup-quality.md に混入の原因と直接実行の注意を追加 | Issue #32 |
+| 1.9 | 2026-11-02 | 初回セットアップの `make check` の内訳に `plan-test`・`install-test` を足した（Makefile・setup-quality.md と同じ順序）。ディレクトリ構造に `deploy/`・`.github/scripts/`・`.gitignore` を追加 | Issue #39・#47 |
