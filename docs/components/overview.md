@@ -105,7 +105,7 @@ swarm-console/
 | `config/tomledit` | `go-toml/v2` の `unstable.Parser` で値のバイト範囲を取り、変更したキーの値だけを置き換える・無いキーを足す。変更範囲の外を 1 バイトも変えない（ER §5.1） | `Edit(src []byte, ops []Op) ([]byte, error)`、`Op{Key []string, Value any}` | FR-SET-3, NFR-OPS-8 |
 | `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options` は設定パス・入出力・インターフェース列挙・時計の差し替え） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
 | `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(Options) (*Server, error)`（`Options{ListenAddr, Auth, Report, Ops, Logger, ShutdownTimeout}`）、`Server.Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
-| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、定数時間照合、スコープ判定、`token add/revoke` | `Open(path, clk)`、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope}`、`Add`・`Revoke` | NFR-SEC-3〜6 |
+| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、定数時間照合、スコープ判定、`token add/revoke` | `Open(path, clk, logger)`（`logger` は再読み込み失敗の警告の出力先。nil なら出さない）、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope}`、`Add`・`Revoke` | NFR-SEC-3〜6 |
 | `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録 | `NewReportServer(Options)`、`NewOpsServer(Options)`（`Options{Tools, Version, Logger, Audit}`）、`NewHTTPHandler(s)` | FR-SAFE-6 |
 | `tools` | ツール 17 個のハンドラ。引数検証、窓口の権限確認、`pane` の解決、エラーコードへの変換 | `Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Registry` | API 仕様 §5 |
 | `pane` | スナップショットとサンプラー、位置の命名、ペイン解決、ペインロック（`pane/ops` の `Operator.Lock`）、`send_text`・`ask_pick` などの操作実行 | `Registry`（`Current`・`Refresh`・`Resolve(ctx, arg)`・`Tail`・`Card`）、`Snapshot`、`Ops` | FR-POS, FR-STATE, FR-O |
@@ -274,3 +274,4 @@ type Tool struct {
 | 1.8 | 2026-11-02 | §5.2 `Close(ref)` に、終了コマンドのあと `shell` に戻るまで待つ手順（上限で `apperr.ExitTimeout`）を追加 | Issue #30 |
 | 1.9 | 2026-11-02 | `agent` に組み込みのエージェント名の一覧（`Builtin`・`IsBuiltin`）を足し、`pane.Agents`・`setup.AgentNames`・`config.agentNames` をこれに 1 か所化（出力は変えない）。§4 の状態の決定に、`/proc` が読めないときの扱いを追記 | Issue #35・#36 |
 | 2.0 | 2026-11-02 | §3 の公開 IF 列と §5.1 の型を実装の名前・シグネチャに合わせた（`agent.Get`・`updatecheck.Runner.Status`・`Registry.Lock`・`tmux.Runner` などの存在しない名前を除いた）。§2 の `templates/` から存在しない `dispatch.md` を除いた。§7 の `ci.yml` に linterly・release plan test・install script test を追記（出力は変えない） | Issue #41・#42・#44 |
+| 2.1 | 2026-11-02 | §3 の `auth` の公開 IF を `Open(path, clk, logger)` に直した（Issue #54 で `logger` 引数が増えた。実装・設定は変えない） | Issue #58 |
