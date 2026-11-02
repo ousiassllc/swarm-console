@@ -91,6 +91,7 @@ swarm-console/
 ├── testdata/screens/         実画面サンプル（omp/ claude/ codex/）
 ├── test/fakeagent/           擬似エージェント（サンプル画面を出し、キーに反応する）
 ├── test/integration/         実 tmux ＋ fakeagent ＋ MCP クライアントの統合・受け入れテスト
+├── test/setup/               `setup` の画面のテスト（実 tmux の専用ソケットのペインで `swarm-console setup` を起動し、`send-keys` で入力して確かめる。NFR-TEST-13）
 ├── deploy/                   swarm-console.service（systemd ユーザーサービス）
 ├── scripts/                  install.sh（`make install`。最新リリースの取得・照合・配置・systemd 常駐。FR-INS）と、そのテスト install_test.sh
 ├── docs/                     仕様書
@@ -276,3 +277,4 @@ type Tool struct {
 | 2.0 | 2026-11-02 | §3 の公開 IF 列と §5.1 の型を実装の名前・シグネチャに合わせた（`agent.Get`・`updatecheck.Runner.Status`・`Registry.Lock`・`tmux.Runner` などの存在しない名前を除いた）。§2 の `templates/` から存在しない `dispatch.md` を除いた。§7 の `ci.yml` に linterly・release plan test・install script test を追記（出力は変えない） | Issue #41・#42・#44 |
 | 2.1 | 2026-11-02 | §3 の `auth` の公開 IF を `Open(path, clk, logger)` に直した（Issue #54 で `logger` 引数が増えた。実装・設定は変えない） | Issue #58 |
 | 2.2 | 2026-11-02 | §3 の `setup` の公開 IF を実装の `Options{Path, Out, Home, Prompter, IssueToken}` に合わせた（実装にない `Options` の項目の記述を除き、`HostCandidates()`・`Candidates(addrs)` を明記。実装は変えない） | Issue #59 |
+| 2.3 | 2026-11-02 | §2 のツリーに `test/setup/`（実 tmux のペインで `setup` を起動して `send-keys` で確かめるテスト。NFR-TEST-13）を追加（実装は変えない） | Issue #66 |
