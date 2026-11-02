@@ -49,9 +49,9 @@ func Pick(allowed, configured []string, arg *string) (string, error) {
 //
 // 解釈できる形は、tmux ID（%12）、セッション内の位置（T1。in があるときだけ。大文字小文字不問）、
 // 接頭辞つきの位置（1:T1・pane_names の固定名）、<セッション>:<セッション内の位置>。
-// 見つからないとき、別のセッションのペインを指していれば、そのセッションが許可外なら session_forbidden
-// （存在の有無で答えを変えない）、許可内なら invalid_args（field=pane。session と pane が食い違う）。
-// どれにも当たらなければ pane_not_found。
+// 見つからないとき、別のセッションのペイン（tmux ID・全体の名前で当たるもの）を指していれば、そのセッションが許可外なら
+// session_forbidden、許可内なら invalid_args（field=pane。session と pane が食い違う）。許可外のペインの有無は、
+// この 2 つと pane_not_found の違いで分かる（P-79）。どれにも当たらなければ pane_not_found。
 func Resolve(snap *pane.Snapshot, allowed []string, in, arg string) (pane.Ref, error) {
 	for i := range snap.Panes {
 		p := &snap.Panes[i]
