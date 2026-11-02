@@ -52,8 +52,14 @@ func sha(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// newServeRig は HOME・置き場・設定・トークンを用意する（serve はまだ起動しない）。
+// newServeRig は HOME・置き場・設定・トークンを用意する（serve はまだ起動しない）。tmux は存在しない専用ソケットを見る。
 func newServeRig(t *testing.T, current, extraConfig string) *serveRig {
+	t.Helper()
+	return newServeRigOnSocket(t, current, extraConfig, fmt.Sprintf("sc-upd-test-%d", os.Getpid()))
+}
+
+// newServeRigOnSocket は newServeRig の tmux_socket を socket にする（実 tmux のペインを見せるテスト用）。
+func newServeRigOnSocket(t *testing.T, current, extraConfig, socket string) *serveRig {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -65,7 +71,7 @@ func newServeRig(t *testing.T, current, extraConfig string) *serveRig {
 	g.exe = filepath.Join(g.binDir, "swarm-console")
 	g.writeFile(g.exe, oldBin, 0o755)
 	body := fmt.Sprintf("listen_addr = %q\ntmux_socket = %q\nreport_dir = %q\nallowed_roots = [%q]\nfile_roots = [%q]\n%s",
-		g.addr, fmt.Sprintf("sc-upd-test-%d", os.Getpid()), filepath.Join(home, "reports"), home, home, extraConfig)
+		g.addr, socket, filepath.Join(home, "reports"), home, home, extraConfig)
 	g.writeFile(g.cfg, body, 0o600)
 	_, out, _ := runCLI(t, "token", "add", "boss", "--scope", "ops", "--config", g.cfg)
 	g.token = strings.TrimSpace(out)
