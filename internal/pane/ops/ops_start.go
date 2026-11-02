@@ -7,11 +7,9 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 )
-
-// maxTitleRunes は pane_start の title の上限（API 仕様 §5.2）。
-const maxTitleRunes = 80
 
 func hasControl(s string) bool {
 	for _, r := range s {
@@ -32,7 +30,7 @@ func (o *Operator) checkStartArgs(agentName, cwd, title string) (agent.Adapter, 
 	if cwd == "" || hasControl(cwd) || containsRune(cwd, '\'') {
 		return nil, apperr.New(apperr.InvalidArgs, "field", "cwd")
 	}
-	if title == "" || utf8.RuneCountInString(title) > maxTitleRunes || hasControl(title) {
+	if title == "" || utf8.RuneCountInString(title) > config.MaxTitleRunes || hasControl(title) {
 		return nil, apperr.New(apperr.InvalidArgs, "field", "title")
 	}
 	return ad, nil

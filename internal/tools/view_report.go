@@ -113,7 +113,8 @@ func (e *env) paneDetail(ctx context.Context, snap *pane.Snapshot, ref pane.Ref)
 	if tail.Text != "" {
 		d.Tail = strings.Split(tail.Text, "\n")
 	}
-	if fi, err := os.Stat(pane.ReportPath(e.Cfg.ReportDir, ref.Pos)); err == nil && fi.Mode().IsRegular() {
+	// リンクは辿らず「無し」（P-30。report_read と同じ。リンク先の更新時刻を見せない）。
+	if fi, err := os.Lstat(pane.ReportPath(e.Cfg.ReportDir, ref.Pos)); err == nil && fi.Mode().IsRegular() {
 		d.Report = render.ReportFile{Exists: true, UpdatedAt: fi.ModTime()}
 	}
 	return d, nil

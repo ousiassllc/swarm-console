@@ -229,3 +229,8 @@ erDiagram
 | 1.3 | 2026-11-01 | `config.toml` に `update_auto` を追加。§8 自己更新のファイル（`.old`・`.update-pending`・`.update-failed`）を追加 | Issue #7（自己更新で確定） |
 | 1.4 | 2026-11-01 | 300 行超過ファイルを分割（§3〜§8 を er-runtime.md・er-config.md へ移動）。内容の変更なし | Issue #3 |
 | 1.5 | 2026-11-01 | `config.toml` に `usage_check`・`usage_interval` を追加。実行時の状態（`Snapshot`・`HOST_STATE`）にレポートに足す値を追加 | Issue #21〜#25 |
+| 1.6 | 2026-11-02 | §5 config.toml：検証表に `config` が実際に拒否する値（`sessions` の名前・`tmux_socket`・`title_prefix`・期間の下限・`allowed_roots` の空配列・`listen_addr` のゾーンとポート・`agents.<name>` の検証）を追加し、`AGENT_CONFIG` に `status_line_re`・`border_re` を追加。実装は変えない | Issue #45 |
+| 1.7 | 2026-11-02 | §7 最終報告の存在判定を、シンボリックリンクを辿らず「無し」とする（P-30 と揃える） | Issue #55 |
+| 1.8 | 2026-11-02 | §5 config.toml の検証表：`default_lang`・`report_dir` の行を追加、`pane_names` にキーの形（`<セッション>:<ウィンドウ>.<ペイン番号>`・`sessions` に含まれる）を追加し、`%` 始まりは名前の規則（英字始まり）の帰結と直した。`~` は `~` 単体か `~/…`（`~user` 形式は不可）と直した。実装は変えない | Issue #62 |
+| 1.9 | 2026-11-02 | §7 最終報告ファイル：パスとアーカイブ名の `<位置>` は `:`・`/`・`\` を `_` にする（実装の `reportBase` と同じ）と直し、例 `a/b:T1` → `a_b_T1.md` を足した。実装は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
+| 1.10 | 2026-11-02 | §5 config.toml の検証表：`agents.<name>` の `auth_file` は空文字不可（設定エラー）と追記した。実装は変えない | Issue #76 |

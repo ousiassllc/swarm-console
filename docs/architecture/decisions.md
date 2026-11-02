@@ -20,7 +20,7 @@
 | P-08 | 並び変更の警告 | 検知から `layout_warning_ttl`（10 分）の間、`panes_status`・`report` に出す。起動直後は出さない | OK 時 |
 | P-09 | 操作と状態の許可表 | 機能要件 §4.2 の「許可する状態」のとおり（`send_text` は `idle`・`working`・`stalled`、`asking` は拒否） | OK 時 |
 | P-10 | `ask_pick` の `text` | `n` と `text` は同時に指定できない。`text` を指定すると「その他」を選んで `text` を入れる | OK 時 |
-| P-11 | 報告待ちと最終報告ファイル | 報告待ち ＝ `idle` かつ最終報告ファイルがある。`dispatch`・`pane_close` は古いファイルを `reports/archive/<位置>-<unix 秒>.md` へ移す。位置の `:` はファイル名で `_` にする | OK 時 |
+| P-11 | 報告待ちと最終報告ファイル | 報告待ち ＝ `idle` かつ最終報告ファイルがある。`dispatch`・`pane_close` は古いファイルを `reports/archive/<位置>-<unix 秒>.md` へ移す。位置の `:`・`/`・`\` はファイル名ではすべて `_` にする（`/`・`\` はパスの外へ出さないため。例 `a/b:T1` → `a_b_T1.md`）。アーカイブ名の `<位置>` も同じ規則（Issue #69 で実装がそろった） | OK 時 |
 | P-12 | エラー形式 | 事前条件・権限の失敗は MCP の `isError: true` ＋ 本文 `{"error":{"code","message","details"}}`。送信後に期待どおりでない場合は `ok: false` ＋ `state`。`message` は日本語の固定文。HTTP の 401・403・413 も同じ本文形式 | OK 時 |
 | P-13 | `send_text` の制御文字と `file` | 許可する制御文字は `\n`・`\t` のみ（ESC・NUL・CR など拒否）。`file` の読み取りは `file_roots`（`/tmp/` と作業フォルダの根）の下のみ、シンボリックリンク解決後に判定、UTF-8 で 8000 字以内 | OK 時 |
 | P-14 | 秘密文字列のパターン | `gh[pousr]_`＋20 字以上、`github_pat_`、`sk-`＋16 字以上、`eyJ`＋20 字以上、`AKIA`＋16 字、PEM 見出し（`-----BEGIN ... PRIVATE KEY-----`）、自分のトークン（`sc_`＋40 字以上） | OK 時 |
@@ -39,7 +39,7 @@
 | P-27 | `layout`（段・列の数）が複数セッションのとき | 既定セッション（無ければセッション順で最初にペインのあるもの）の最初のウィンドウ | 実装時に決めた。OK 時に確認 |
 | P-28 | `unknown`（エージェント無し）のペインへの操作 | `ask_pick`・`send_text`・`send_escape`・`pane_close`・`dispatch` は `invalid_state` ではなく `unsupported_agent`（API 仕様 §3.2 の表に合わせる） | 実装時に決めた |
 | P-29 | `denied_paths` の既定 | **確定：既定 `~/dotfiles`、`config.toml` で変更可**。`denied_paths` を書いたら既定と入れ替わる（足されない）。書かなければ既定。`~` は展開して絶対パスで比較。`cwd`・`file` の両方に効く。オーナーの checkout の一覧は仕様書に無いため、必要なら設定で書く（例は [環境構築](../environment/setup.md#ローカルで動かす)） | **確定** |
-| P-30 | `report_read` の読み取り | 最終報告ファイルは `O_NOFOLLOW` で開く（シンボリックリンクなら `exists: false`）。認証ファイルなどを読み出されないため | 実装時に決めた |
+| P-30 | `report_read` の読み取り | 最終報告ファイルは `O_NOFOLLOW` で開く（シンボリックリンクなら `exists: false`）。認証ファイルなどを読み出されないため。有無の判定（`report_exists`・1 ペインの詳しい版の最終報告欄・アーカイブ先の重複判定）も `lstat` でリンクを辿らず、リンクは「無し」 | 実装時に決めた |
 | P-31 | 仕様書の行数管理 | **確定**：仕様書（`docs/`）も Linterly の対象にする。当初は `api/endpoints.md`・`architecture/er.md` が 300 行を超えたため `.linterlyignore` で `docs/**` を外していたが、Issue #3 で除外をやめ、超えたファイルを責務ごとに分割した（1 ファイル 300 行以内、警告の閾値 290 行以内） | **確定** |
 | P-32 | `setup` のコマンド名と起動 | **`swarm-console setup [--config <path>]`**。ファイルが無ければ新規、あれば読み込んで編集（初回専用にしない）。サブコマンド名は Issue の「仮」を確定 | 実装時に決めた。OK 時に確認 |
 | P-33 | tailnet IP の候補 | `net.InterfaceAddrs` を `100.64.0.0/10`・`fd7a:115c:a1e0::/48` で絞り、ポート `48120` を付けて選択肢にする。`tailscale ip` は実行しない（外部コマンドなし）。0 件なら手入力だけ | 実装時に決めた |

@@ -52,7 +52,7 @@ func TestTokenAddWritesHashOnlyAndPrintsPlaintextOnce(t *testing.T) {
 		t.Errorf("tokens.toml は SHA-256 だけを持つはずです:\n%s", data)
 	}
 	// 発行したトークンは認証を通り、ops スコープ・名前が付く。
-	a, err := auth.Open(path, clock.Real{})
+	a, err := auth.Open(path, clock.Real{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestTokenRevokeMakesAuthFail(t *testing.T) {
 	_, stdout, _ := runCLI(t, "token", "add", "--scope=report", "viewer", "--config", cfg)
 	plain := strings.TrimSpace(stdout)
 	path := filepath.Join(filepath.Dir(cfg), "tokens.toml")
-	a, err := auth.Open(path, clock.Real{})
+	a, err := auth.Open(path, clock.Real{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

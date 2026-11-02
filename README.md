@@ -83,7 +83,7 @@ sessions = ["0"]                  # 対象の tmux セッション
 
 ## レポートの使用状況・omp の版
 
-`report` と `host_status` は、Claude・Cursor・Codex の使用状況、CPU・スワップ・ディスクの使用率、omp の新しい版の有無、ログイン期限を返します（[機能要件 FR-REP-10〜18](docs/requirements/functional-report.md)）。値はスナップショットを作るときにまとめて入れるので、同じスナップショットなら出力は同じです。
+`report` は、Claude・Cursor・Codex の使用状況、CPU・スワップ・ディスクの使用率、omp の新しい版の有無、ログイン期限を返します。`host_status` は、ログイン期限を除く値（使用状況・CPU・スワップ・ディスク・omp の版）と、swarm-console 自身の更新の状況（`update`）を返します。ログイン期限は `agent_auth_status`（と `report`）で取ります（[機能要件 FR-REP-10〜18](docs/requirements/functional-report.md)）。値はスナップショットを作るときにまとめて入れるので、同じスナップショットなら出力は同じです。
 
 - `usage_check`（既定 `true`）・`usage_interval`（既定 `5m`、`1m` 以上）：`serve` が `omp usage --json` を実行して使用状況を取ります。`false` なら実行せず、レポートは「無効」と出します
 - omp の更新確認（`omp update --check`）は、下の `update_check`・`update_check_interval` に従います
@@ -143,8 +143,8 @@ curl --socks5-hostname localhost:<port> -sS "http://<tailnet-ip>:48120/ops" \
 
 ## 開発者向け
 
-- 必要なツールと初回セットアップ（Go 1.26 以上・tmux・golangci-lint・Lefthook・Linterly・make）は [環境構築](docs/environment/setup.md) を参照してください
-- ビルドとチェックは `make` で行います。`make check` は CI（`.github/workflows/ci.yml`）と同じ順序・同じコマンドで、`build`・`vet`・`lint`・`linterly`・`plan-test`・`test`（`go test -race ./...`）を順に実行します。lint のキャッシュは worktree ごと（`.cache/golangci-lint`）に分かれ、隣の worktree のファイルは混ざりません。`golangci-lint` を直接打つときは `GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint"` を付けてください。詳細は [環境構築：Lint・Format・Linterly・Git Hooks・Makefile](docs/environment/setup-quality.md#タスクランナーmakefile) を参照してください
+- 必要なツールと初回セットアップ（Go 1.26.10 以上・tmux・golangci-lint・Lefthook・Linterly・make）は [環境構築](docs/environment/setup.md) を参照してください
+- ビルドとチェックは `make` で行います。`make check` は CI（`.github/workflows/ci.yml`）と同じ順序・同じコマンドで、`build`・`vet`・`lint`・`linterly`・`plan-test`・`install-test`・`test`（`go test -race ./...`）を順に実行します。`install-test` は `scripts/install_test.sh` で、偽の `curl`・`systemctl`・`loginctl` と一時 `HOME` を使うので、実際の GitHub・systemd・`HOME` には触れません。lint のキャッシュは worktree ごと（`.cache/golangci-lint`）に分かれ、隣の worktree のファイルは混ざりません。`golangci-lint` を直接打つときは `GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint"` を付けてください。詳細は [環境構築：Lint・Format・Linterly・Git Hooks・Makefile](docs/environment/setup-quality.md#タスクランナーmakefile) を参照してください
 - Git Hooks は `lefthook install` で有効にします（pre-commit と pre-push。`--no-verify` は使いません）
 - テストは実際の tmux を使います。専用ソケットで動かすので、動いている tmux には触れません
 - CI は GitHub Actions です。`main` の CI が成功すると、`release.yml` が次の版（パッチ +1）のタグを付け、`swarm-console_<タグ>_linux_amd64` と `SHA256SUMS` を GitHub Releases に載せます。マイナー・メジャーを上げるときは手で `vX.Y.Z` のタグを打ちます。詳細は [環境構築：CI/CD](docs/environment/setup-ci.md#cicd) を参照してください

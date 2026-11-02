@@ -27,7 +27,7 @@
 | NFR-SEC-5 | トークンの平文・ハッシュ・`Authorization` ヘッダーをログ・応答・エラー・メモに出さない。クライアント側は環境変数 `SWARM_CONSOLE_TOKEN` から読む |
 | NFR-SEC-6 | トークンを 1 つだけ無効にできる（`token revoke <名前>`）。再起動なしで次のリクエストから効く（P-04） |
 | NFR-SEC-7 | 任意のシェルコマンドは実行しない。許可するのは決まった tmux サブコマンド（`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`select-pane -T`・`display -p`・`list-panes`）と、決まったファイル・`/proc` の読み取りだけ。例外は、レポートの値のための **引数固定の 2 コマンド** `omp usage --json` と `omp update --check` だけ（FR-REP-12・15。`[agents.omp] command` の先頭の語の実行ファイルを、ほかの引数なしで、標準入力 `/dev/null`・打ち切り付きで実行する。`omp update` など、ほかの `omp` のサブコマンド・引数は実行しない）。引数は `exec` の引数配列で渡し、シェルを経由しない。`omp` のコマンドが行う通信は `omp` の仕様で、`swarm-console` 自身は通信しない（NFR-SEC-15 は変えない） |
-| NFR-SEC-8 | `pane_start` の `cwd` は `/mnt/nvme/` の下と `~/projects/` の下だけ許可。オーナーの checkout（設定の一覧）と `~/dotfiles` は拒否。シンボリックリンクは解決後のパスで判定する |
+| NFR-SEC-8 | `pane_start` の `cwd` は `/mnt/nvme/` の下と `~/projects/` の下だけ許可。`denied_paths` に書いたパスは拒否（既定は `~/dotfiles` だけ。オーナーの checkout も拒否したいなら `denied_paths` に書く。P-29）。シンボリックリンクは解決後のパスで判定する |
 | NFR-SEC-9 | 送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。Esc は `send_escape`（`confirm: true` 必須・`/ops` のみ） |
 | NFR-SEC-10 | `/report` に操作のツールを出さない（`tools/list` にも載らない）。`/report` からは書き込み（メモを含む）ができない |
 | NFR-SEC-11 | メモに秘密に見える文字列（`ghp_`・`sk-`・`eyJ`・PEM など）が入る書き込みは拒否し、拒否した値をログ・応答に出さない |
@@ -100,7 +100,7 @@
 | NFR-TEST-5 | 同一スナップショットに対して `report`（`ja`・`en`）と `dispatch` の組み立てが決定的であることを確かめる（ゴールデンファイル） |
 | NFR-TEST-6 | 各アダプタについて、状態判定・質問カード読み取り・選択キーの列をサンプル画面の表で確かめる |
 | NFR-TEST-7 | 非同期の待ちは固定時間の `sleep` に頼らず、準備完了の通知・上限付きの条件待ち（ポーリング）を使う。不安定なテストはタイムアウトを延ばさずコード側（待ち方・準備完了の通知）を直す |
-| NFR-TEST-8 | CI は `go build`・`go vet`・`golangci-lint`・`go test -race`。tmux が要るテストは CI でも実 tmux で動かす。CI は GitHub ホストのランナー（`ubuntu-latest`）で動き、tmux はジョブの中で `apt-get install` して入れ、`tmux -V` で確かめる。Go・golangci-lint は `actions/setup-go`・golangci-lint の公式 action で入れる |
+| NFR-TEST-8 | CI は `go build`・`go vet`・`golangci-lint`・`linterly check`・release plan test（`plan-release_test.sh`。NFR-TEST-15）・install script test（`install_test.sh`。NFR-TEST-18）・`go test -race` をこの順に別ステップで動かす（骨子は [環境構築：CI/CD](../environment/setup-ci.md#cicd)）。tmux が要るテストは CI でも実 tmux で動かす。CI は GitHub ホストのランナー（`ubuntu-latest`）で動き、tmux はジョブの中で `apt-get install` して入れ、`tmux -V` で確かめる。Go・golangci-lint は `actions/setup-go`・golangci-lint の公式 action で入れる |
 | NFR-TEST-9 | バグ修正には回帰テストを付ける |
 | NFR-TEST-10 | 受け入れ確認（機能要件 §8）は、自動テストで担保できる範囲を CI で、実クライアント接続（Claude Code・Codex・Cursor・curl）が要る範囲を実機で行い、未確認の部分は報告に明記する |
 | NFR-TEST-11 | 次の条件で、GitHub Releases に linux/amd64 のバイナリ（`swarm-console_vX.Y.Z_linux_amd64`）と `SHA256SUMS` を載せるワークフローを用意する（P-20・P-48。名前と書式は Issue #7 の自己更新が読む。環境構築 CI/CD）：main への push の CI が成功したら次の版のタグを自動で付けてリリースする（毎回パッチを上げる）。CI が失敗・PR・main の先頭でないコミットではタグを付けない。手でタグ `vX.Y.Z` を打てばマイナー・メジャーを上げられる |
@@ -125,3 +125,5 @@
 | 1.6 | 2026-11-01 | NFR-SEC-7 に引数固定の 2 コマンド（`omp usage --json`・`omp update --check`）の例外を追加、NFR-OPS-12・NFR-TEST-17 を追加 | Issue #21・#24（レポートの値） |
 | 1.7 | 2026-11-01 | NFR-OPS-13・NFR-TEST-18（`make install`）を追加 | Issue #18 |
 | 1.8 | 2026-11-02 | NFR-PERF-4：`pane_close` の応答時間の上限を、`shell` に戻るまでの待ちと画面確認の待ちの 2 つの `accept_timeout` を含む形にし、最初の待ちを超えたときは `exit_timeout`（`ok: false` ではない）と明記 | Issue #30 |
+| 1.9 | 2026-11-02 | NFR-SEC-8：拒否するパスの設定を `denied_paths`（既定は `~/dotfiles` だけ。P-29）と明記し、存在しない「オーナーの checkout の一覧」設定を示す書き方をやめた。実装・設定の挙動は変えない | Issue #46 |
+| 1.10 | 2026-11-02 | NFR-TEST-8 の CI のステップ一覧に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |

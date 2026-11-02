@@ -54,7 +54,7 @@ graph TD
 
 - 依存は一方向。`internal/pane` はドメインの中心で、`tools`・`render` が使う。
 - `agent/*` は `internal/agent` の `Adapter` を実装し、`init()` で登録する（アダプタを足すには 1 パッケージ足すだけ。FR-AD-4）。
-- 時計（`clock`）・tmux 実行（`tmux.Runner`）・ファイル（`store`）は差し替えられるインターフェース越しに使う。
+- 時計（`clock`）・tmux 実行（`pane.Tmux`。実装は `tmux.Client`）・ファイル（`store`）は差し替えられるインターフェース越しに使う。
 
 ## 2. パッケージ構成
 
@@ -76,9 +76,9 @@ swarm-console/
 │   │   ├── claude/
 │   │   └── codex/
 │   ├── notes/                メモ・履歴、検証、秘密検出
-│   ├── render/               report・dispatch のテンプレート組み立て
+│   ├── render/               report のテンプレート組み立てと、dispatch の指示文の組み立て（`profiles.toml` の条件から。テンプレートなし）
 │   ├── safety/               パス検証、制御文字・長さの検証、秘密文字列
-│   ├── tmux/                 tmux コマンド実行（Runner インターフェース）
+│   ├── tmux/                 tmux コマンド実行（`Client`。`pane.Tmux` インターフェースを実装）
 │   ├── host/                 負荷・メモリ・ディスク・/proc・認証期限の読み取り
 │   ├── store/                原子的ファイル書き込み、権限検査
 │   ├── clock/                時計インターフェース（テストで固定）
@@ -87,10 +87,11 @@ swarm-console/
 │   ├── reportvalues/         レポートに足す値の収集（`omp usage --json`・`omp update --check` の実行と読み取り・間隔・最後の結果の保持。FR-REP-10〜18）
 │   ├── apperr/               エラーコードと固定メッセージ（API 仕様 §3）
 │   └── app/                  配線（設定・アダプタ・tmux・pane・tools・mcpapi・server の組み立て）
-├── templates/                report.ja.md・report.en.md・dispatch.md（go:embed の既定）
+├── templates/                report.ja.md・report.en.md（go:embed の既定。dispatch の指示文はテンプレートではなく `profiles.toml` の条件から `render` が組み立てる）
 ├── testdata/screens/         実画面サンプル（omp/ claude/ codex/）
 ├── test/fakeagent/           擬似エージェント（サンプル画面を出し、キーに反応する）
 ├── test/integration/         実 tmux ＋ fakeagent ＋ MCP クライアントの統合・受け入れテスト
+├── test/setup/               `setup` の画面のテスト（実 tmux の専用ソケットのペインで `swarm-console setup` を起動し、`send-keys` で入力して確かめる。NFR-TEST-13）
 ├── deploy/                   swarm-console.service（systemd ユーザーサービス）
 ├── scripts/                  install.sh（`make install`。最新リリースの取得・照合・配置・systemd 常駐。FR-INS）と、そのテスト install_test.sh
 ├── docs/                     仕様書
@@ -103,21 +104,21 @@ swarm-console/
 |---------------|------|-----------|-------------|
 | `config` | 設定の読み込み・検証（未知キー拒否）、既定値、`~` 展開、`profiles.toml`。`setup` も同じ検証を使えるよう、検証関数と読み込み本体を公開する（コピーしない） | `Load(path) (*Config, error)`、`ParseBytes(data, path)`、`CheckListenAddr`・`CheckSessions`・`ExpandPath`、`Profiles` | FR-POS-1, FR-AD-2, FR-DIS-3, FR-SET-5 |
 | `config/tomledit` | `go-toml/v2` の `unstable.Parser` で値のバイト範囲を取り、変更したキーの値だけを置き換える・無いキーを足す。変更範囲の外を 1 バイトも変えない（ER §5.1） | `Edit(src []byte, ops []Op) ([]byte, error)`、`Op{Key []string, Value any}` | FR-SET-3, NFR-OPS-8 |
-| `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options` は設定パス・入出力・インターフェース列挙・時計の差し替え） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
-| `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(cfg, handlers)`、`Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
-| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、定数時間照合、スコープ判定、`token add/revoke` | `Authenticate(header) (Client, error)`、`Client{Name, Scope}` | NFR-SEC-3〜6 |
-| `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録 | `NewReportServer(tools)`、`NewOpsServer(tools)` | FR-SAFE-6 |
+| `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options{Path, Out, Home, Prompter, IssueToken}`。`Path` は `config.toml` のパス、`Prompter` は画面の差し替え、`IssueToken` は `token add` と同じ処理の注入で FR-SET-10）。tailnet 候補は `HostCandidates()`（`net.InterfaceAddrs` を直接呼ぶ）と `Candidates(addrs)`（引数のアドレスから選ぶ純関数。差し替えの接点） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
+| `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(Options) (*Server, error)`（`Options{ListenAddr, Auth, Report, Ops, Logger, ShutdownTimeout}`）、`Server.Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
+| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、定数時間照合、スコープ判定、`token add/revoke` | `Open(path, clk, logger)`（`logger` は再読み込み失敗の警告の出力先。nil なら出さない）、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope}`、`Add`・`Revoke` | NFR-SEC-3〜6 |
+| `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録 | `NewReportServer(Options)`、`NewOpsServer(Options)`（`Options{Tools, Version, Logger, Audit}`）、`NewHTTPHandler(s)` | FR-SAFE-6 |
 | `tools` | ツール 17 個のハンドラ。引数検証、窓口の権限確認、`pane` の解決、エラーコードへの変換 | `Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Registry` | API 仕様 §5 |
-| `pane` | スナップショットとサンプラー、位置の命名、ペイン解決、ペインロック、`send_text`・`ask_pick` などの操作実行 | `Registry`、`Snapshot`、`Resolve(arg)`、`Ops` | FR-POS, FR-STATE, FR-O |
-| `agent` | アダプタの契約（下記 §4）とレジストリ。設定の上書きの適用。組み込みのエージェント名の一覧（`Builtin()`・`IsBuiltin(name)`。並びの定義はここ 1 か所） | `Adapter`、`Register`、`Get(name)`、`Builtin()`、`IsBuiltin(name)` | FR-AD |
+| `pane` | スナップショットとサンプラー、位置の命名、ペイン解決、ペインロック（`pane/ops` の `Operator.Lock`）、`send_text`・`ask_pick` などの操作実行 | `Registry`（`Current`・`Refresh`・`Resolve(ctx, arg)`・`Tail`・`Card`）、`Snapshot`、`Ops` | FR-POS, FR-STATE, FR-O |
+| `agent` | アダプタの契約（下記 §4）とレジストリ。設定の上書きの適用。組み込みのエージェント名の一覧（`Builtin()`・`IsBuiltin(name)`。並びの定義はここ 1 か所） | `Adapter`、`Register(name, factory)`、`New(name, ov)`、`Names()`、`Builtin()`、`IsBuiltin(name)` | FR-AD |
 | `notes` | `notes.json` の読み書き、`note_set` のマージ・検証、履歴、孤児化 | `Store`、`Get/Set/Log/Archive/History` | FR-NOTE |
-| `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(snap, opts)`、`Dispatch(args, profile, pos)` | FR-REP, FR-DIS |
-| `safety` | `cwd`・`file` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン | `CheckCWD`、`CheckFile`、`CheckText`、`DetectSecret` | FR-SAFE, NFR-SEC |
-| `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`・`select-pane -T`・`display -p` の実行と出力の解析 | `Runner` | NFR-SEC-7, NFR-ENV-2 |
-| `host` | `/proc`（負荷・メモリ・スワップ・CPU の差・稼働時間・プロセス木）、`statfs`（空きと使用率）、認証ファイルの期限 | `Host`（`Status()`、`ProcTree(pid)`、`AuthStatus()`、`SampleCPU()`） | FR-R5, FR-R6, FR-AD-5, FR-REP-13 |
-| `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Check(ctx) Result`、`Runner{Start(ctx), Status() Status}`（HTTP クライアントと `clock` を差し替え可能） | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
-| `selfupdate` | `updatecheck` が `update_available` を返したときの入れ替え：許可ホスト内のダウンロード（サイズ上限・リダイレクト制限）、`SHA256SUMS` の検証、`~/bin/swarm-console/` の 5 ファイルへの書き込み（`.new` → `.old` ハードリンク → マーカー → `rename`）、起動時の試運転と戻し（`boots`・`.old` の `rename`・`update-failed`）、`apply` の状況の保持。入れ替え後は `serve` に正常終了を要求する（`systemctl` は実行しない） | `Apply(ctx, latest) error`、`Probation(dir, version, clock) Decision`（起動の最初）、`Status() Apply`（HTTP クライアント・実行ファイルのパス・`clock`・ホームを差し替え可能） | FR-UPD-11〜20, NFR-SEC-14・15・16, NFR-AVL-10 |
-| `reportvalues` | `omp usage --json`・`omp update --check` の引数固定の実行（シェルなし・`/dev/null`・打ち切り・出力上限）、出力の読み取りとアカウント名の規則、`status`・`reason` の分類、最後の結果の保持（`stale`・`pending`・`disabled`）、`usage_interval`・`update_check_interval` ごとの収集（前の実行が終わるまで次を始めない）。メール・`accountId` を結果に持たない | `Collector`（`Usage() Usage`、`Omp() Omp`、`Start(ctx)`）、`Runner`（`Run(ctx, Command)`。`Command` は引数固定の 2 つだけ）。実行ファイル・`clock` を差し替え可能。`app` が `pane` の `Values`（`Usage()`・`Omp()`・`UpdateInfo()`）として渡し、スナップショットを作るときに最後の結果を読む | FR-REP-10〜18, NFR-SEC-7, NFR-TEST-17 |
+| `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(ReportInput)`、`Dispatch(DispatchInput)` | FR-REP, FR-DIS |
+| `safety` | `cwd`・`file` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン | `NewPolicy(cfg)`、`Policy`（`CheckCWD`・`CheckFile`・`CheckText`・`DetectSecret`）、`DetectSecret(s)` | FR-SAFE, NFR-SEC |
+| `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`・`select-pane -T`・`display -p` の実行と出力の解析 | `Client`（`New(socket, opts...)`。`pane.Tmux` を実装する） | NFR-SEC-7, NFR-ENV-2 |
+| `host` | `/proc`（負荷・メモリ・スワップ・CPU の差・稼働時間・プロセス木）、`statfs`（空きと使用率）、認証ファイルの期限 | `Host`（インターフェース）、`Reader`（実装。`NewReader(clk)`）。`Status(ctx, diskMounts)`、`ProcTree(pid)`、`AuthStatus(agent, authFile, now)`、`SampleCPU()` | FR-R5, FR-R6, FR-AD-5, FR-REP-13 |
+| `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Checker.Check(ctx) Result`（`New(Options)`）、`Runner`（`NewRunner(RunnerOptions)`、`Start(ctx)`、`Snapshot() Snapshot`）。HTTP クライアントと `clock` を差し替え可能 | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
+| `selfupdate` | `updatecheck` が `update_available` を返したときの入れ替え：許可ホスト内のダウンロード（サイズ上限・リダイレクト制限）、`SHA256SUMS` の検証、`~/bin/swarm-console/` の 5 ファイルへの書き込み（`.new` → `.old` ハードリンク → マーカー → `rename`）、起動時の試運転と戻し（`boots`・`.old` の `rename`・`update-failed`）、`apply` の状況の保持。入れ替え後は `serve` に正常終了を要求する（`systemctl` は実行しない） | `Updater`（`New(Options, trial)`、`Apply(ctx, latest) error`、`Status() Apply`）、`Probation(dir, version, clk, logger) Decision`（起動の最初）。HTTP クライアント・実行ファイルのパス・`clock`・ホームを `Options` で差し替え可能 | FR-UPD-11〜20, NFR-SEC-14・15・16, NFR-AVL-10 |
+| `reportvalues` | `omp usage --json`・`omp update --check` の引数固定の実行（シェルなし・`/dev/null`・打ち切り・出力上限）、出力の読み取りとアカウント名の規則、`status`・`reason` の分類、最後の結果の保持（`stale`・`pending`・`disabled`）、`usage_interval`・`update_check_interval` ごとの収集（前の実行が終わるまで次を始めない）。メール・`accountId` を結果に持たない | `Collector`（`New(Options)`、`Usage() Usage`、`Omp() Omp`、`Start(ctx)`（終了待ちの `wait func()` を返す））、`Runner`（インターフェース。`Run(ctx, Command)`。`Command` は引数固定の 2 つだけ。実体は `ExecRunner`）。実行ファイル・`clock` を差し替え可能。`app` が `pane` の `Values`（`Usage()`・`Omp()`・`UpdateInfo()`）として渡し、スナップショットを作るときに最後の結果を読む | FR-REP-10〜18, NFR-SEC-7, NFR-TEST-17 |
 | `store` | 一時ファイル → fsync → rename の書き込み、権限検査（600） | `WriteFileAtomic`、`CheckMode` | NFR-AVL-3 |
 | `clock` | `Now()`、`After()` を持つインターフェース。テストでは固定・手動進行 | `Clock` | NFR-TEST-5, NFR-TEST-7 |
 
@@ -191,13 +192,15 @@ type Snapshot struct {
 type Registry interface {
     Current(ctx) (*Snapshot, error)   // snapshot_ttl 内ならキャッシュ、古ければ singleflight で取り直す
     Refresh(ctx) (*Snapshot, error)   // 強制再取得（操作の後）
-    Resolve(arg string) (PaneRef, error) // 位置・ID → ペイン
-    Lock(ctx, id) (unlock func(), error) // ペインごとの排他（lock_timeout）
+    Resolve(ctx, arg string) (Ref, error) // 位置・ID → ペイン
+    Tail(ctx, ref Ref, lines int, raw bool) (Tail, error) // pane_tail
+    Card(ctx, ref Ref) (*agent.Card, error)               // 質問カード（asking でなければ nil）
 }
 ```
 
 - サンプラーは `poll_interval` ごとに `Refresh` を呼ぶ。ペイン単位の取得は並列（同時 8、各 tmux 呼び出し 3 秒でタイムアウト）。
-- 位置の命名は純関数 `NamePositions(panes, cfg) map[PaneID]string`。テストは座標表から期待値を引く。
+- 位置の命名は純関数 `NamePositions(panes, cfg) map[string]string`（キーは tmux のペイン ID）。テストは座標表から期待値を引く。
+- ペインごとの排他（`lock_timeout`）は `Registry` ではなく、操作を実行する `pane/ops` の `Operator.Lock(ctx, id) (unlock func(), error)` が持つ。
 
 ### 5.2 操作の実行（`pane.Ops`）
 
@@ -254,7 +257,7 @@ type Tool struct {
 
 | ワークフロー | トリガー | 内容 |
 |-------------|---------|------|
-| `ci.yml` | push・PR | `go build ./...` → `go vet ./...` → `golangci-lint run` → `go test -race ./...`（tmux を `apt-get install tmux` で入れ、`tmux -V` で確かめる）。各コマンドは別ステップ。`runs-on: ubuntu-latest` |
+| `ci.yml` | push・PR | `go build ./...` → `go vet ./...` → `golangci-lint` → `linterly check` → `bash .github/scripts/plan-release_test.sh`（release plan test）→ `bash scripts/install_test.sh`（install script test）→ `go test -race ./...`（tmux を `apt-get install tmux` で入れ、`tmux -V` で確かめる）。各コマンドは別ステップ。`runs-on: ubuntu-latest`。ステップの骨子は [環境構築：CI/CD](../environment/setup-ci.md#cicd) |
 | `release.yml` | `ci.yml` の `workflow_run`（main への push の CI が成功）、タグ `v*` の push | `plan`（次の版を決め、main の先頭だけ通す）→ `verify`（main の履歴・CI 成功）→ `build`（`GOOS=linux GOARCH=amd64`）→ `release`（`gh release create --target` でタグとリリースを同時に作り、Releases に載せる）。`release` だけが `contents: write`。`concurrency: release`（P-20・P-48〜P-53。環境構築 CI/CD） |
 
 ## 改訂履歴
@@ -271,3 +274,7 @@ type Tool struct {
 | 1.7 | 2026-11-02 | `reportvalues` の入出力を実装に合わせた（`Runner`・`Start`、`pane.Values`）。`tools` から `UpdateSource` を除き、`host_status.update` もスナップショットの値を返す | Issue #21〜#25（実装時の確認） |
 | 1.8 | 2026-11-02 | §5.2 `Close(ref)` に、終了コマンドのあと `shell` に戻るまで待つ手順（上限で `apperr.ExitTimeout`）を追加 | Issue #30 |
 | 1.9 | 2026-11-02 | `agent` に組み込みのエージェント名の一覧（`Builtin`・`IsBuiltin`）を足し、`pane.Agents`・`setup.AgentNames`・`config.agentNames` をこれに 1 か所化（出力は変えない）。§4 の状態の決定に、`/proc` が読めないときの扱いを追記 | Issue #35・#36 |
+| 2.0 | 2026-11-02 | §3 の公開 IF 列と §5.1 の型を実装の名前・シグネチャに合わせた（`agent.Get`・`updatecheck.Runner.Status`・`Registry.Lock`・`tmux.Runner` などの存在しない名前を除いた）。§2 の `templates/` から存在しない `dispatch.md` を除いた。§7 の `ci.yml` に linterly・release plan test・install script test を追記（出力は変えない） | Issue #41・#42・#44 |
+| 2.1 | 2026-11-02 | §3 の `auth` の公開 IF を `Open(path, clk, logger)` に直した（Issue #54 で `logger` 引数が増えた。実装・設定は変えない） | Issue #58 |
+| 2.2 | 2026-11-02 | §3 の `setup` の公開 IF を実装の `Options{Path, Out, Home, Prompter, IssueToken}` に合わせた（実装にない `Options` の項目の記述を除き、`HostCandidates()`・`Candidates(addrs)` を明記。実装は変えない） | Issue #59 |
+| 2.3 | 2026-11-02 | §2 のツリーに `test/setup/`（実 tmux のペインで `setup` を起動して `send-keys` で確かめるテスト。NFR-TEST-13）を追加（実装は変えない） | Issue #66 |

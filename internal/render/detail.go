@@ -67,7 +67,7 @@ func newDetail(in *ReportInput, l locale, p *pane.PaneState) *detailView {
 		det = &PaneDetail{Report: ReportFile{Exists: p.ReportExists}}
 	}
 	if det.Report.Exists {
-		path := ReportPath(in.ReportDir, p.Pos)
+		path := pane.ReportPath(in.ReportDir, p.Pos)
 		d.ReportLine = l.exists + "（`" + path + "`"
 		if !det.Report.UpdatedAt.IsZero() {
 			d.ReportLine += "、" + l.updated + formatTime(det.Report.UpdatedAt, in.Snapshot.At)

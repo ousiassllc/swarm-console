@@ -2,7 +2,7 @@
 
 [アーキテクチャ設計 §9](decisions.md#9-提案した既定値と実装時確認事項) の P-22（状態判定・カードの正規表現の具体値）に対応する。
 値は各アダプタの `defaults`（`adapter.go`）にある。`[agents.<name>]` で上書きできる（FR-AD-2）。
-書かれたキーだけが置き換わり、空文字・空配列は「上書きしない」。正規表現が不正なら Factory がエラーを返す。
+書かれたキーだけが置き換わる。`command`・`exit_command`・`auth_file` の空文字は設定エラー（起動拒否）で、ほかのキーの空文字・空配列は「上書きしない」。正規表現が不正なら Factory がエラーを返す。
 
 | 確かさ | omp | claude | codex |
 |--------|-----|--------|-------|
@@ -20,7 +20,7 @@
 | `status_line_re` | `^\x{e0b6}`（ステータス行） | `^\s*(?:[⏵⏸]\|\? for shortcuts\|esc to interrupt\b\|Not logged in\b)`（実画面＋推定） | `^\s*(?:\d+% context left\|\? for shortcuts\|Ctrl\+C again to quit)`（推定） |
 | `border_re` | `^\s*[╭├╰]─` | `^\s*(?:[─━▔]{3,}\|[╭├╰]─)` | `^\s*[╭╰]─` |
 | `spinner_chars` | `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`（実画面） | `✻✢✳✶✽✦·*`（`✻` は実画面の `Cogitated for` で確認、他は推定） | `•◦`（推定） |
-| 起動・終了 | `omp`・`/exit`（`/exit` による終了は未確認。標準の終了コマンド） | `claude`・`/exit`（実機で `/exit` + Enter によりプロセスが終わるのを確認） | `codex`・`/quit`（推定） |
+| 起動・終了 | `omp`・`/exit`（実機で `/exit` + Enter により `Closing session…` が出てプロセスが終わり、ペインがシェルに戻るのを確認。omp v18.15.0） | `claude`・`/exit`（実機で `/exit` + Enter によりプロセスが終わるのを確認） | `codex`・`/quit`（推定） |
 
 omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左端、`U+E0B1` 区切り、`U+F054` カーソル、`U+F10C` など）を使う。
 `capture-pane -p` にはこれらがそのまま出る。ステータス行は `U+E0B6 <スピナー> <経過> U+E0B1 …`

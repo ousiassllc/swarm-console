@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/config"
 )
 
 // ReadFile は CheckFile を通したファイルを UTF-8 として読み、中身を返す。
@@ -29,13 +30,13 @@ func (p *Policy) ReadFile(path string) (string, error) {
 		return "", apperr.New(apperr.FileUnreadable, "field", "file")
 	}
 	// 1 字は UTF-8 で最大 4 バイト。これを超えたら 8000 字を超えているので全部は読まない。
-	const maxBytes = MaxTextRunes * utf8.UTFMax
+	const maxBytes = config.MaxTextRunes * utf8.UTFMax
 	data, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
 	if err != nil {
 		return "", unreadable(err)
 	}
 	if len(data) > maxBytes {
-		return "", apperr.New(apperr.TextTooLong, "max", MaxTextRunes)
+		return "", apperr.New(apperr.TextTooLong, "max", config.MaxTextRunes)
 	}
 	if !utf8.Valid(data) {
 		return "", apperr.New(apperr.FileUnreadable, "field", "file")

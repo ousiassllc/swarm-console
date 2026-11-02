@@ -75,6 +75,7 @@ type entry struct {
 type Authenticator struct {
 	path    string
 	clk     clock.Clock
+	logger  *slog.Logger
 	compare func(a, b []byte) int // 比較関数。テストで呼び出しを数えるために差し替えられる
 
 	mu      sync.RWMutex
@@ -86,8 +87,12 @@ type Authenticator struct {
 // Open は path の tokens.toml を読んで Authenticator を返す。
 // 権限が 600 でない・TOML が壊れている・未知の scope・name/hash 形式違反は error（起動拒否）。
 // ファイルが無ければ空で始め、後からできたら次の Authenticate で読み込む。
-func Open(path string, clk clock.Clock) (*Authenticator, error) {
-	a := &Authenticator{path: path, clk: clk, compare: subtle.ConstantTimeCompare}
+// logger には再読み込み失敗の警告を出す。nil なら出さない。
+func Open(path string, clk clock.Clock, logger *slog.Logger) (*Authenticator, error) {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	a := &Authenticator{path: path, clk: clk, logger: logger, compare: subtle.ConstantTimeCompare}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if err := a.load(statFile(path)); err != nil {
@@ -151,7 +156,7 @@ func (a *Authenticator) refresh() {
 	}
 	if err := a.load(st); err != nil {
 		// 詳細（パス・権限・構文）だけを出す。トークン・ハッシュは含まれない。
-		slog.Warn("tokens.toml を読み込めないため認証を拒否します", "error", err)
+		a.logger.Warn("tokens.toml を読み込めないため認証を拒否します", "error", err)
 	}
 }
 

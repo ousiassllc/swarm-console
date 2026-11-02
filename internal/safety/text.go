@@ -6,12 +6,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/config"
 )
 
 // CheckText は端末へ貼り付けるテキストを検証する（P-13・NFR-SEC-9）。
 // 許可する制御文字は "\n"・"\t" だけ。ESC・NUL・CR・DEL・C1 などと不正な UTF-8 は forbidden_control_char。
 // 8000 字（rune）超は text_too_long。空文字は通す（必須かどうかは呼び出し側が決める）。
-func (p *Policy) CheckText(s string) error { return checkText(s, MaxTextRunes, true) }
+func (p *Policy) CheckText(s string) error { return checkText(s, config.MaxTextRunes, true) }
 
 // CheckLine は 1 行のテキスト（note_log・タイトルなど）を検証する。CheckText の規則に加えて改行も拒否する。
 // maxRunes 字（rune）超は text_too_long（details.max に上限）。

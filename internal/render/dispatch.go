@@ -5,6 +5,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/config"
+	"github.com/ousiassllc/swarm-console/internal/pane"
 )
 
 // DispatchInput は指示文の組み立ての入力（API 仕様 §5.6）。
@@ -33,7 +34,7 @@ func Dispatch(in DispatchInput) (string, error) {
 		b.WriteString(in.Command + "\n\n")
 	}
 	b.WriteString("## やること\n" + in.Task + "\n\n## 条件\n")
-	path := ReportPath(in.ReportDir, in.Pos)
+	path := pane.ReportPath(in.ReportDir, in.Pos)
 	for _, group := range [][]string{in.Profiles.Common, prof.Rules, in.ExtraRules} {
 		for _, r := range group {
 			b.WriteString("- " + strings.ReplaceAll(r, reportPathVar, path) + "\n")

@@ -1,7 +1,6 @@
 package render
 
 import (
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,11 +27,6 @@ type attentionItem struct {
 	Expires time.Time
 }
 
-// ReportPath は最終報告ファイルのパス（<dir>/<位置>.md。位置の「:」は「_」）。
-func ReportPath(dir, pos string) string {
-	return filepath.Join(dir, strings.ReplaceAll(pos, ":", "_")+".md")
-}
-
 // attentionItems は要対応を「質問待ち → 止まってそう → 報告待ち → ログイン期限切れ → ログイン期限間近」の順に返す。
 // ペインの項目は各グループでペインの並び順、ログインの項目は auth の並び順（omp・claude・codex）。
 // 報告待ちは idle かつ最終報告ファイルありのペイン（FR-REP-8）。ログインの項目はペインに属さないので、
@@ -54,7 +48,7 @@ func attentionItems(panes []pane.PaneState, reportDir string, auth []host.Auth) 
 		func(p *pane.PaneState) string { return line0(p.ChangedAgo) })
 	add(kindReportWaiting,
 		func(p *pane.PaneState) bool { return p.State == agent.StateIdle && p.ReportExists },
-		func(p *pane.PaneState) string { return ReportPath(reportDir, p.Pos) })
+		func(p *pane.PaneState) string { return pane.ReportPath(reportDir, p.Pos) })
 	for _, want := range []struct{ status, kind string }{
 		{host.AuthExpired, kindAuthExpired}, {host.AuthExpiringSoon, kindAuthExpiring},
 	} {

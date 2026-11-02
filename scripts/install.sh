@@ -62,12 +62,18 @@ WORK="$(mktemp -d)"
 fetch "$WORK/$asset" "$RELEASES/download/${tag}/${asset}" $((64 * 1024 * 1024)) || die "$asset をダウンロードできません"
 fetch "$WORK/SHA256SUMS" "$RELEASES/download/${tag}/SHA256SUMS" $((64 * 1024)) || die "SHA256SUMS をダウンロードできません"
 
-# 行末の CR と、ファイル名の直前の * は許す。名前が一致する行がちょうど 1 行で、ハッシュが 64 桁の小文字 16 進のとき比べる
-want="$(awk -v name="$asset" '
+# FR-UPD-14 と同じ規則（internal/selfupdate/sums.go の parseSums）：
+# 行末の CR と、ファイル名の直前の * は許す。区切りの空白の数・タブ・大文字のハッシュは許さない。
+# ファイル名で終わる行（直前が行頭・空白・*・タブ）がちょうど 1 行あり、その前が「ハッシュ + 空白 2 つ」か「ハッシュ + 空白 1 つ + *」のとき比べる
+prefix="$(awk -v name="$asset" '
   { sub(/\r$/, "") }
-  NF == 2 && ($2 == name || $2 == ("*" name)) { n++; h = $1 }
-  END { if (n == 1) print h }' "$WORK/SHA256SUMS")"
-[[ "$want" =~ ^[0-9a-f]{64}$ ]] || die "SHA256SUMS に $asset の行がちょうど 1 行ありません（または形式が違います）"
+  length($0) >= length(name) && substr($0, length($0) - length(name) + 1) == name {
+    p = substr($0, 1, length($0) - length(name))
+    if (p == "" || p ~ /[ *\t]$/) { n++; pre = p }
+  }
+  END { if (n == 1) print pre }' "$WORK/SHA256SUMS")"
+[[ "$prefix" =~ ^[0-9a-f]{64}(\ \ |\ \*)$ ]] || die "SHA256SUMS に $asset の行がちょうど 1 行ありません（または形式が違います）"
+want="${prefix:0:64}"
 got="$(sha256sum "$WORK/$asset")"
 got="${got%% *}"
 [[ "$got" == "$want" ]] || die "ハッシュが一致しません（期待 $want、実際 $got）。何も置いていません"
@@ -107,10 +113,10 @@ if [[ "$place" == yes ]]; then
   TMP_BIN=""
 fi
 
-# --- 5. unit を置く（実ファイルのコピー。同じ内容なら触らない） ---
+# --- 5. unit を置く（実ファイルのコピー。同じ内容の実ファイルなら触らない。リンクは内容が同じでも実ファイルにする） ---
 mkdir -p "$UNIT_DIR"
 unit_status="unchanged"
-if ! cmp -s "$UNIT_SRC" "$UNIT"; then
+if [[ -L "$UNIT" ]] || ! cmp -s "$UNIT_SRC" "$UNIT"; then
   TMP_UNIT="$(mktemp "$UNIT_DIR/.${SERVICE}.service.XXXXXX")"
   install -m 0644 "$UNIT_SRC" "$TMP_UNIT"
   mv -f "$TMP_UNIT" "$UNIT"
