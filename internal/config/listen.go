@@ -15,6 +15,12 @@ var (
 	socketRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
 )
 
+// IsTailnet は ip が tailnet の範囲（100.64.0.0/10・fd7a:115c:a1e0::/48）にあるかを返す。
+// listen_addr の検証と setup の候補が同じ判定を使う。IPv4 射影アドレスは呼び出し側で Unmap しておく。
+func IsTailnet(ip netip.Addr) bool {
+	return tailnetV4.Contains(ip) || tailnetV6.Contains(ip)
+}
+
 // CheckListenAddr は P-01 の検証。`IP:ポート` の IP リテラルだけを受け、
 // 0.0.0.0・::・ホスト名・ポート無しは拒否する。許可は tailnet の範囲かループバック。
 // 返す文字列は netip で正規化したもの。
@@ -32,7 +38,7 @@ func CheckListenAddr(s string) (string, error) {
 		return "", errors.New("listen_addr にゾーンは付けられません")
 	case ip.IsUnspecified():
 		return "", errors.New("listen_addr に 0.0.0.0・:: は使えません。tailnet の IP を書いてください")
-	case !ip.IsLoopback() && !tailnetV4.Contains(ip) && !tailnetV6.Contains(ip):
+	case !ip.IsLoopback() && !IsTailnet(ip):
 		return "", errors.New("listen_addr は tailnet の範囲（100.64.0.0/10・fd7a:115c:a1e0::/48）かループバックだけ許可します")
 	case ap.Port() == 0 && !ip.IsLoopback():
 		return "", errors.New("listen_addr のポートは 1〜65535 で書いてください")

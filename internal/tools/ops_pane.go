@@ -8,10 +8,8 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/config"
 )
-
-// maxTitleRunes は title の上限（API 仕様 §7）。
-const maxTitleRunes = 80
 
 type paneStartArgs struct {
 	Pane  *string `json:"pane"`
@@ -85,7 +83,7 @@ func (e *env) checkStartTarget(cwdArg, titleArg *string) (cwd, title string, err
 	if title, err = requireStr(titleArg, "title"); err != nil {
 		return "", "", err
 	}
-	if utf8.RuneCountInString(title) > maxTitleRunes || e.Safety.CheckLine(title, maxTitleRunes) != nil {
+	if utf8.RuneCountInString(title) > config.MaxTitleRunes || e.Safety.CheckLine(title, config.MaxTitleRunes) != nil {
 		return "", "", invalidArg("title")
 	}
 	given, err := requireStr(cwdArg, "cwd")

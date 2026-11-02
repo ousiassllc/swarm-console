@@ -7,6 +7,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/render"
@@ -116,13 +117,13 @@ func (e *env) checkDispatchArgs(a *dispatchArgs) (render.DispatchInput, error) {
 		return in, invalidArg("profile")
 	}
 	if a.Command != nil {
-		if err := e.Safety.CheckLine(*a.Command, 8000); err != nil {
+		if err := e.Safety.CheckLine(*a.Command, config.MaxTextRunes); err != nil {
 			return in, withField(err, "command")
 		}
 		in.Command = *a.Command
 	}
 	for _, r := range a.ExtraRules {
-		if err := e.Safety.CheckLine(r, 8000); err != nil {
+		if err := e.Safety.CheckLine(r, config.MaxTextRunes); err != nil {
 			return in, withField(err, "extra_rules")
 		}
 	}
