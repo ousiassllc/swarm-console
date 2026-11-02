@@ -23,11 +23,11 @@ tmux の中で動く AI コーディングエージェント（omp・Claude Code
 
 - MCP（Streamable HTTP）サーバー。窓口は `/report`（見るだけ）と `/ops`（見る＋操作）の 2 つ、ポート 48120（tailnet IP のみで待ち受け）
 - 3 つのエージェント（omp・Claude Code・Codex）のアダプタ。画面から状態・質問カード・活動を判定する
-- ツール 17 個：見る 9（`report`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`）と操作 8（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`）
+- ツール 18 個：見る 10（`report`・`sessions_list`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`）と操作 8（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`）
 - ペインごとのメモと閉じたペインの履歴（JSON ファイル）
 - サーバー側で組み立てる `report`（日本語・英語の markdown）と `dispatch`（条件のひな形つき指示文）
 - MCP の prompts（`report`・`dispatch`）と resources（`swarm://report`・`swarm://pane/<位置>`・`swarm://notes/<位置>`）
-- クライアントごとの Bearer トークン（窓口付き）の発行・無効化 CLI
+- クライアントごとの Bearer トークン（窓口付き。触れる tmux セッションも付けられる）の発行・無効化 CLI
 - systemd ユーザーサービスとしての常駐、GitHub Releases での配布、CI（build・vet・golangci-lint・linterly・release plan test・install script test・test -race。[環境構築：CI/CD](environment/setup-ci.md#cicd)）
 - 実 tmux と擬似エージェント画面を使ったテスト
 
@@ -37,7 +37,7 @@ tmux の中で動く AI コーディングエージェント（omp・Claude Code
 - tmux セッション・ペインの作成・削除・分割（今あるペインを見つけて使う）
 - コードのレビューや git 操作（エージェント側の仕事）
 - インターネットへの公開（Funnel・Tunnel は使わない）
-- 呼び出し元クライアントごとの許可設定（`send_escape` の利用可否はクライアント単位では持たない）
+- ツールごと・クライアントごとの許可設定（`send_escape` の利用可否はクライアント単位では持たない。トークンに付けられるのは触れる tmux セッションだけ）
 - クライアント側の呼び出しスクリプト `sc.sh`（リポジトリ外。本サーバーの利用側）
 - 段階リリース（§9 のとおり全機能を 1 本で実装する）
 
@@ -86,13 +86,17 @@ graph TD
 
 アーキテクチャの詳細は [architecture/overview.md](architecture/overview.md) を参照。
 
+### 2 セッション運用
+
+tmux セッションを分けて（例：セッション `0` は agent-a、`1` は agent-b。どちらも 3 列×2 段で `T1`〜`T3`・`B1`〜`B3`）運用できる。トークンごとに触れるセッション（`allowed_sessions`。`token add --sessions 0`）を決め、ツールの任意引数 `session`（許可が 1 つなら省略可、2 つ以上なら必須）でセッションを選ぶ。ペインはセッションの中で解決するので、別のセッションの `T1` と取り違えず、許可外のセッションのペインは読めも操作もできない（`session_forbidden`）。`sessions_list` で自分が触れるセッションとそのレイアウトを取れる。`sessions = ["0"]` だけの運用は今までどおり引数なしで動く。詳細は [機能要件 FR-SESS](requirements/functional.md#21-セッションの許可と解決fr-sess)・[API 仕様 §4.1](api/endpoints.md#41-session-引数と許可セッション)。
+
 ## ドキュメントマップ
 
 このプロジェクトの仕様は以下のドキュメントで構成される。実装時はそれぞれ参照すること。仕様書も 1 ファイル 300 行以内（Linterly の上限）にするため、長い文書は責務ごとに複数のファイルへ分けてある（節番号は通し）。
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | `docs/requirements/functional.md` | ユースケース、ペイン位置、状態遷移、機能一覧（17 ツール） |
+| 機能要件 | `docs/requirements/functional.md` | ユースケース、ペイン位置、セッションの許可と解決（FR-SESS）、状態遷移、機能一覧（18 ツール） |
 | 機能要件：レポート・質問カード・指示 | `docs/requirements/functional-report.md` | レポート、質問カードの操作、指示文の組み立て、受け入れ確認 |
 | 機能要件：メモ・安全・設定 | `docs/requirements/functional-note.md` | メモ、安全のための決まり、対話型の設定（`setup`） |
 | 機能要件：新しい版の確認と自己更新 | `docs/requirements/functional-update.md` | 新しい版の確認（`version --check`）と自己更新 |
@@ -108,8 +112,8 @@ graph TD
 | ER：tokens.toml・実行時のペイン状態 | `docs/architecture/er-runtime.md` | tokens.toml、実行時のペイン状態（メモリ） |
 | ER：config.toml・profiles.toml ほか | `docs/architecture/er-config.md` | config.toml、profiles.toml、最終報告ファイル、自己更新のファイル |
 | API 仕様 | `docs/api/endpoints.md` | 窓口・認証・エラー形式・共通の決まり |
-| API 仕様：ペインを見る・操作する | `docs/api/endpoints-pane.md` | `panes_status`・`pane_tail`・`ask_card`・`report_read`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close` |
-| API 仕様：サーバーの状態・メモ | `docs/api/endpoints-state.md` | `host_status`・`agent_auth_status`・`note_*` |
+| API 仕様：ペインを見る・操作する | `docs/api/endpoints-pane.md` | `panes_status`・`pane_tail`・`ask_card`・`report_read`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`（`session` 引数付き） |
+| API 仕様：サーバーの状態・メモ | `docs/api/endpoints-state.md` | `sessions_list`・`host_status`・`agent_auth_status`・`note_*` |
 | API 仕様：レポート・指示・prompts・上限 | `docs/api/endpoints-report.md` | `report`・`dispatch`・prompts・resources・上限一覧 |
 | コンポーネント設計 | `docs/components/overview.md` | Go パッケージ構成、アダプタ IF、責務、依存関係、テスト構成 |
 | 環境構築 | `docs/environment/setup.md` | 概要、ディレクトリ構造、開発環境セットアップ |
@@ -128,10 +132,11 @@ graph TD
 | 用語 | 定義 |
 |------|------|
 | ペイン | tmux のペイン。1 ペインに 1 エージェント（またはシェル）が入る |
-| 位置 | ペインの座標から自動で付ける名前（`T1`・`B4`、複数セッションでは `work:B2`）。tmux ID（`%12`）でも指定できる |
+| 位置 | ペインの座標から自動で付ける名前（`T1`・`B4`、既定セッション以外の全体の名前は `1:T1`・`work:B2`）。1 つのセッションに絞った応答では、そのセッション内の位置（接頭辞なし）で返す。tmux ID（`%12`）でも指定できる |
 | アダプタ | エージェントごとの違い（起動・終了・状態判定・質問カード・キー操作・飾りの除去）を閉じ込めたモジュール |
 | 窓口 | 同じポート 48120 のパスで分けた入口。`/report`（見るだけ）と `/ops`（全部） |
 | スコープ | トークンに付く使える窓口（`report` または `ops`） |
+| 許可セッション | トークンに付く、触れる tmux セッション（`allowed_sessions`）。`config.toml` の `sessions` との共通部分。省略は `sessions` 全部。許可外のセッションのペインは読めも操作もできない |
 | 質問カード | エージェントが選択肢つきで止まっている画面（omp の Ask カード、Claude Code の確認、Codex の承認） |
 | 状態 | `working`・`asking`・`idle`・`shell`・`stalled`・`unknown` の 6 つ |
 | メモ | ペインごとの引き継ぎ情報（依頼元・報告先・リポジトリ・次にやること など） |
@@ -154,3 +159,4 @@ graph TD
 | 1.3 | 2026-11-01 | 300 行超過ファイルを分割し、ドキュメントマップを新しいファイルに合わせて更新。内容の変更なし | Issue #3 |
 | 1.4 | 2026-11-01 | ドキュメントマップに機能要件：インストール（`make install`）を追加 | Issue #18 |
 | 1.5 | 2026-11-02 | スコープの CI の説明に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
+| 1.6 | 2026-11-02 | ツール数 17→18（`sessions_list`）、トークンごとの許可セッション・2 セッション運用の概要・用語（許可セッション、位置）・ドキュメントマップを追加・更新 | セッション分割運用（許可セッションの分離） |

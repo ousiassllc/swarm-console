@@ -22,7 +22,7 @@
 |----|------|
 | NFR-SEC-1 | 待ち受けは example-host の tailnet IP のポート 48120 だけ。`0.0.0.0`・`::`・ワイルドカード・設定未指定は起動拒否。tailnet の範囲（`100.64.0.0/10` または `fd7a:115c:a1e0::/48`）の IP は **ポート 48120 以外も起動拒否**。テスト用のループバックだけはどのポートでも許可（P-01・P-73） |
 | NFR-SEC-2 | インターネットに出さない（Funnel・Tunnel・silent 経由は使わない）。経路は クライアントのユーザースペース tailscale から直接 |
-| NFR-SEC-3 | 認証は Bearer トークン。クライアントごとに別のトークンを発行し、名前と窓口（`report`/`ops`）を付ける。なし・不一致は 401、窓口違いは 403。比較は定数時間（全登録トークンを必ず走査し、早期終了しない） |
+| NFR-SEC-3 | 認証は Bearer トークン。クライアントごとに別のトークンを発行し、名前と窓口（`report`/`ops`）、触れる tmux セッション（任意。省略は全部。FR-SESS-1）を付ける。なし・不一致は 401、窓口違いは 403。比較は定数時間（全登録トークンを必ず走査し、早期終了しない）。許可外のセッションは、ツールの呼び出しで `session_forbidden`（FR-SESS-10） |
 | NFR-SEC-4 | トークンはサーバーにハッシュ（SHA-256）だけ保存する。`~/.config/swarm-console/tokens.toml` は権限 600。権限が 600 でなければ起動拒否。発行時に 1 度だけ平文を表示する（P-04） |
 | NFR-SEC-5 | トークンの平文・ハッシュ・`Authorization` ヘッダーをログ・応答・エラー・メモに出さない。クライアント側は環境変数 `SWARM_CONSOLE_TOKEN` から読む |
 | NFR-SEC-6 | トークンを 1 つだけ無効にできる（`token revoke <名前>`）。再起動なしで次のリクエストから効く（P-04） |
@@ -31,7 +31,7 @@
 | NFR-SEC-9 | 送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。Esc は `send_escape`（`confirm: true` 必須・`/ops` のみ） |
 | NFR-SEC-10 | `/report` に操作のツールを出さない（`tools/list` にも載らない）。`/report` からは書き込み（メモを含む）ができない |
 | NFR-SEC-11 | メモに秘密に見える文字列（`ghp_`・`sk-`・`eyJ`・PEM など）が入る書き込みは拒否し、拒否した値をログ・応答に出さない |
-| NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・結果コード」だけを記録する。送った本文・トークン・メモの内容は記録しない |
+| NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・どの `session` 引数で（任意。40 字まで。FR-SESS-13）・結果コード」だけを記録する。送った本文・トークン・メモの内容は記録しない |
 | NFR-SEC-13 | 受け付けるリクエスト本文は 256 KiB まで。超えたら 413 |
 | NFR-SEC-14 | 設定・メモ・トークン・バイナリの置き場以外へ書き込まない。書き込み先は `~/.config/swarm-console`・`~/.local/share/swarm-console`・`/tmp/swarm-console` と、自己更新のための `~/bin/swarm-console/` の決まった 5 ファイルだけ（`swarm-console`・`swarm-console.new`・`swarm-console.old`・`swarm-console.update-pending`・`swarm-console.update-failed`。NFR-SEC-16）。`~/dotfiles` には触らない |
 | NFR-SEC-15 | 新しい版の確認と自己更新（FR-UPD）のための外向き通信は、確認の `https://api.github.com/repos/ousiassllc/swarm-console/releases/latest` への認証なしの GET 1 本と、更新のダウンロード（`https://github.com/ousiassllc/swarm-console/releases/download/<tag>/…` の 2 ファイルと、そのリダイレクト先の `objects.githubusercontent.com`・`release-assets.githubusercontent.com`）だけ。どちらも認証なしで、トークン・設定の値・ペインの内容を送らない（送るのは `User-Agent: swarm-console/<版>` まで）。リダイレクトは許可リスト内の `https` だけ。待ち受け（NFR-SEC-1・2）の方針は変えない。GitHub が返した文字列は、`vX.Y.Z` の形に合うときだけ応答・表示・URL の組み立てに使う |
@@ -128,3 +128,4 @@
 | 1.9 | 2026-11-02 | NFR-SEC-8：拒否するパスの設定を `denied_paths`（既定は `~/dotfiles` だけ。P-29）と明記し、存在しない「オーナーの checkout の一覧」設定を示す書き方をやめた。実装・設定の挙動は変えない | Issue #46 |
 | 1.10 | 2026-11-02 | NFR-TEST-8 の CI のステップ一覧に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
 | 1.11 | 2026-11-02 | NFR-SEC-1：tailnet の IP は 48120 以外のポートを起動拒否にし、ループバックだけどのポートでもよいと明記（P-73）。NFR-SEC-7：許可サブコマンドに `delete-buffer`（自分が作った一意名のバッファの後始末だけ）を追加（P-71）。NFR-PERF-3：「よくある入力での目標」と明記し、前提と単位（バイト）を書いた（P-74。実装は変えない） | Issue #72・#57・#71 |
+| 1.12 | 2026-11-02 | NFR-SEC-3：トークンに触れる tmux セッション（許可セッション）を付けられ、許可外は `session_forbidden`。NFR-SEC-12：監査ログに任意の `session` を足した（FR-SESS） | セッション分割運用（許可セッションの分離） |

@@ -8,13 +8,15 @@
 
 ### 5.1 見る
 
+`session`（任意）を取るツールの、省略の規則・ペインの解決・応答の絞り方は [API 仕様 §4.1](endpoints.md#41-session-引数と許可セッション) にまとめてある。下の表の `session` はどれも同じ意味。
+
 #### `panes_status`
 
 対象セッションの全ペインを 1 回で返す。
 
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
-| `session` | string | 任意 | 省略で全セッション。`sessions` にないセッション名は `invalid_args` |
+| `session` | string | 任意 | 対象のセッション。省略は全セッションではなく、§4.1 の規則（許可が 1 つならそれ、そうでなければ `session_required`）。`sessions` にない名前は `invalid_args`、許可外は `session_forbidden` |
 
 ```json
 {
@@ -37,6 +39,7 @@
 - `agent` は `omp`・`claude`・`codex`・`null`。`activity` はエージェントがいま何をしているかの 1 行（取れなければ `null`。120 字で切ったペインにだけ、`note` のあとに `"truncated": true` が付く。切っていなければキーごと出さない）。`report` の JSON の `panes[]` も同じ。
 - `note` はメモの要約（`from`・`repo`・`items`・`next` だけ）。メモがなければ `null`。
 - `warnings[]` は `{"code": "layout_changed", "message": "..."}` の配列（コード：`layout_changed`・`tmux_unavailable`・`session_missing`・`pane_unreadable`）。
+- 応答は 1 つのセッションに絞る（§4.1）。`pos` はそのセッション内の位置（接頭辞なし。3 列×2 段なら `T1`〜`T3`・`B1`〜`B3`）、`layout` はそのセッションのペインから計算し、`host` は全体の負荷のまま。`warnings` はそのセッションの分と全体の警告（`tmux_unavailable`）だけ。
 
 #### `pane_tail`
 
@@ -45,6 +48,7 @@
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | |
+| `session` | string | 任意 | §4.1 |
 | `lines` | int | 任意 | 既定 30、1〜200 |
 | `raw` | bool | 任意 | `true` なら飾りも残す |
 
@@ -52,13 +56,14 @@
 {"pane": "B4", "lines": 30, "text": "...\n...", "truncated": false}
 ```
 
-`unknown` のペインは飾りの除去をせず `raw` 相当で返す。
+`unknown` のペインは飾りの除去をせず `raw` 相当で返す。`pane` は対象のセッション内の位置（接頭辞なし）。
 
 #### `ask_card`
 
 | 引数 | 型 | 必須 |
 |------|-----|------|
 | `pane` | string | 必須 |
+| `session` | string | 任意 |
 
 ```json
 {"asking": true, "question": "(2) の Go での範囲をどうしますか？",
@@ -73,12 +78,13 @@
 | 引数 | 型 | 必須 |
 |------|-----|------|
 | `pane` | string | 必須 |
+| `session` | string | 任意 |
 
 ```json
 {"exists": true, "path": "/tmp/swarm-console/reports/B4.md", "updated_at": "2026-10-31T22:01:00+09:00", "text": "...", "truncated": false}
 ```
 
-ファイルがなければ `{"exists": false}`。
+ファイルがなければ `{"exists": false}`。`path` のファイル名は、セッション内の位置ではなく全体の位置から付く（既定セッションは `T1.md`、それ以外の `1:T1` は `1_T1.md`。ER §7）ので、別のセッションのファイルは衝突しない。
 
 ### 5.2 操作する（`/ops` のみ）
 
@@ -89,6 +95,7 @@
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | |
+| `session` | string | 任意 | §4.1 |
 | `n` | int | `text` がなければ必須 | 選ぶ番号（1 始まり） |
 | `text` | string | 任意 | 「その他」に打つ文字。`n` と同時指定は不可（P-10）。8000 字まで、制御文字は §5.2 `send_text` と同じ規則 |
 
@@ -103,6 +110,7 @@
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | |
+| `session` | string | 任意 | §4.1 |
 | `text` | string | `file` がなければ必須 | 8000 字まで。許可する制御文字は `\n`・`\t` のみ |
 | `file` | string | `text` がなければ必須 | サーバー上のファイル。`file_roots` の下、UTF-8 で 8000 字まで。`text` と同時指定は不可 |
 
@@ -117,6 +125,7 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | |
+| `session` | string | 任意 | §4.1 |
 | `confirm` | bool | 必須 | `true` でなければ `confirm_required` |
 
 ```json
@@ -132,6 +141,7 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | `shell` のペインのみ |
+| `session` | string | 任意 | §4.1 |
 | `agent` | string | 必須 | `omp`・`claude`・`codex` |
 | `cwd` | string | 必須 | 許可したフォルダの下の既存ディレクトリ |
 | `title` | string | 必須 | 80 字まで、制御文字なし。タイトルは `agent: <title>` になる |
@@ -147,6 +157,7 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 | 引数 | 型 | 必須 |
 |------|-----|------|
 | `pane` | string | 必須 |
+| `session` | string | 任意 |
 
 ```json
 {"ok": true, "state": "shell", "steps": ["/exit", "cd ~", "clear", "title"], "note_archived": true}

@@ -65,7 +65,7 @@ make install
 
 ```toml
 listen_addr = "100.x.y.z:48120"   # tailscale ip -4 の値
-sessions = ["0"]                  # 対象の tmux セッション
+sessions = ["0"]                  # 対象の tmux セッション（分けて運用するなら ["0", "1"]）
 ```
 
 キーの一覧と既定値は [アーキテクチャ：設定ファイルの全体像](docs/architecture/deployment.md#8-設定ファイルの全体像)、型と検証は [ER：config.toml](docs/architecture/er-config.md#5-configtoml) にあります。`denied_paths` は書くと既定（`~/dotfiles`）と入れ替わる点に注意してください。
@@ -78,8 +78,11 @@ sessions = ["0"]                  # 対象の tmux セッション
 
 ```sh
 ~/bin/swarm-console/swarm-console token add my-pc --scope ops
+~/bin/swarm-console/swarm-console token add agent-a --scope ops --sessions 0   # セッション 0 だけに触れるトークン
 ~/bin/swarm-console/swarm-console token revoke my-pc        # 再起動なしで次のリクエストから効く
 ```
+
+`--sessions`（カンマ区切り。例 `0,1`）で、そのトークンが触れる tmux セッションを決めます。省略すると `config.toml` の `sessions` 全部です。名前は `config.toml` の `sessions` にあるものだけ（なければ発行しません）。触れるセッションを変えるときは、`token revoke` してから `--sessions` 付きで発行し直します。tmux セッションを分けた運用では、ツールの引数 `session` で対象を選びます（触れるセッションが 1 つなら省略できます。2 つ以上なら必須で、省略すると `session_required`）。許可外のセッションのペインは読めも操作もできません（`session_forbidden`）。`sessions_list` で、触れるセッションとレイアウトを取れます（[API 仕様 §4.1](docs/api/endpoints.md#41-session-引数と許可セッション)）。
 
 ## レポートの使用状況・omp の版
 
@@ -122,8 +125,8 @@ MCP（Streamable HTTP）の URL とトークンをクライアントに設定し
 
 | 窓口 | URL | できること | 使えるトークン |
 |------|-----|-----------|---------------|
-| `/report` | `http://<tailnet-ip>:48120/report` | 見るだけ（9 ツール：`report`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`） | `report` と `ops` のどちらでも |
-| `/ops` | `http://<tailnet-ip>:48120/ops` | 見る＋操作（上の 9 に、`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log` の 8 を足した 17 ツール） | `ops` だけ |
+| `/report` | `http://<tailnet-ip>:48120/report` | 見るだけ（10 ツール：`report`・`sessions_list`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`） | `report` と `ops` のどちらでも |
+| `/ops` | `http://<tailnet-ip>:48120/ops` | 見る＋操作（上の 10 に、`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log` の 8 を足した 18 ツール） | `ops` だけ |
 
 - 定期レポートのように見るだけでよいクライアントは、`report` のトークンで `/report` につなぎます。`report` のトークンで `/ops` を呼ぶと 403（`forbidden_scope`）です
 - `POST` のみ受け付けます（ステートレス運用）。トークンなし・不一致は 401 です

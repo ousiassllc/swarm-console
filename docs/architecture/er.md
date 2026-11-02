@@ -28,6 +28,7 @@ erDiagram
     CONFIG ||--o{ AGENT_CONFIG : "agents"
     CONFIG ||--o{ TOKEN_REF : "tokens.toml を指す"
     TOKEN ||--o{ AUDIT_LOG : "client 名で記録"
+    TOKEN }o--o{ SESSION : "allowed_sessions（省略は全部）"
 
     SESSION ||--o{ PANE : "tmux が持つ"
     PANE ||--o| PANE_STATE : "スナップショットが計算"
@@ -235,3 +236,4 @@ erDiagram
 | 1.9 | 2026-11-02 | §7 最終報告ファイル：パスとアーカイブ名の `<位置>` は `:`・`/`・`\` を `_` にする（実装の `reportBase` と同じ）と直し、例 `a/b:T1` → `a_b_T1.md` を足した。実装は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
 | 1.10 | 2026-11-02 | §5 config.toml の検証表：`agents.<name>` の `auth_file` は空文字不可（設定エラー）と追記した。実装は変えない | Issue #76 |
 | 1.11 | 2026-11-02 | §5 config.toml の検証表：`listen_addr` は tailnet の IP ならポート 48120 だけ、ループバックはどのポートでも可と直した（`CheckListenAddr` のポート検査。P-73） | Issue #72 |
+| 1.12 | 2026-11-02 | §3 tokens.toml に `allowed_sessions`（触れる tmux セッション。省略は `sessions` 全部）と検証・起動時の突き合わせを追加、§4 の `pos`（全体の位置とセッション内の位置）とセッションでの絞り込みを追記、§5 `sessions` に許可との関係と `default_session` は許可に使わない旨を追記、§7 最終報告ファイル名は全体の位置から付く（別セッションと衝突しない）と明記。全体 ER 図に `TOKEN`–`SESSION` を追加（FR-SESS） | セッション分割運用（許可セッションの分離） |

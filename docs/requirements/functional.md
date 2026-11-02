@@ -6,7 +6,7 @@
 
 この文書は 1 ファイル 300 行の上限（Linterly）のため、次のファイルに分けている。節番号は分割前の通し番号のまま、どのファイルでも同じ番号で引く。
 
-- [機能要件（本書）](functional.md)：§1〜§4 ユースケース、ペイン位置（FR-POS）、ペインの状態とエージェントの種類（FR-STATE）、機能一覧
+- [機能要件（本書）](functional.md)：§1〜§4 ユースケース、ペイン位置（FR-POS）、セッションの許可と解決（FR-SESS）、ペインの状態とエージェントの種類（FR-STATE）、機能一覧
 - [機能要件：レポート・質問カード・指示](functional-report.md)：§5 レポート（FR-REPORT）、§6 質問カードの操作（FR-ASK）、§7 指示の組み立て（FR-DISPATCH）、§8 受け入れ確認
 - [機能要件：メモ・安全・設定](functional-note.md)：§9 メモ（FR-NOTE）、§10 安全のための決まり（FR-SAFE）、§11 対話型の設定（FR-SET）
 - [機能要件：新しい版の確認と自己更新](functional-update.md)：§12 新しい版の確認と自己更新（FR-UPD）
@@ -37,20 +37,24 @@ graph TD
     ADMIN --> UC10["UC10 新しい版があるか確認する"]
     OPSAGENT --> UC10
     OPSAGENT --> UC8
+    OPSAGENT --> UC11["UC11 自分に許可されたセッションのペインだけを見る・操作する"]
+    ADMIN --> UC12["UC12 セッションごとにトークンを分ける"]
 ```
 
 | ID | ユースケース | 主な機能 | 窓口 |
 |----|------------|---------|------|
-| UC1 | 全ペインの状況を、クライアントによらず同じ見た目で取る | `report`・`panes_status`・`pane_tail`・`report_read` | `/report` `/ops` |
+| UC1 | 全ペインの状況を、クライアントによらず同じ見た目で取る | `report`・`panes_status`・`pane_tail`・`report_read`・`sessions_list` | `/report` `/ops` |
 | UC2 | `asking` のペインの質問カードを読み、番号（または自由入力）で答える | `ask_card`・`ask_pick` | カード読み取りは両方、選択は `/ops` |
 | UC3 | 空き（`shell`）または入力待ち（`idle`）のペインに、決まった条件つきで指示を送る | `dispatch`・`pane_start`・`send_text` | `/ops` |
 | UC4 | 完了したペインをきれいに閉じ、メモを履歴に移す | `pane_close`・`note_history` | `/ops` |
 | UC5 | ペインを引き継ぐとき、依頼元・報告先・次にやることを会話を遡らず取る | `note_get`・`note_set`・`note_log`・`note_history` | 読みは両方、書きは `/ops` |
 | UC6 | オーナーの OK があったとき、作業中のエージェントを止める | `send_escape` | `/ops` |
-| UC7 | クライアントごとに別のトークンを発行・無効化する | `swarm-console token add/revoke`（サーバー上） | CLI |
+| UC7 | クライアントごとに別のトークンを発行・無効化する（`--sessions` で触れるセッションを付ける。FR-SESS-3） | `swarm-console token add/revoke`（サーバー上） | CLI |
 | UC8 | ホストの負荷・ディスク・エージェントのログイン期限を見る | `host_status`・`agent_auth_status` | `/report` `/ops` |
 | UC9 | 運用者が `config.toml` を、対話型の画面で作る・直す（手で書いた内容を残したまま。手書きのままでも使える） | `swarm-console setup` | CLI |
 | UC10 | 動いているバイナリより新しい版が GitHub Releases にあるかを確認し、あれば `serve` が自分で入れ替える（自己更新。§12） | `swarm-console version --check`（確認だけ）・`serve` の定期確認と自動更新・`host_status` の `update` | CLI、`/report` `/ops` |
+| UC11 | tmux セッションを分けた運用で、自分に許可されたセッション（例：セッション `0` は agent-a、`1` は agent-b）のペインだけを、同じ `T1` などの位置で見る・操作する。ほかのセッションのペインは読めも操作もできない（FR-SESS） | `session` 引数・`sessions_list` | `/report` `/ops` |
+| UC12 | トークンごとに許可セッションを決めて発行し、変えるときは無効化して発行し直す（FR-SESS-1〜3） | `swarm-console token add --sessions`・`token revoke` | CLI |
 
 ## 2. ペイン位置の決め方（FR-POS）
 
@@ -58,20 +62,42 @@ graph TD
 
 | ID | 要件 |
 |----|------|
-| FR-POS-1 | 対象のセッションは `config.toml` の `sessions` に並べる（既定は `["0"]`、複数可）。`default_session` は位置の接頭辞を省略するセッション（未指定で 1 つだけなら、それ） |
+| FR-POS-1 | 対象のセッションは `config.toml` の `sessions` に並べる（既定は `["0"]`、複数可）。`default_session` は位置の接頭辞を省略するセッション（未指定で 1 つだけなら、それ）。ツールの許可・`session` の既定には使わない（FR-SESS-12） |
 | FR-POS-2 | 位置の名前はペインの座標から自動で付ける。上の段から `T`・`B`（3 段以上なら `R1`・`R2`・`R3`…）、段の中で左から `1`・`2`・`3`…。段は `pane_top` の異なる値の順位、列は同じ段のペインの `pane_left` の順位で決める（P-07） |
 | FR-POS-3 | 既定セッション以外は `<セッション>:T1` のように頭にセッション名を付ける |
 | FR-POS-4 | 対象セッションにウィンドウが複数あるときは、位置の前にウィンドウ番号 `w<index>.` を付ける（例：`w1.T2`、`work:w1.B1`）。ウィンドウが 1 つだけのセッションは付けない（P-07） |
 | FR-POS-5 | `config.toml` の `[pane_names]` でペインに固定の名前を付けられる（自動の名前より優先）。キーは `<セッション>:<ウィンドウ>.<ペイン番号>` |
-| FR-POS-6 | ツールの引数 `pane` は位置（`"T1"`・`"work:B2"`）でも tmux ID（`"%0"`）でも受け付ける。位置は大文字小文字を区別しない。解決できなければ `pane_not_found` |
-| FR-POS-7 | 並びが変わったとき、次の呼び出しから新しい位置で返し、`panes_status`・`report` に警告 `layout_changed` を出す。警告は検知から `layout_warning_ttl`（既定 10 分）残す（P-08） |
+| FR-POS-6 | ツールの引数 `pane` は位置（`"T1"`・`"work:B2"`）でも tmux ID（`"%0"`）でも受け付ける。位置は大文字小文字を区別しない。決めたセッションの中で解決し（FR-SESS-6）、解決できなければ `pane_not_found` |
+| FR-POS-7 | 並びが変わったとき、次の呼び出しから新しい位置で返し、`panes_status`・`report` に警告 `layout_changed` を出す。警告は検知から `layout_warning_ttl`（既定 10 分）残す（P-08）。並びの変化はセッションごとに検知し、セッションに絞った応答にはそのセッションの警告だけを出す（FR-SESS-8） |
 | FR-POS-8 | メモは tmux ID に結び付けて持つ。位置の名前が変わってもメモはずれない |
+| FR-POS-9 | ツールの呼び出しには `session` の文脈がある（FR-SESS-5）。1 つのセッションに絞った応答の位置は、そのセッション内の位置（接頭辞なし。FR-POS-2 のアルゴリズムのまま）で返す（FR-SESS-7） |
 
 今の並び（横 4×縦 2）の例：
 
 | 位置 | T1 | T2 | T3 | T4 | B1 | B2 | B3 | B4 |
 |---|---|---|---|---|---|---|---|---|
 | tmux ID | %0 | %1 | %2 | %3 | %4 | %5 | %10 | %12 |
+
+### 2.1 セッションの許可と解決（FR-SESS）
+
+tmux セッションを分け、トークンごとに触れるセッションを決める（例：セッション `0` は agent-a、`1` は agent-b。どちらも 3 列×2 段）。引数・応答の定義は [API 仕様 §4.1](../api/endpoints.md#41-session-引数と許可セッション)。
+
+| ID | 要件 |
+|----|------|
+| FR-SESS-1 | `tokens.toml` の各 `[[token]]` に、触れる tmux セッションの `allowed_sessions`（string 配列、任意）を持てる。実効の許可セッションは `allowed_sessions` と `config.toml` の `sessions` の共通部分で、キーがなければ `sessions` 全部。要素は 1 つ以上・非空・重複なし・`.`・`:`・制御文字なし（空配列などは `tokens.toml` の読み込みで拒否） |
+| FR-SESS-2 | `serve` の起動時に、`allowed_sessions` に `sessions` にない名前があれば起動を拒否する（エラーにトークン名とセッション名を出し、ハッシュは出さない）。起動後に `tokens.toml` が再読み込みされて食い違ったときは警告ログだけを出し、実効の許可セッションは共通部分にする（空になりうる。空なら `session` の省略は `session_required`、指定は `session_forbidden`） |
+| FR-SESS-3 | `swarm-console token add <名前> --scope ops` か `--scope report` に `--sessions 0,1`（カンマ区切り）を付けられる。省略すると `allowed_sessions` を書かない（全部）。`--sessions` があるときだけ `config.toml` を読み、読めない・検証できない・`sessions` にない名前があれば発行しない。発行済みのトークンの許可セッションを変えるには `token revoke` してから `token add --sessions` で発行し直す（属性を更新するサブコマンドは作らない。`tokens.toml` の手編集は動くが正式な手順ではない。P-78） |
+| FR-SESS-4 | 任意の `session`（string）を取るツール：`panes_status`・`report`・`host_status`・`pane_tail`・`ask_card`・`report_read`・`note_get`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`。取らないツール：`sessions_list`（FR-R10）・`note_history`・`agent_auth_status` |
+| FR-SESS-5 | `session` の決め方（取るツール共通）：`sessions` にない名前は `invalid_args`（`details.field` = `"session"`）、`sessions` にあるが許可外は `session_forbidden`、許可内ならそのセッション。省略したときは、許可がちょうど 1 つならそれ、そうでなければ `session_required`（許可セッションを合算して返すことはしない）。`panes_status` の「省略は全セッション」はこの規則に置き換わる（許可が 2 つ以上のトークンには破壊的変更。P-77） |
+| FR-SESS-6 | `pane` は決めたセッション S のペインだけを候補にして解決する。当たる指定は、tmux ID・S 内の位置（接頭辞なし。大文字小文字を区別しない）・全体の名前（`1:T1`・`pane_names` の固定名）・`<S>:<S 内の位置>`。S に無く、tmux ID か全体の名前が別のセッションのペインに当たるときは、そのセッションが許可外なら `session_forbidden`、許可内で S と違えば `invalid_args`（`details.field` = `"pane"`）。それ以外で解決できないときだけ `pane_not_found`（P-81） |
+| FR-SESS-7 | 1 つのセッションに絞った応答（`panes_status`・`report`・`pane_tail`・`note_get` の `pane`、`report` の要対応の `pane`、`sessions_list` の `panes`）は、位置を S 内の位置（接頭辞なし。3 列×2 段なら `T1`〜`T3`・`B1`〜`B3`、4 列×2 段なら `T1`〜`T4`・`B1`〜`B4`。FR-POS-2 のアルゴリズムのまま）で返し、`layout` を S のペインだけから計算し直す。最終報告ファイル名だけは全体の位置から付け（既定セッション `T1.md`、それ以外 `1:T1` → `1_T1.md`）、`dispatch` の `{report_path}` と `report_read` も同じパスを使うので、別のセッションのファイルは衝突しない（P-82） |
+| FR-SESS-8 | セッションに絞った応答の `warnings` には、そのセッションの分だけを入れる：`layout_changed`（S の並び。メッセージの位置は S 内の位置）・`pane_unreadable`（S のペイン）・`session_missing`（欠けているセッションごとに 1 件。メッセージは `tmux セッションが見つかりません: <名前>`）。`tmux_unavailable` は全体の警告なので常に入る |
+| FR-SESS-9 | `host_status` と `report` は、ホスト全体の値（負荷・CPU・メモリ・スワップ・ディスク・稼働時間・`usage`・`omp`・`update`・ログイン期限 `auth`）を `session` に関係なく返し、ペインに関する値だけを絞る。`host_status` は `agents` の数と `tmux_session`（そのセッションにペインがあるか）、`report` は `panes`・`layout`・`attention` のペインの項目・`warnings`（P-83） |
+| FR-SESS-10 | 許可外のセッションのペインは、読み取り（`pane_tail`・`ask_card`・`report_read`・`note_get`・resources など）も操作も拒否する（`session_forbidden`）。他のセッションの指示・cwd・メモを漏らさないため。ホスト全体の値は、許可に関係なくどの呼び出し元にも見える。`note_history`（閉じたペインのメモ。ペインのセッションを持たない）は `session` を取らず許可の対象外（既知の限界。P-89）（P-79） |
+| FR-SESS-11 | `resources/list` は許可セッションのペインだけを列挙し、`resources/read` も同じ許可の検査をする。`swarm://pane/<位置>`・`swarm://notes/<位置>` の `<位置>` は、許可が 1 つなら S 内の位置か tmux ID、2 つ以上なら全体の名前か tmux ID。`swarm://report` は許可が 1 つのときだけそのセッションの report で、2 つ以上なら `session_required`（list には載せない）。エラーは `pane_not_found`・`session_forbidden` が `-32002`、`session_required` が `-32602`（P-85）。`dispatch` の prompt は `session` を任意の引数（先頭）に持つ（P-86） |
+| FR-SESS-12 | `default_session` は位置の接頭辞を省略するセッションを決めるだけで、`session` の既定にも許可にも使わない（P-87） |
+| FR-SESS-13 | 監査ログに、`pane` の隣に任意の `session`（渡された `session` 引数をそのまま。40 字で切る。`dispatch` の prompt は prompt の `session` 引数）を記録する。トークン・本文は記録しない（FR-SAFE-8。P-88） |
+| FR-SESS-14 | 後方互換：`sessions = ["0"]` だけで `allowed_sessions` が無ければ、どのツールも `session` なしで今までどおり動く（許可セッションが 1 つ） |
 
 ## 3. ペインの状態とエージェントの種類（FR-STATE）
 
@@ -134,17 +160,20 @@ stateDiagram-v2
 
 ### 4.1 見る（`/report`・`/ops` の両方）
 
+ペインを取るツールとセッション単位のツール（FR-SESS-4）は、任意の `session` を取る。省略の規則と、`invalid_args`・`session_forbidden`・`session_required` による拒否は FR-SESS-5・6 に従い、下の表の「前提・拒否条件」「拒否」の列には繰り返さない。
+
 | ID | ツール | 内容 | 前提・拒否条件 |
 |----|--------|------|--------------|
-| FR-R1 | `panes_status` | 対象セッションの全ペインを 1 回で返す（位置・ID・エージェント・状態・タイトル・cwd・経過・活動・画面変化からの時間・メモ要約）。ホスト負荷・並びの警告・`layout`（段と列の数）も返す | `session` 指定が対象外なら `invalid_args` |
+| FR-R1 | `panes_status` | 対象セッションの全ペインを 1 回で返す（位置・ID・エージェント・状態・タイトル・cwd・経過・活動・画面変化からの時間・メモ要約）。ホスト負荷・並びの警告・`layout`（段と列の数）も返す。位置・`layout`・警告は対象セッションに絞る（FR-SESS-7・8） | `session` の決め方は FR-SESS-5 |
 | FR-R2 | `pane_tail` | 1 ペインの最後の n 行を、枠線・TODO 表示・ステータス行を除いた本文だけで返す。`raw: true` なら飾りも残す。`lines` 既定 30・上限 200 | `unknown` エージェントでも可（飾りの除去はしない＝`raw` 相当） |
 | FR-R3 | `ask_card` | 質問カードの質問・選択肢・カーソル・自由入力の可否を返す。`asking` でなければ `{"asking": false}` | `unsupported_agent`（`unknown`）|
-| FR-R4 | `report_read` | `/tmp/swarm-console/reports/<位置>.md`（位置の `:`・`/`・`\` は `_`。例 `a/b:T1` → `a_b_T1.md`。[er-config §7](../architecture/er-config.md#7-最終報告ファイル)）を読む。なければ `{"exists": false}` | — |
-| FR-R5 | `host_status` | 負荷・CPU 数・メモリ・CPU 使用率・スワップ・ディスク（使用率つき）・tmux セッションの有無・エージェント種別ごとのペイン数・稼働時間・使用状況（`usage`）・omp の更新確認（`omp`）・新しい版の確認結果（`update`。FR-UPD-9）。足した値は FR-REP-10〜18 | — |
+| FR-R4 | `report_read` | `/tmp/swarm-console/reports/<位置>.md`（`<位置>` はセッション内の位置ではなく全体の位置。既定セッションは `T1`、それ以外は `1:T1`。`:`・`/`・`\` は `_`。例 `1:T1` → `1_T1.md`、`a/b:T1` → `a_b_T1.md`。[er-config §7](../architecture/er-config.md#7-最終報告ファイル)）を読む。なければ `{"exists": false}` | — |
+| FR-R5 | `host_status` | 負荷・CPU 数・メモリ・CPU 使用率・スワップ・ディスク（使用率つき）・tmux セッションの有無・エージェント種別ごとのペイン数・稼働時間・使用状況（`usage`）・omp の更新確認（`omp`）・新しい版の確認結果（`update`。FR-UPD-9）。足した値は FR-REP-10〜18。`session` を決めると、ペイン数と tmux セッションの有無だけそのセッションに絞る（FR-SESS-9） | — |
 | FR-R6 | `agent_auth_status` | エージェントごとのログイン状態（有効／期限切れ／48 時間以内に切れる／不明）と期限日時。鍵・トークンの中身は出さない | — |
 | FR-R7 | `note_get` | 1 ペインのメモを全部返す | — |
 | FR-R8 | `note_history` | 閉じたペインのメモを新しい順に返す。`repo`・`from`・`items` で絞り込み | — |
 | FR-R9 | `report` | 全ペインの状況をサーバーが作った markdown で返す（§5） | — |
+| FR-R10 | `sessions_list` | `session` を選ぶための一覧。呼び出し元の許可セッションを `sessions` の順に返す（`id`・`allowed`・`operable`・`layout`・`panes`）。`all: true` なら許可外もスタブ（`id`・`allowed: false`・`operable: false`。`layout`・`panes` は出さない）で含める。`operable` は、許可内でスコープが `ops` かつ `/ops` 経由のときだけ `true`。許可で tmux に無いセッションは `layout` が段 0・列なし、`panes` が空 | — |
 
 ### 4.2 操作する（`/ops` のみ）
 
@@ -154,7 +183,7 @@ stateDiagram-v2
 |----|--------|------|------------|------|
 | FR-O1 | `ask_pick` | `n` 番を選ぶ。カーソルを n に動かし、合っているか確かめてから Enter。`text` があれば「その他」を選んで文字を入れて確定（§6.1）。選んだあと、カードが閉じて `working` になったかを返す | `asking` | `not_asking`・`option_out_of_range`・`custom_not_allowed`・`cursor_mismatch`（Enter を送らずに中止） |
 | FR-O2 | `send_text` | `text`（上限 8000 字）または `file`（サーバー上のパス）を、bracketed paste で貼り付け、1 秒待って Enter。入力欄が空になって `working` になったかを返す。制御キーは送れない | `idle`・`working`・`stalled`（エージェントが動いているとき）| `invalid_state`（`shell`・`asking`・`unknown`）・`forbidden_control_char`・`text_too_long`・`forbidden_path`・`file_unreadable` |
-| FR-O3 | `send_escape` | `confirm: true` が必須。作業中のエージェントを中断する。使ったことをメモの履歴（`log`）に自動で残す。**オーナーの OK があるときだけ使う**（ツールの説明にも書く）。クライアントごとの許可設定は持たない | `working`・`stalled`・`asking`・`idle` | `confirm_required`・`invalid_state`（`shell`・`unknown`）|
+| FR-O3 | `send_escape` | `confirm: true` が必須。作業中のエージェントを中断する。使ったことをメモの履歴（`log`）に自動で残す。**オーナーの OK があるときだけ使う**（ツールの説明にも書く）。ツールごとのクライアント別の許可設定は持たない（トークンに付くのは許可セッションだけ。FR-SESS-1） | `working`・`stalled`・`asking`・`idle` | `confirm_required`・`invalid_state`（`shell`・`unknown`）|
 | FR-O4 | `pane_start` | `shell` のペインで `cwd` に cd し、エージェントを起動、タイトルを `agent: <title>` にして、`idle` になったかを返す | `shell` | `invalid_state`・`forbidden_path`・`invalid_args`（`agent` が未設定のもの）|
 | FR-O5 | `pane_close` | 終了コマンド → `cd ~` → `clear` → タイトル消し、を 1 つずつ「文字列 → 1 秒 → Enter → 1 秒」で送る。終了コマンドのあとは、ペインの状態が `shell` に戻るまで、スナップショットを 500 ms ごとに取り直して待ち（上限は `accept_timeout`、既定 10 秒。P-70）、戻ってから `cd ~` 以降を送る。`shell` に戻ったかは `panes_status` と同じ状態の判定（前面コマンド・プロセス木 `/proc`、取れなければ画面で補う。FR-AD-5）で見る。`/proc` が読めないときは、前面コマンドが shell なら戻ったとみなし、終了後も画面に残ったエージェントの表示では判定しない（正常に終了したのに `exit_timeout` にならない）。上限までに戻らなければ `cd ~` 以降を送らずに、エラー `exit_timeout` だけを返す（`ok`・`steps`・`note_archived` などの結果の項目は返らない）。メモも最終報告も移さない。終了コマンドはすでに送ってあるので、呼び出し側は `pane_close` を呼び直してよい（そのときペインが `shell` なら終了コマンドは飛ばす）。終了が遅れた画面へ `cd ~` が入力されるのを防ぐ。最後に画面が `~` のプロンプトだけになったかを確かめて返す。確かめられたら、そのペインのメモを履歴に移す | `idle`・`shell` | `invalid_state`（`working`・`stalled`・`asking`・`unknown`。P-19）・`exit_timeout`（終了コマンドのあと上限までに `shell` へ戻らない）|
 | FR-O6 | `dispatch` | 指示を中身と条件に分けて受け取り、決まった形の指示文に組み立てて送る（§7）。送った指示文の全文を返す | `shell`（→ `pane_start` してから）・`idle` | `invalid_state`（`working`・`asking` ほか）|
@@ -192,3 +221,4 @@ stateDiagram-v2
 | 1.15 | 2026-11-02 | FR-SAFE-4：拒否するパスの設定を `denied_paths`（既定は `~/dotfiles` だけ。P-29）と明記し、存在しない「オーナーの checkout の一覧」設定を示す書き方をやめた。実装・設定の挙動は変えない | Issue #46 |
 | 1.16 | 2026-11-02 | FR-INS-6・7（functional-install.md）：unit は実ファイルで内容が同じときだけ触らず、無い・内容が違う・シンボリックリンク（内容が同じでも）のときは実ファイルとして書いて `daemon-reload` する（NFR-TEST-18 と一致。実装は変えない） | Issue #64 |
 | 1.17 | 2026-11-02 | FR-R4：最終報告ファイル名の規則を、位置の `:` だけでなく `/`・`\` も `_` にする（実装の `reportBase` と同じ）と直し、例 `a/b:T1` → `a_b_T1.md` を足した。コード・設定は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
+| 1.18 | 2026-11-02 | §2.1 セッションの許可と解決（FR-SESS-1〜14）を追加し、FR-POS-1・6・7 を改訂、FR-POS-9・FR-R10（`sessions_list`）・UC11・UC12 を追加、FR-R1・FR-O3・UC1・UC7 を改訂。functional-report.md：FR-REP-4 を改訂、FR-REP-19（`report` の `session`）・AC-7 を追加、FR-DIS-1 に `session`。functional-note.md：FR-NOTE-12・FR-SAFE-10 を追加、FR-SAFE-8 を改訂。non-functional.md は 1.12（NFR-SEC-3・12）。`session` 引数・トークンごとの許可セッション・セッション内の位置・`warnings` の絞り込み・resources の許可を定めた。`panes_status` の `session` 省略（全セッション）は FR-SESS-5 の規則に置き換わる | セッション分割運用（許可セッションの分離） |
