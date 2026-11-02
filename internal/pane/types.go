@@ -48,7 +48,7 @@ type PaneState struct { //nolint:revive // render・tools が使う公開契約�
 	Cwd           string
 	Elapsed       string // "42m"。"" は null
 	Activity      string // 120 字で切り済み。"" は null
-	ActivityTrunc bool   // 切ったか
+	ActivityTrunc bool   // 切ったか（JSON の pane の truncated になる）
 	ChangedAgo    string // "20s"・"1h05m"。"" は null
 	ScreenHash    string
 	ChangedAt     time.Time
@@ -190,7 +190,7 @@ type Tmux interface {
 	SendKeys(ctx context.Context, id string, keys ...string) error
 	// SendLiteral は send-keys -l で文字列をそのまま送る（制御文字は呼び出し側で除外済み）。
 	SendLiteral(ctx context.Context, id, text string) error
-	// Paste は load-buffer -（標準入力・一意なバッファ名）＋ paste-buffer -p -d で bracketed paste する。
+	// Paste は load-buffer -（標準入力・一意なバッファ名）＋ paste-buffer -p -d で bracketed paste する。失敗・中断したときは自分が作ったバッファを delete-buffer で消す。
 	Paste(ctx context.Context, id, text string) error
 	// SetTitle は select-pane -T。
 	SetTitle(ctx context.Context, id, title string) error

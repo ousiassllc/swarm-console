@@ -22,19 +22,20 @@ var ErrNoServer = errors.New("tmux サーバーが動いていません")
 
 // 許可するサブコマンド（NFR-SEC-7）。"-V" はバージョン表示。これ以外は実行しない。
 const (
-	subListPanes   = "list-panes"
-	subCapturePane = "capture-pane"
-	subSendKeys    = "send-keys"
-	subLoadBuffer  = "load-buffer"
-	subPasteBuffer = "paste-buffer"
-	subSelectPane  = "select-pane"
-	subDisplay     = "display"
-	subVersion     = "-V"
+	subListPanes    = "list-panes"
+	subCapturePane  = "capture-pane"
+	subSendKeys     = "send-keys"
+	subLoadBuffer   = "load-buffer"
+	subPasteBuffer  = "paste-buffer"
+	subDeleteBuffer = "delete-buffer"
+	subSelectPane   = "select-pane"
+	subDisplay      = "display"
+	subVersion      = "-V"
 )
 
 var allowedSubcommands = map[string]struct{}{
 	subListPanes: {}, subCapturePane: {}, subSendKeys: {}, subLoadBuffer: {},
-	subPasteBuffer: {}, subSelectPane: {}, subDisplay: {}, subVersion: {},
+	subPasteBuffer: {}, subDeleteBuffer: {}, subSelectPane: {}, subDisplay: {}, subVersion: {},
 }
 
 // Client は tmux コマンドを os/exec の引数配列で実行する（シェルを経由しない）。

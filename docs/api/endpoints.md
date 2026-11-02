@@ -14,7 +14,7 @@ swarm-console は MCP（Streamable HTTP、JSON-RPC）サーバー。このドキ
 | 項目 | 内容 |
 |------|------|
 | プロトコル | MCP（Streamable HTTP、JSON-RPC 2.0）。`initialize`・`tools/list`・`tools/call`・`prompts/list`・`prompts/get`・`resources/list`・`resources/templates/list`・`resources/read` |
-| 待ち受け | `config.toml` の `listen_addr`（tailnet IP:48120）。`0.0.0.0` では待ち受けない |
+| 待ち受け | `config.toml` の `listen_addr`（tailnet IP:48120。tailnet の IP で 48120 以外のポートは起動拒否。テスト用のループバックはどのポートでも可）。`0.0.0.0` では待ち受けない |
 | 窓口 | `POST /report`（見るだけ）、`POST /ops`（見る＋操作）。他のパスは 404 |
 | ヘッダー | `Content-Type: application/json`、`Accept: application/json, text/event-stream`、`Authorization: Bearer <トークン>` |
 | メソッド | `POST` のみ。`GET`・`DELETE` は 405（ステートレス運用。P-02） |
@@ -143,3 +143,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.9 | 2026-11-02 | `pane_close` の `shell` に戻ったかの判定は、`/proc` が読めないとき前面コマンドが shell なら戻ったとみなす（1.8 の「`/proc` に依る」を改めた） | Issue #35 |
 | 1.10 | 2026-11-02 | endpoints-report.md：「足した値の形」で、`auth`・`attention[]` は `report` の JSON だけと明記し、`host_status` と共通なのは `cpu`・`swap`・`disk`（`report` では `host.` の下）・`usage`・`omp`・`update` と直した（1.5 の「`host_status` に同じ値を追加」の範囲を正した）。実装は変えない | Issue #61 |
 | 1.11 | 2026-11-02 | endpoints-report.md：指示文の `{report_path}` の `<位置>` は `:`・`/`・`\` を `_` にする（er-config §7 への参照を足した）。実装は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
+| 1.12 | 2026-11-02 | §1：tailnet の IP の `listen_addr` は 48120 以外のポートを起動拒否（ループバックは任意のポート）。endpoints-pane.md：`panes_status`・`report`（json）の各ペインは、`activity` を 120 字で切ったときだけ `"truncated": true` を付ける（実装を仕様に合わせた） | Issue #72・#70 |

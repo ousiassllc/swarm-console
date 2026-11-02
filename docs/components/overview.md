@@ -114,7 +114,7 @@ swarm-console/
 | `notes` | `notes.json` の読み書き、`note_set` のマージ・検証、履歴、孤児化 | `Store`、`Get/Set/Log/Archive/History` | FR-NOTE |
 | `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(ReportInput)`、`Dispatch(DispatchInput)` | FR-REP, FR-DIS |
 | `safety` | `cwd`・`file` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン | `NewPolicy(cfg)`、`Policy`（`CheckCWD`・`CheckFile`・`CheckText`・`DetectSecret`）、`DetectSecret(s)` | FR-SAFE, NFR-SEC |
-| `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`・`select-pane -T`・`display -p` の実行と出力の解析 | `Client`（`New(socket, opts...)`。`pane.Tmux` を実装する） | NFR-SEC-7, NFR-ENV-2 |
+| `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`（失敗時・中断時は自分が作った一意名のバッファだけ `delete-buffer -b`）・`select-pane -T`・`display -p` の実行と出力の解析 | `Client`（`New(socket, opts...)`。`pane.Tmux` を実装する） | NFR-SEC-7, NFR-ENV-2 |
 | `host` | `/proc`（負荷・メモリ・スワップ・CPU の差・稼働時間・プロセス木）、`statfs`（空きと使用率）、認証ファイルの期限 | `Host`（インターフェース）、`Reader`（実装。`NewReader(clk)`）。`Status(ctx, diskMounts)`、`ProcTree(pid)`、`AuthStatus(agent, authFile, now)`、`SampleCPU()` | FR-R5, FR-R6, FR-AD-5, FR-REP-13 |
 | `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Checker.Check(ctx) Result`（`New(Options)`）、`Runner`（`NewRunner(RunnerOptions)`、`Start(ctx)`、`Snapshot() Snapshot`）。HTTP クライアントと `clock` を差し替え可能 | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
 | `selfupdate` | `updatecheck` が `update_available` を返したときの入れ替え：許可ホスト内のダウンロード（サイズ上限・リダイレクト制限）、`SHA256SUMS` の検証、`~/bin/swarm-console/` の 5 ファイルへの書き込み（`.new` → `.old` ハードリンク → マーカー → `rename`）、起動時の試運転と戻し（`boots`・`.old` の `rename`・`update-failed`）、`apply` の状況の保持。入れ替え後は `serve` に正常終了を要求する（`systemctl` は実行しない） | `Updater`（`New(Options, trial)`、`Apply(ctx, latest) error`、`Status() Apply`）、`Probation(dir, version, clk, logger) Decision`（起動の最初）。HTTP クライアント・実行ファイルのパス・`clock`・ホームを `Options` で差し替え可能 | FR-UPD-11〜20, NFR-SEC-14・15・16, NFR-AVL-10 |
@@ -207,7 +207,7 @@ type Registry interface {
 | 操作 | 主な手順 |
 |------|---------|
 | `PickAsk(ref, n, text)` | ロック → カード読み取り → `PickKeys` → キーのあと画面に反映されるまで（最大 1 秒）取り直して検証（合わなければ読めたカーソルから差分を送り直す。最大 3 回）→ Enter → 閉じ・`working` を待つ |
-| `SendText(ref, text)` | ロック → 検証 → `load-buffer -`（標準入力・一意なバッファ名）→ `paste-buffer -p -d` → 1 秒 → Enter → 受理を待つ |
+| `SendText(ref, text)` | ロック → 検証 → `load-buffer -`（標準入力・一意なバッファ名）→ `paste-buffer -p -d`（失敗・中断したら `delete-buffer -b <一意名>` で本文を残さない）→ 1 秒 → Enter → 受理を待つ |
 | `Escape(ref)` | ロック → `send-keys Escape` → 状態遷移を待つ → `notes.Log` |
 | `Start(ref, agent, cwd, title)` | ロック → 検証 → `select-pane -T` → `cd <cwd>` → 起動コマンド → `idle` を待つ |
 | `Close(ref)` | ロック → 終了コマンドを「文字列 → 1 秒 → Enter → 1 秒」で送る → 状態が `shell` に戻るまで待つ（スナップショットを 500 ms ごとに取り直す。上限は `accept_timeout`。超えたら何も送らず `apperr.ExitTimeout`）→ `cd ~`・`clear` を同じ間隔で送る → タイトル消し → 画面確認 → `notes.Archive` |
@@ -278,3 +278,4 @@ type Tool struct {
 | 2.1 | 2026-11-02 | §3 の `auth` の公開 IF を `Open(path, clk, logger)` に直した（Issue #54 で `logger` 引数が増えた。実装・設定は変えない） | Issue #58 |
 | 2.2 | 2026-11-02 | §3 の `setup` の公開 IF を実装の `Options{Path, Out, Home, Prompter, IssueToken}` に合わせた（実装にない `Options` の項目の記述を除き、`HostCandidates()`・`Candidates(addrs)` を明記。実装は変えない） | Issue #59 |
 | 2.3 | 2026-11-02 | §2 のツリーに `test/setup/`（実 tmux のペインで `setup` を起動して `send-keys` で確かめるテスト。NFR-TEST-13）を追加（実装は変えない） | Issue #66 |
+| 2.4 | 2026-11-02 | §tmux の許可サブコマンドと `Paste` の流れに `delete-buffer -b <一意名>`（失敗時・中断時の後始末）を追加 | Issue #57 |

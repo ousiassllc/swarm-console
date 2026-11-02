@@ -96,7 +96,8 @@ func escapeTrailingSemicolon(s string) string {
 }
 
 // Paste は一意名のバッファへ標準入力から load-buffer し、paste-buffer -p -d で bracketed paste する。
-// paste-buffer が失敗するとバッファ（text 全文）が tmux に残る。delete-buffer は許可サブコマンドに無いため消さない。
+// 成功すれば paste-buffer -d がバッファを消す。load-buffer か paste-buffer が失敗したとき（ctx の中断・タイムアウトを含む）は、
+// 本文が tmux に残らないよう、自分が作った一意名のバッファだけを delete-buffer -b で消す（NFR-SEC-7。ほかのバッファは触らない）。
 func (c *Client) Paste(ctx context.Context, id, text string) error {
 	if err := checkPane(id); err != nil {
 		return err
@@ -109,10 +110,20 @@ func (c *Client) Paste(ctx context.Context, id, text string) error {
 		return err
 	}
 	if _, err := c.run(ctx, subLoadBuffer, text, "-b", name, "-"); err != nil {
+		c.deleteBuffer(ctx, name)
 		return err
 	}
-	_, err = c.run(ctx, subPasteBuffer, "", "-p", "-d", "-b", name, "-t", id)
-	return err
+	if _, err := c.run(ctx, subPasteBuffer, "", "-p", "-d", "-b", name, "-t", id); err != nil {
+		c.deleteBuffer(ctx, name)
+		return err
+	}
+	return nil
+}
+
+// deleteBuffer は Paste が作ったバッファ name を消す。失敗の後始末なので、結果は返さず、元のエラーを優先する
+// （バッファが無ければ delete-buffer が失敗するが、それでよい）。ctx が中断済みでも消せるよう、中断は引き継がない。
+func (c *Client) deleteBuffer(ctx context.Context, name string) {
+	_, _ = c.run(context.WithoutCancel(ctx), subDeleteBuffer, "", "-b", name)
 }
 
 func (c *Client) bufferName() (string, error) {

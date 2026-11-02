@@ -157,11 +157,11 @@ func (p *HuhPrompter) listenGroups(st *State, f *form) []*huh.Group {
 	f.listenManual = cur
 	validate := func(s string) error { return ValidateListen(s) }
 	input := huh.NewInput().Title("listen_addr（IP:ポート）").
-		Description("tailnet の IP かループバック。0.0.0.0・::・ホスト名・ポート無しは使えません。").
+		Description("tailnet の IP（ポートは 48120 だけ）かループバック（どのポートでも可）。0.0.0.0・::・ホスト名・ポート無しは使えません。").
 		Placeholder("127.0.0.1:48120").Value(&f.listenManual).Validate(validate)
 	if len(p.Candidates) == 0 {
 		input.Description("このホストに tailnet のアドレスが見つかりません。tailscale が上がっていないかもしれません。\n" +
-			"手で入力してください（tailnet の IP:ポート、またはテスト用のループバック 127.0.0.1:48120）。")
+			"手で入力してください（tailnet の IP:48120、またはテスト用のループバック 127.0.0.1:48120）。")
 		return []*huh.Group{huh.NewGroup(input)}
 	}
 	var opts []huh.Option[string]

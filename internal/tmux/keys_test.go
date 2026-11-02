@@ -152,6 +152,10 @@ func TestPasteFailureIsTmuxError(t *testing.T) {
 	srv.NewSession("pf", 80, 20, sleepCmd)
 	err := c.Paste(context.Background(), "%999", "text")
 	assertTmuxError(t, err, "paste-buffer")
+	// 貼り付けに失敗しても、本文が名前付きバッファとして tmux に残らない（#57）。
+	if got := srv.Run("list-buffers"); got != "" {
+		t.Fatalf("バッファが残っている: %q", got)
+	}
 	if strings.Contains(err.Error(), "text") && strings.Contains(apperr.As(err).Message(), "text") {
 		t.Fatal("本文がメッセージに出ている")
 	}

@@ -1,6 +1,7 @@
 package rendertest
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -49,6 +50,37 @@ func TestReportGolden(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) { golden(t, c.name, mustReport(t, c.in)) })
+	}
+}
+
+// activity を上限で切ったペインだけ "truncated": true を持つ（API 仕様 §4・§7）。切っていないペインにはキーを出さない。
+func TestPaneJSONTruncatedOnlyWhenActivityCut(t *testing.T) {
+	snap := fixedSnapshot()
+	snap.Panes[1].ActivityTrunc = true // T2（activity あり）だけ切った
+	status, err := render.PanesStatusJSON(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"panes_status": string(status),
+		"report":       mustReport(t, render.ReportInput{Snapshot: snap, Format: "json"}),
+	} {
+		var v struct {
+			Panes []map[string]any `json:"panes"`
+		}
+		if err := json.Unmarshal([]byte(body), &v); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		for _, p := range v.Panes {
+			got, has := p["truncated"]
+			if p["pos"] == "T2" {
+				if got != true {
+					t.Errorf("%s: T2 に truncated: true が無い: %v", name, p)
+				}
+			} else if has {
+				t.Errorf("%s: 切っていない %v に truncated がある", name, p["pos"])
+			}
+		}
 	}
 }
 
