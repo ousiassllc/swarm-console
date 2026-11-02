@@ -27,7 +27,7 @@
 | NFR-SEC-5 | トークンの平文・ハッシュ・`Authorization` ヘッダーをログ・応答・エラー・メモに出さない。クライアント側は環境変数 `SWARM_CONSOLE_TOKEN` から読む |
 | NFR-SEC-6 | トークンを 1 つだけ無効にできる（`token revoke <名前>`）。再起動なしで次のリクエストから効く（P-04） |
 | NFR-SEC-7 | 任意のシェルコマンドは実行しない。許可するのは決まった tmux サブコマンド（`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`select-pane -T`・`display -p`・`list-panes`）と、決まったファイル・`/proc` の読み取りだけ。例外は、レポートの値のための **引数固定の 2 コマンド** `omp usage --json` と `omp update --check` だけ（FR-REP-12・15。`[agents.omp] command` の先頭の語の実行ファイルを、ほかの引数なしで、標準入力 `/dev/null`・打ち切り付きで実行する。`omp update` など、ほかの `omp` のサブコマンド・引数は実行しない）。引数は `exec` の引数配列で渡し、シェルを経由しない。`omp` のコマンドが行う通信は `omp` の仕様で、`swarm-console` 自身は通信しない（NFR-SEC-15 は変えない） |
-| NFR-SEC-8 | `pane_start` の `cwd` は `/mnt/nvme/` の下と `~/projects/` の下だけ許可。オーナーの checkout（設定の一覧）と `~/dotfiles` は拒否。シンボリックリンクは解決後のパスで判定する |
+| NFR-SEC-8 | `pane_start` の `cwd` は `/mnt/nvme/` の下と `~/projects/` の下だけ許可。`denied_paths` に書いたパスは拒否（既定は `~/dotfiles` だけ。オーナーの checkout も拒否したいなら `denied_paths` に書く。P-29）。シンボリックリンクは解決後のパスで判定する |
 | NFR-SEC-9 | 送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。Esc は `send_escape`（`confirm: true` 必須・`/ops` のみ） |
 | NFR-SEC-10 | `/report` に操作のツールを出さない（`tools/list` にも載らない）。`/report` からは書き込み（メモを含む）ができない |
 | NFR-SEC-11 | メモに秘密に見える文字列（`ghp_`・`sk-`・`eyJ`・PEM など）が入る書き込みは拒否し、拒否した値をログ・応答に出さない |
@@ -125,4 +125,5 @@
 | 1.6 | 2026-11-01 | NFR-SEC-7 に引数固定の 2 コマンド（`omp usage --json`・`omp update --check`）の例外を追加、NFR-OPS-12・NFR-TEST-17 を追加 | Issue #21・#24（レポートの値） |
 | 1.7 | 2026-11-01 | NFR-OPS-13・NFR-TEST-18（`make install`）を追加 | Issue #18 |
 | 1.8 | 2026-11-02 | NFR-PERF-4：`pane_close` の応答時間の上限を、`shell` に戻るまでの待ちと画面確認の待ちの 2 つの `accept_timeout` を含む形にし、最初の待ちを超えたときは `exit_timeout`（`ok: false` ではない）と明記 | Issue #30 |
-| 1.9 | 2026-11-02 | NFR-TEST-8 の CI のステップ一覧に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
+| 1.9 | 2026-11-02 | NFR-SEC-8：拒否するパスの設定を `denied_paths`（既定は `~/dotfiles` だけ。P-29）と明記し、存在しない「オーナーの checkout の一覧」設定を示す書き方をやめた。実装・設定の挙動は変えない | Issue #46 |
+| 1.10 | 2026-11-02 | NFR-TEST-8 の CI のステップ一覧に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |

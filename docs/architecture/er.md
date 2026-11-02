@@ -229,3 +229,4 @@ erDiagram
 | 1.3 | 2026-11-01 | `config.toml` に `update_auto` を追加。§8 自己更新のファイル（`.old`・`.update-pending`・`.update-failed`）を追加 | Issue #7（自己更新で確定） |
 | 1.4 | 2026-11-01 | 300 行超過ファイルを分割（§3〜§8 を er-runtime.md・er-config.md へ移動）。内容の変更なし | Issue #3 |
 | 1.5 | 2026-11-01 | `config.toml` に `usage_check`・`usage_interval` を追加。実行時の状態（`Snapshot`・`HOST_STATE`）にレポートに足す値を追加 | Issue #21〜#25 |
+| 1.6 | 2026-11-02 | §5 config.toml：検証表に `config` が実際に拒否する値（`sessions` の名前・`tmux_socket`・`title_prefix`・期間の下限・`allowed_roots` の空配列・`listen_addr` のゾーンとポート・`agents.<name>` の検証）を追加し、`AGENT_CONFIG` に `status_line_re`・`border_re` を追加。実装は変えない | Issue #45 |

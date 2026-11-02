@@ -83,7 +83,7 @@ sessions = ["0"]                  # 対象の tmux セッション
 
 ## レポートの使用状況・omp の版
 
-`report` と `host_status` は、Claude・Cursor・Codex の使用状況、CPU・スワップ・ディスクの使用率、omp の新しい版の有無、ログイン期限を返します（[機能要件 FR-REP-10〜18](docs/requirements/functional-report.md)）。値はスナップショットを作るときにまとめて入れるので、同じスナップショットなら出力は同じです。
+`report` は、Claude・Cursor・Codex の使用状況、CPU・スワップ・ディスクの使用率、omp の新しい版の有無、ログイン期限を返します。`host_status` は、ログイン期限を除く値（使用状況・CPU・スワップ・ディスク・omp の版）と、swarm-console 自身の更新の状況（`update`）を返します。ログイン期限は `agent_auth_status`（と `report`）で取ります（[機能要件 FR-REP-10〜18](docs/requirements/functional-report.md)）。値はスナップショットを作るときにまとめて入れるので、同じスナップショットなら出力は同じです。
 
 - `usage_check`（既定 `true`）・`usage_interval`（既定 `5m`、`1m` 以上）：`serve` が `omp usage --json` を実行して使用状況を取ります。`false` なら実行せず、レポートは「無効」と出します
 - omp の更新確認（`omp update --check`）は、下の `update_check`・`update_check_interval` に従います
