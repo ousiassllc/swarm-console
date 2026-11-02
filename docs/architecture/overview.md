@@ -226,4 +226,4 @@ flowchart TD
 | 1.11 | 2026-11-02 | P-70 を追加（`pane_close` が終了コマンドのあと `shell` に戻るまで待ち、上限で `exit_timeout`） | Issue #30 |
 | 1.12 | 2026-11-02 | agent-patterns.md：omp の `/exit` を実機（omp v18.15.0）で確認した内容に更新（Issue #53）。`command`・`exit_command` の空文字は設定エラーと明記（Issue #45）。コード・設定は変えない | Issue #45・#53 |
 | 1.13 | 2026-11-02 | §2 のテンプレートの理由を実装どおりに直した（言語ごとに差し替えるのはレポートだけ。指示文は `profiles.toml` の条件から組み立てる） | Issue #42 |
-| 1.14 | 2026-11-02 | §3 の依存の文を実装の名前（`pane.Tmux`・`agent.Adapter`・`clock.Clock`・`pane.ReportFS`）に合わせ、存在しない `TmuxRunner` を除いた。エントリ層の CLI に `setup` を追加（コード・設定は変えない） | Issue #60 |
+| 1.14 | 2026-11-02 | §3 の依存の文を実装の名前（`pane.Tmux`・`agent.Adapter`・`clock.Clock`・`pane.ReportFS`）に合わせ、実装にない tmux のインターフェース名を除いた。エントリ層の CLI に `setup` を追加（コード・設定は変えない） | Issue #60 |
