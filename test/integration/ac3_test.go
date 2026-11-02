@@ -25,11 +25,15 @@ func TestAC3LayoutChangeKeepsNotes(t *testing.T) {
 		Config: map[string]string{"sessions": `["main", "extra"]`, "default_session": `"main"`, "layout_warning_ttl": `"10m"`},
 	})
 	a := h.P0
-	h.Ops().Must("note_set", map[string]any{"pane": a, "set": map[string]any{"from": "agent-b", "repo": "ousiassllc/funid", "items": []string{"#982"}}})
-	// 基準のスナップショット（まだ無い extra の session_missing だけで、layout_changed はなし）。
-	st := h.Status()
-	if _, warned := layoutWarning(st); warned || len(st.Panes) != 1 || len(st.Warnings) != 1 || st.Panes[0].Pos != "T1" {
+	h.Ops().Must("note_set", map[string]any{"session": "main", "pane": a, "set": map[string]any{"from": "agent-b", "repo": "ousiassllc/funid", "items": []string{"#982"}}})
+	// 基準のスナップショット。config の sessions は 2 つ（トークンは両方を許可）なので session を付ける。
+	// main の応答には、まだ無い extra の session_missing も載らない（警告はセッションごと）。
+	st := h.StatusOf("main")
+	if _, warned := layoutWarning(st); warned || len(st.Panes) != 1 || len(st.Warnings) != 0 || st.Panes[0].Pos != "T1" {
 		t.Fatalf("基準: %+v", st)
+	}
+	if ex := h.StatusOf("extra"); len(ex.Panes) != 0 || len(ex.Warnings) != 1 || ex.Warnings[0].Code != "session_missing" {
+		t.Fatalf("extra の基準: %+v", ex)
 	}
 
 	// 増やす: a の左に新しいペイン b を足す → b が T1、a が T2 にずれる。
@@ -37,10 +41,10 @@ func TestAC3LayoutChangeKeepsNotes(t *testing.T) {
 	var msg string
 	h.Eventually("ペインを増やした警告", func() bool {
 		var ok bool
-		msg, ok = layoutWarning(h.Status())
+		msg, ok = layoutWarning(h.StatusOf("main"))
 		return ok
 	})
-	st = h.Status()
+	st = h.StatusOf("main")
 	pos := map[string]string{}
 	for _, p := range st.Panes {
 		pos[p.ID] = p.Pos
@@ -54,11 +58,11 @@ func TestAC3LayoutChangeKeepsNotes(t *testing.T) {
 		}
 	}
 	// メモは a（ID）に付いたまま。新しい位置 T2 でも古い位置 T1 でもなく、ID で追える。
-	got := h.Report().Map("note_get", map[string]any{"pane": "T2"})
+	got := h.Report().Map("note_get", map[string]any{"session": "main", "pane": "T2"})
 	if got["id"] != a || got["note"] == nil || got["note"].(map[string]any)["from"] != "agent-b" {
 		t.Errorf("T2 のメモ = %v", got)
 	}
-	if got := h.Report().Map("note_get", map[string]any{"pane": "T1"}); got["id"] != b || got["note"] != nil {
+	if got := h.Report().Map("note_get", map[string]any{"session": "main", "pane": "T1"}); got["id"] != b || got["note"] != nil {
 		t.Errorf("T1（新しいペイン）にメモが移っている: %v", got)
 	}
 	for _, p := range st.Panes {
@@ -70,29 +74,42 @@ func TestAC3LayoutChangeKeepsNotes(t *testing.T) {
 	// 減らす: b を消す → a が T1 に戻る。メモはそのまま。
 	h.TM.Run("kill-pane", "-t", b)
 	h.Eventually("ペインを減らした警告", func() bool {
-		m, ok := layoutWarning(h.Status())
+		m, ok := layoutWarning(h.StatusOf("main"))
 		msg = m
 		return ok && strings.Contains(m, "削除されました")
 	})
 	if !strings.Contains(msg, "T2 が削除されました") && !strings.Contains(msg, "T1 が削除されました") {
 		t.Errorf("警告 = %q", msg)
 	}
-	if p, _ := h.Pane(a); p.Pos != "T1" || p.Note == nil || p.Note["from"] != "agent-b" {
+	if p := h.StatusOf("main").Panes; len(p) != 1 || p[0].Pos != "T1" || p[0].Note == nil || p[0].Note["from"] != "agent-b" {
 		t.Errorf("a = %+v", p)
 	}
 
-	// 別のセッションを足す → extra の位置名は「extra:」付きで、警告に出る。
+	// 別のセッションを足す → extra の位置は extra の中で T1 から（接頭辞なし）。layout_changed は extra の応答だけに、
+	// extra の位置で出る。main の応答には出ない（main 自身の警告は main の位置だけ）。
 	extra := h.TM.NewSession("extra", 250, 85, "")
 	h.Eventually("別セッションの警告", func() bool {
-		m, ok := layoutWarning(h.Status())
+		m, ok := layoutWarning(h.StatusOf("extra"))
 		msg = m
-		return ok && strings.Contains(m, "extra:T1")
+		return ok && strings.Contains(m, "T1 が追加されました")
 	})
-	if p, ok := h.Pane(extra); !ok || p.Pos != "extra:T1" {
-		t.Errorf("extra のペイン = %+v %v", p, ok)
+	if strings.Contains(msg, "extra:") {
+		t.Errorf("extra の警告に接頭辞が付いている: %q", msg)
 	}
-	if p, _ := h.Pane(a); p.Pos != "T1" || p.Note == nil {
-		t.Errorf("既定セッションの a が動いた: %+v", p)
+	ex := h.StatusOf("extra")
+	if len(ex.Panes) != 1 || ex.Panes[0].ID != extra || ex.Panes[0].Pos != "T1" {
+		t.Errorf("extra のペイン = %+v", ex.Panes)
+	}
+	mainSt := h.StatusOf("main")
+	if m, _ := layoutWarning(mainSt); strings.Contains(m, "追加されました") && strings.Contains(m, extra) {
+		t.Errorf("main の警告に extra が混ざっている: %q", m)
+	}
+	if len(mainSt.Panes) != 1 || mainSt.Panes[0].ID != a || mainSt.Panes[0].Pos != "T1" || mainSt.Panes[0].Note == nil {
+		t.Errorf("既定セッションの a が動いた: %+v", mainSt.Panes)
+	}
+	// session を省略すると、許可が 2 つなので session_required。
+	if code := h.Ops().Call("panes_status", nil).Code(t); code != "session_required" {
+		t.Errorf("session 省略: %s", code)
 	}
 }
 

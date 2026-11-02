@@ -99,7 +99,7 @@ func TestHTTPMethodAndBodyLimits(t *testing.T) {
 	}
 }
 
-// AC-2: /report の tools/list は見るツール 9 つだけで、操作を含まない。/ops は 17。tools/call で操作を呼んでも何も実行しない。
+// AC-2: /report の tools/list は見るツール 10 だけで、操作を含まない。/ops は 18。tools/call で操作を呼んでも何も実行しない。
 func TestToolListsAndScopes(t *testing.T) {
 	h := harness.Start(t, harness.Options{})
 	ctx := context.Background()
@@ -115,7 +115,7 @@ func TestToolListsAndScopes(t *testing.T) {
 		slices.Sort(out)
 		return out
 	}
-	viewTools := []string{"agent_auth_status", "ask_card", "host_status", "note_get", "note_history", "pane_tail", "panes_status", "report", "report_read"}
+	viewTools := []string{"agent_auth_status", "ask_card", "host_status", "note_get", "note_history", "pane_tail", "panes_status", "report", "report_read", "sessions_list"}
 	opsTools := []string{"ask_pick", "dispatch", "note_log", "note_set", "pane_close", "pane_start", "send_escape", "send_text"}
 	reportClients := []*harness.Client{h.Report(), h.ReportB(), h.Connect("/report", harness.OpsA)}
 	for _, c := range reportClients {
@@ -126,7 +126,7 @@ func TestToolListsAndScopes(t *testing.T) {
 	all := append(slices.Clone(viewTools), opsTools...)
 	slices.Sort(all)
 	for _, c := range []*harness.Client{h.Ops(), h.OpsB()} {
-		if got := names(c); !slices.Equal(got, all) || len(got) != 17 {
+		if got := names(c); !slices.Equal(got, all) || len(got) != 18 {
 			t.Errorf("/ops（%s）の tools/list = %v", c.Name, got)
 		}
 	}

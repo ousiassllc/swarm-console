@@ -12,7 +12,7 @@ import (
 )
 
 var viewTools = []string{
-	"report", "panes_status", "pane_tail", "ask_card", "report_read", "host_status", "agent_auth_status", "note_get", "note_history",
+	"report", "sessions_list", "panes_status", "pane_tail", "ask_card", "report_read", "host_status", "agent_auth_status", "note_get", "note_history",
 }
 
 var opsTools = []string{

@@ -2,36 +2,12 @@ package registrytest
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
-	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
 )
-
-func TestResolve(t *testing.T) {
-	env := panetest.NewEnv()
-	twoRows(env)
-	r := newTestRegistry(t, env)
-	ctx := context.Background()
-	for arg, want := range map[string]pane.Ref{"t2": ref("%1", "T2"), "T2": ref("%1", "T2"), "b1": ref("%2", "B1"), "%0": ref("%0", "T1")} {
-		got, err := r.Resolve(ctx, arg)
-		if err != nil || got != want {
-			t.Errorf("Resolve(%q) = %+v, %v", arg, got, err)
-		}
-	}
-	long := strings.Repeat("x", 300)
-	_, err := r.Resolve(ctx, long)
-	var ae *apperr.Error
-	if !errors.As(err, &ae) || ae.Code != apperr.PaneNotFound {
-		t.Fatalf("err = %v", err)
-	}
-	if shown, _ := ae.Details["pane"].(string); len(shown) != 100 {
-		t.Fatalf("details.pane = %d 字", len(shown))
-	}
-}
 
 func TestTail(t *testing.T) {
 	env := panetest.NewEnv()

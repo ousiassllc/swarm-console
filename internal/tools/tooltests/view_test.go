@@ -134,20 +134,6 @@ func TestAgentAuthStatus(t *testing.T) {
 	}
 }
 
-func TestPanesStatusSessionFilter(t *testing.T) {
-	f := toolstest.New(t)
-	f.Cfg.Sessions = []string{"0", "w"}
-	f.Registry.Snap.Panes[1].Session = "w"
-	m := mustCall(t, f, "panes_status", `{"session":"w"}`)
-	panes := m["panes"].([]any)
-	if len(panes) != 1 || panes[0].(map[string]any)["pos"] != "T2" {
-		t.Errorf("session=w のペイン = %v", panes)
-	}
-	if all := mustCall(t, f, "panes_status", `{}`)["panes"].([]any); len(all) != 5 {
-		t.Errorf("session 省略のペイン数 = %d", len(all))
-	}
-}
-
 func TestPanesStatusKeyOrder(t *testing.T) {
 	f := toolstest.New(t)
 	text, _ := call(t, f, "panes_status", `{}`)

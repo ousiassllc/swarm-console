@@ -10,7 +10,7 @@ func (h *H) writeConfig(o Options) {
 	kv := map[string]string{
 		"listen_addr":        fmt.Sprintf("%q", h.Addr),
 		"tmux_socket":        fmt.Sprintf("%q", h.TM.Socket),
-		"sessions":           fmt.Sprintf("[%q]", Session),
+		"sessions":           sessionsLiteral(o.ExtraSessions),
 		"allowed_roots":      fmt.Sprintf("[%q]", h.Work),
 		"file_roots":         fmt.Sprintf("[%q]", h.Files),
 		"report_dir":         fmt.Sprintf("%q", h.Reports),
@@ -24,6 +24,9 @@ func (h *H) writeConfig(o Options) {
 		// 実際の omp・GitHub に依らない（PATH の omp は擬似エージェント）。収集器は serve の配線テスト（cmd/swarm-console）で通す。
 		"usage_check":  "false",
 		"update_check": "false",
+	}
+	if len(o.ExtraSessions) > 0 {
+		kv["default_session"] = fmt.Sprintf("%q", Session)
 	}
 	for k, v := range o.Config {
 		kv[k] = v
@@ -63,4 +66,13 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// sessionsLiteral は config.toml の sessions（main のあとに extra）。
+func sessionsLiteral(extra []string) string {
+	parts := []string{fmt.Sprintf("%q", Session)}
+	for _, s := range extra {
+		parts = append(parts, fmt.Sprintf("%q", s))
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
