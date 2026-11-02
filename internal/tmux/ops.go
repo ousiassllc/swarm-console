@@ -81,8 +81,18 @@ func (c *Client) SendLiteral(ctx context.Context, id, text string) error {
 	if text == "" {
 		return nil
 	}
-	_, err := c.run(ctx, subSendKeys, "", "-l", "-t", id, "--", text)
+	_, err := c.run(ctx, subSendKeys, "", "-l", "-t", id, "--", escapeTrailingSemicolon(text))
 	return err
+}
+
+// escapeTrailingSemicolon は末尾が ";" の引数の ";" の前に "\" を足す。
+// tmux は末尾が ";" の引数をコマンドの区切りとして解釈して ";" を捨てる（"\;" と書くと文字の ";" になる）。
+// 末尾が "\;" の引数も、同じ規則で "\\;" にすると "\;" に戻る。途中の ";" は tmux が解釈しない。
+func escapeTrailingSemicolon(s string) string {
+	if strings.HasSuffix(s, ";") {
+		return s[:len(s)-1] + `\;`
+	}
+	return s
 }
 
 // Paste は一意名のバッファへ標準入力から load-buffer し、paste-buffer -p -d で bracketed paste する。
@@ -119,7 +129,7 @@ func (c *Client) SetTitle(ctx context.Context, id, title string) error {
 	if err := checkPane(id); err != nil {
 		return err
 	}
-	_, err := c.run(ctx, subSelectPane, "", "-t", id, "-T", strings.ReplaceAll(title, "#", "##"))
+	_, err := c.run(ctx, subSelectPane, "", "-t", id, "-T", escapeTrailingSemicolon(strings.ReplaceAll(title, "#", "##")))
 	return err
 }
 
