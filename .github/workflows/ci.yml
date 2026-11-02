@@ -32,7 +32,7 @@ jobs:
         with:
           version: v2.12
       - name: Linterly
-        run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check
+        run: go install github.com/ousiassllc/linterly/cmd/linterly@v0.3.3 && linterly check
       - name: Release plan test
         run: bash .github/scripts/plan-release_test.sh
       - name: Install script test
