@@ -209,6 +209,35 @@ func TestReportPaneDetail(t *testing.T) {
 	wantCode(t, err, apperr.PaneNotFound)
 }
 
+// P-30: 詳しい版の最終報告欄は、リンクを辿らず「なし」（リンク先の更新時刻を出さない）。通常ファイルは「あり」。
+func TestReportPaneDetailIgnoresSymlink(t *testing.T) {
+	f := toolstest.New(t)
+	secret := filepath.Join(f.Root, "secret.txt")
+	if err := os.WriteFile(secret, []byte("TOP"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(f.Cfg.ReportDir, "T2.md")
+	if err := os.Symlink(secret, link); err != nil {
+		t.Fatal(err)
+	}
+	text, err := call(t, f, "report", `{"pane":"T2"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(text, link) || !strings.Contains(text, "最終報告") || !strings.Contains(text, "なし") {
+		t.Errorf("リンクが最終報告として見えています:\n%s", text)
+	}
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(link, []byte("報告"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if text, err = call(t, f, "report", `{"pane":"T2"}`); err != nil || !strings.Contains(text, link) {
+		t.Errorf("通常ファイルが最終報告として見えません (err=%v):\n%s", err, text)
+	}
+}
+
 func TestNoteGetAndHistory(t *testing.T) {
 	f := toolstest.New(t)
 	if text, _ := call(t, f, "note_get", `{"pane":"T1"}`); text != `{"pane":"T1","id":"%1","note":null}` {

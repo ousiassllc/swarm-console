@@ -11,8 +11,9 @@ import (
 )
 
 // ReportFS は最終報告ファイルの出入り（ER §7）。テストではメモリ上の実装に差し替える。
+// Lstat はシンボリックリンクを辿らない（P-30。リンク先の有無・更新時刻を見せない）。
 type ReportFS interface {
-	Stat(path string) (fs.FileInfo, error)
+	Lstat(path string) (fs.FileInfo, error)
 	ReadFile(path string) ([]byte, error)
 	MkdirAll(path string, perm os.FileMode) error
 	Rename(oldPath, newPath string) error
@@ -21,8 +22,8 @@ type ReportFS interface {
 // OSReportFS は os パッケージによる ReportFS。
 type OSReportFS struct{}
 
-// Stat は os.Stat。
-func (OSReportFS) Stat(path string) (fs.FileInfo, error) { return os.Stat(path) }
+// Lstat は os.Lstat（リンクを辿らない）。
+func (OSReportFS) Lstat(path string) (fs.FileInfo, error) { return os.Lstat(path) }
 
 // ReadFile は os.ReadFile。
 func (OSReportFS) ReadFile(path string) ([]byte, error) { return os.ReadFile(path) } //nolint:gosec // 呼び出し側が report_dir 配下の固定形式のパスだけを渡す
@@ -43,9 +44,9 @@ func ReportPath(dir, pos string) string {
 	return filepath.Join(dir, reportBase(pos)+".md")
 }
 
-// ReportExists は最終報告ファイルが（空でも）通常ファイルとしてあるか。
+// ReportExists は最終報告ファイルが（空でも）通常ファイルとしてあるか。シンボリックリンクは「無い」（P-30）。
 func ReportExists(f ReportFS, dir, pos string) bool {
-	fi, err := f.Stat(ReportPath(dir, pos))
+	fi, err := f.Lstat(ReportPath(dir, pos))
 	return err == nil && fi.Mode().IsRegular()
 }
 
@@ -62,7 +63,7 @@ func ArchiveReport(f ReportFS, dir, pos string, now time.Time) (moved bool, err 
 	stem := reportBase(pos) + "-" + strconv.FormatInt(now.Unix(), 10)
 	dst := filepath.Join(archive, stem+".md")
 	for i := 1; ; i++ {
-		if _, err := f.Stat(dst); err != nil {
+		if _, err := f.Lstat(dst); err != nil {
 			break
 		}
 		dst = filepath.Join(archive, stem+"-"+strconv.Itoa(i)+".md")
