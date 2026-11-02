@@ -251,3 +251,35 @@ func TestHostStatusSessionScope(t *testing.T) {
 		t.Errorf("セッションが無いとき: %v", got)
 	}
 }
+
+// 実際のスナップショットと同じ形の固定名（Local・GlobalPos とも固定名・Fixed）は、別セッションの文脈では
+// 許可外なら session_forbidden、許可内なら invalid_args(pane)。セッション内の位置のように「見つからない」にはならない。
+func TestFixedNameAcrossSessions(t *testing.T) {
+	f := twoSessions(t)
+	for i := range f.Registry.Snap.Panes {
+		if p := &f.Registry.Snap.Panes[i]; p.ID == "%13" {
+			p.Pos, p.GlobalPos, p.Local, p.Fixed = "review", "review", "review", true
+		}
+	}
+	if m := mustAs(t, f, natsumi, "pane_tail", `{"pane":"review"}`); m["pane"] != "review" {
+		t.Errorf("natsumi の review = %v", m)
+	}
+	if e := errAs(t, f, kana, "pane_tail", `{"pane":"review"}`); e.Code != apperr.SessionForbidden || e.Details["session"] != "1" {
+		t.Errorf("kana の review: %s %v", e.Code, e.Details)
+	}
+	if e := errAs(t, f, boss, "pane_tail", `{"session":"0","pane":"review"}`); e.Code != apperr.InvalidArgs || e.Details["field"] != "pane" {
+		t.Errorf("boss session=0 の review: %s %v", e.Code, e.Details)
+	}
+}
+
+// 認証を通っていない（名前の無い）Client は、AllowedSessions が nil でも何も許可されない（fail-closed）。
+func TestAnonymousClientGetsNothing(t *testing.T) {
+	f := twoSessions(t)
+	anon := auth.Client{Scope: auth.ScopeOps}
+	if e := errAs(t, f, anon, "pane_tail", `{"session":"0","pane":"T1"}`); e.Code != apperr.SessionForbidden {
+		t.Errorf("名前の無い Client: %s", e.Code)
+	}
+	if got := sessionsOf(t, mustAs(t, f, anon, "sessions_list", `{}`)); len(got) != 0 {
+		t.Errorf("sessions_list = %v", got)
+	}
+}

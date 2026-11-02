@@ -39,6 +39,7 @@ type PaneState struct { //nolint:revive // render・tools が使う公開契約�
 	ID        string // %12
 	Pos       string // T1 / work:B2 / w1.T2（固定名があればそれ）。セッションを絞った応答（ForSession）では Local
 	Local     string // セッション内の位置（接頭辞なし。T1 / w1.T2。固定名があればそれ）
+	Fixed     bool   // pane_names の固定名が付いている（Local・GlobalPos とも固定名。セッションをまたいで一意）
 	GlobalPos string // 接頭辞つきの位置。ForSession が Pos を Local に替えても、最終報告のファイル名はこれで決める
 	Session   string
 	Window    int

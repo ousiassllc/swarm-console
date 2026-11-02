@@ -148,3 +148,19 @@ func TestSessionMissingIsPerSession(t *testing.T) {
 		t.Errorf("存在しないセッション: %+v", got)
 	}
 }
+
+// pane_names の固定名は、セッションをまたいで一意（Fixed）。Local も固定名になり、接頭辞のない位置と区別できる。
+func TestFixedNamePaneIsMarkedFixed(t *testing.T) {
+	env, s0, s1 := twoSessionEnv()
+	env.Cfg.PaneNames = map[string]string{"1:0." + strconv.Itoa(s1[2].PaneIndex): "review"}
+	snap := mustRefresh(t, newTestRegistry(t, env))
+	p := byID(t, snap, s1[2].ID)
+	if !p.Fixed || p.Pos != "review" || p.Local != "review" || p.ReportPos() != "review" {
+		t.Fatalf("固定名のペイン: %+v", p)
+	}
+	for _, other := range append(append([]tmux.PaneInfo{}, s0...), s1[:2]...) {
+		if byID(t, snap, other.ID).Fixed {
+			t.Fatalf("固定名でないペインに Fixed が立っている: %s", other.ID)
+		}
+	}
+}

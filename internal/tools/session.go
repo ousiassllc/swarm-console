@@ -26,7 +26,11 @@ const sessionPropDesc = "対象の tmux セッション名。省略は、許可�
 func sessionProp() map[string]any { return strProp(sessionPropDesc) }
 
 // allowed は c が触れるセッション（トークンの allowed_sessions と config の sessions の共通部分）。
+// 認証を通っていない（名前の無い）Client は何も許可しない。AllowedSessions が nil（全許可）の番兵に当たらないようにする。
 func (e *env) allowed(c auth.Client) []string {
+	if c.Name == "" {
+		return []string{}
+	}
 	return session.Allowed(c.AllowedSessions, e.Cfg.Sessions)
 }
 

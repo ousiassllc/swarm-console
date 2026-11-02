@@ -2,6 +2,7 @@ package session_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
@@ -80,9 +81,13 @@ func snap() *pane.Snapshot {
 	mk := func(id, session, global, local string) pane.PaneState {
 		return pane.PaneState{ID: id, Session: session, Pos: global, GlobalPos: global, Local: local}
 	}
+	// 固定名（pane_names）は、実際のスナップショットと同じく Local も固定名で、Fixed が立つ。
+	fixed := func(id, session, name string) pane.PaneState {
+		return pane.PaneState{ID: id, Session: session, Pos: name, GlobalPos: name, Local: name, Fixed: true}
+	}
 	return &pane.Snapshot{Panes: []pane.PaneState{
 		mk("%1", "0", "T1", "T1"), mk("%2", "0", "T2", "T2"),
-		mk("%11", "1", "1:T1", "T1"), mk("%12", "1", "1:T2", "T2"), mk("%13", "1", "review", "T3"),
+		mk("%11", "1", "1:T1", "T1"), mk("%12", "1", "1:T2", "T2"), fixed("%13", "1", "review"),
 	}}
 }
 
@@ -103,8 +108,8 @@ func TestResolveInSession(t *testing.T) {
 		{"大文字小文字は区別しない", both, "1", "t2", "%12", "1:T2", "T2", "", ""},
 		{"tmux ID", both, "1", "%12", "%12", "1:T2", "T2", "", ""},
 		{"接頭辞つきの位置（セッションと一致）", both, "1", "1:T2", "%12", "1:T2", "T2", "", ""},
-		{"<セッション>:<セッション内の位置>", both, "1", "1:t3", "%13", "review", "T3", "", ""},
-		{"固定名", both, "1", "review", "%13", "review", "T3", "", ""},
+		{"<セッション>:<セッション内の位置>", both, "1", "1:t2", "%12", "1:T2", "T2", "", ""},
+		{"固定名", both, "1", "review", "%13", "review", "review", "", ""},
 		{"許可外セッションの tmux ID → session_forbidden", []string{"0"}, "0", "%11", "", "", "", apperr.SessionForbidden, ""},
 		{"許可外セッションの接頭辞つきの位置 → session_forbidden", []string{"0"}, "0", "1:T1", "", "", "", apperr.SessionForbidden, ""},
 		{"許可外の固定名 → session_forbidden", []string{"0"}, "0", "review", "", "", "", apperr.SessionForbidden, ""},
@@ -129,6 +134,15 @@ func TestResolveInSession(t *testing.T) {
 		if c.field != "" && e.Details["field"] != c.field {
 			t.Errorf("%s: details = %v", c.name, e.Details)
 		}
+	}
+}
+
+// 長い引数は details.pane に 100 字までしか載せない（クライアントの入力をそのまま返さない）。
+func TestResolveNotFoundEchoIsClipped(t *testing.T) {
+	_, err := session.Resolve(snap(), []string{"0", "1"}, "0", strings.Repeat("x", 300))
+	e := apperr.As(err)
+	if shown, _ := e.Details["pane"].(string); e.Code != apperr.PaneNotFound || len(shown) != 100 {
+		t.Fatalf("%s details=%v", e.Code, e.Details)
 	}
 }
 

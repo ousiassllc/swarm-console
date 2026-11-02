@@ -130,17 +130,24 @@ func namePositions(panes []tmux.PaneInfo, cfg *config.Config, local bool) map[st
 		for r, row := range rows {
 			for c, p := range row {
 				names[p.ID] = prefix + rowName(r, len(rows)) + strconv.Itoa(c+1)
-				if cfg == nil {
-					continue
-				}
-				fixed := p.Session + ":" + strconv.Itoa(p.Window) + "." + strconv.Itoa(p.PaneIndex)
-				if n, ok := cfg.PaneNames[fixed]; ok && n != "" {
+				if n, ok := fixedName(p, cfg); ok {
 					names[p.ID] = n
 				}
 			}
 		}
 	}
 	return names
+}
+
+// fixedName は pane_names の固定名（キーは <セッション>:<ウィンドウ>.<ペイン番号>）。あればその名前と true。
+// 固定名はセッションをまたいで一意（接頭辞のない位置のように、セッション内でだけ通じる名前ではない）。
+func fixedName(p tmux.PaneInfo, cfg *config.Config) (string, bool) {
+	if cfg == nil {
+		return "", false
+	}
+	key := p.Session + ":" + strconv.Itoa(p.Window) + "." + strconv.Itoa(p.PaneIndex)
+	n, ok := cfg.PaneNames[key]
+	return n, ok && n != ""
 }
 
 // ComputeLayout は panes_status の layout を返す。複数セッションのときは、既定セッション

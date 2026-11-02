@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
@@ -15,7 +14,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/render"
 )
 
-type panesStatusArgs struct {
+type sessionArgs struct {
 	Session *string `json:"session"`
 }
 
@@ -30,7 +29,7 @@ func (e *env) panesStatusTool() Tool {
 }
 
 func (e *env) panesStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
-	var a panesStatusArgs
+	var a sessionArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}
@@ -79,7 +78,7 @@ func (e *env) hostStatusTool() Tool {
 }
 
 func (e *env) hostStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
-	var a panesStatusArgs
+	var a sessionArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}

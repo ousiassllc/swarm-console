@@ -54,8 +54,10 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 		o := obs[i]
 		changedAt, hash, state, elapsed := r.track(p.ID, o, now)
 		act, trunc := TruncateRunes(oneLine(o.activity), activityMax)
+		_, fixed := fixedName(p, cfg)
 		ps := PaneState{
-			ID: p.ID, Pos: names[p.ID], Local: locals[p.ID], GlobalPos: names[p.ID], Session: p.Session, Window: p.Window, PaneIndex: p.PaneIndex,
+			Fixed: fixed,
+			ID:    p.ID, Pos: names[p.ID], Local: locals[p.ID], GlobalPos: names[p.ID], Session: p.Session, Window: p.Window, PaneIndex: p.PaneIndex,
 			Top: p.Top, Left: p.Left,
 			Agent: o.agentName, State: state, Title: p.Title, Cwd: p.CurrentPath,
 			Elapsed: elapsed, Activity: act, ActivityTrunc: trunc,

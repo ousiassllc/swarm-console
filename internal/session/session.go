@@ -62,7 +62,7 @@ func Resolve(snap *pane.Snapshot, allowed []string, in, arg string) (pane.Ref, e
 	for i := range snap.Panes {
 		p := &snap.Panes[i]
 		// セッション文脈では、接頭辞のない名前（T1）はセッション内の位置なので、ほかのセッションの同名ペインを指さない。
-		plain := in != "" && strings.EqualFold(p.ReportPos(), p.LocalPos()) && strings.EqualFold(arg, p.LocalPos())
+		plain := in != "" && !p.Fixed && strings.EqualFold(p.ReportPos(), p.LocalPos()) && strings.EqualFold(arg, p.LocalPos())
 		if plain || !matches(p, arg, false) {
 			continue
 		}
