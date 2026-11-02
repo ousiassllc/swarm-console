@@ -28,7 +28,7 @@ tmux の中で動く AI コーディングエージェント（omp・Claude Code
 - サーバー側で組み立てる `report`（日本語・英語の markdown）と `dispatch`（条件のひな形つき指示文）
 - MCP の prompts（`report`・`dispatch`）と resources（`swarm://report`・`swarm://pane/<位置>`・`swarm://notes/<位置>`）
 - クライアントごとの Bearer トークン（窓口付き）の発行・無効化 CLI
-- systemd ユーザーサービスとしての常駐、GitHub Releases での配布、CI（build・vet・golangci-lint・test -race）
+- systemd ユーザーサービスとしての常駐、GitHub Releases での配布、CI（build・vet・golangci-lint・linterly・release plan test・install script test・test -race。[環境構築：CI/CD](environment/setup-ci.md#cicd)）
 - 実 tmux と擬似エージェント画面を使ったテスト
 
 ### 含まないもの
@@ -153,3 +153,4 @@ graph TD
 | 1.2 | 2026-11-01 | 運用者の役割を自己更新に合わせて更新 | Issue #7（自己更新で確定） |
 | 1.3 | 2026-11-01 | 300 行超過ファイルを分割し、ドキュメントマップを新しいファイルに合わせて更新。内容の変更なし | Issue #3 |
 | 1.4 | 2026-11-01 | ドキュメントマップに機能要件：インストール（`make install`）を追加 | Issue #18 |
+| 1.5 | 2026-11-02 | スコープの CI の説明に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
