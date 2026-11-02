@@ -33,6 +33,15 @@ func WithSecretDetector(d SecretDetector) Option {
 	return func(s *fileStore) { s.detect = d }
 }
 
+// WithLogger は退避の警告を出すロガーを設定する。nil（既定）なら出さない。
+func WithLogger(l *slog.Logger) Option {
+	return func(s *fileStore) {
+		if l != nil {
+			s.logger = l
+		}
+	}
+}
+
 // WithWriteFile は書き込み関数を差し替える（書き込み途中停止の注入用。既定は store.WriteFileAtomic）。
 func WithWriteFile(w func(path string, data []byte, perm os.FileMode) error) Option {
 	return func(s *fileStore) { s.write = w }
@@ -61,6 +70,7 @@ type fileStore struct {
 	path   string
 	clk    clock.Clock
 	detect SecretDetector
+	logger *slog.Logger
 	write  func(string, []byte, os.FileMode) error
 	data   fileData
 }
@@ -68,7 +78,7 @@ type fileStore struct {
 // NewStore は path の notes.json を開く。無ければ空で始める。壊れていれば
 // notes.json.corrupt-<時刻> に退避して空で始め、警告をログに出す（NFR-AVL-3）。
 func NewStore(path string, clk clock.Clock, opts ...Option) (Store, error) {
-	s := &fileStore{path: path, clk: clk, write: store.WriteFileAtomic}
+	s := &fileStore{path: path, clk: clk, logger: slog.New(slog.DiscardHandler), write: store.WriteFileAtomic}
 	for _, o := range opts {
 		o(s)
 	}
@@ -133,7 +143,7 @@ func (s *fileStore) load() error {
 		if qerr != nil {
 			return qerr
 		}
-		slog.Warn("notes.json が壊れているため退避して空で開始します", "path", s.path, "moved_to", dest, "reason", perr.Error())
+		s.logger.Warn("notes.json が壊れているため退避して空で開始します", "path", s.path, "moved_to", dest, "reason", perr.Error())
 		s.data = emptyData()
 		return nil
 	}

@@ -59,7 +59,7 @@ func newEnv(t *testing.T) *env {
 	e := &env{f: f, logs: logs, tokens: map[string]string{}, tokPath: tokPath}
 	e.addToken(t, "viewer", auth.ScopeReport)
 	e.addToken(t, "boss", auth.ScopeOps)
-	a, err := auth.Open(tokPath, clock.Real{})
+	a, err := auth.Open(tokPath, clock.Real{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

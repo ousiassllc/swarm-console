@@ -47,7 +47,7 @@ func (f *fixture) add(t *testing.T, name string, scope Scope) {
 
 func (f *fixture) open(t *testing.T) {
 	t.Helper()
-	a, err := Open(f.path, f.clk)
+	a, err := Open(f.path, f.clk, nil)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

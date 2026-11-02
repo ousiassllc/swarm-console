@@ -37,7 +37,7 @@ func TestOpenRejectsBadFiles(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "tokens.toml")
 			writeRaw(t, path, c.content, c.mode)
-			_, err := Open(path, clock.NewFake(baseTime))
+			_, err := Open(path, clock.NewFake(baseTime), nil)
 			if err == nil {
 				t.Fatal("起動拒否（error）になるはず")
 			}
@@ -54,7 +54,7 @@ func TestOpenRejectsBadFiles(t *testing.T) {
 func TestOpenAcceptsValidFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "tokens.toml")
 	writeRaw(t, path, okRec, 0o600)
-	if _, err := Open(path, clock.NewFake(baseTime)); err != nil {
+	if _, err := Open(path, clock.NewFake(baseTime), nil); err != nil {
 		t.Fatal(err)
 	}
 }

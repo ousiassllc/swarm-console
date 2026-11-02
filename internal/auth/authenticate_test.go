@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/subtle"
+	"encoding/json"
+	"log/slog"
 	"sync"
 	"testing"
 
@@ -143,7 +146,7 @@ func TestAuthenticateConcurrentWithRevoke(t *testing.T) {
 func TestMissingFileAllUnauthorizedThenPicksUpCreatedFile(t *testing.T) {
 	f := newFixture(t)
 	missing := f.path + ".none"
-	a, err := Open(missing, f.clk)
+	a, err := Open(missing, f.clk, nil)
 	if err != nil {
 		t.Fatalf("ファイル無しで Open は成功する: %v", err)
 	}
@@ -198,4 +201,28 @@ func TestBadPermissionOrBrokenFileFailsClosedThenRecovers(t *testing.T) {
 	if _, err := f.a.Authenticate(f.bearer("adm")); err != nil {
 		t.Fatalf("直したら復旧する: %v", err)
 	}
+}
+
+// 再読み込みの警告は注入したロガーへ出る（NFR-OPS-5）。nil ならパニックせず出さない。
+func TestRefreshWarningUsesInjectedLogger(t *testing.T) {
+	f := newFixture(t)
+	var buf bytes.Buffer
+	a, err := Open(f.path, f.clk, slog.New(slog.NewJSONHandler(&buf, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	chmod(t, f.path, 0o644)
+	_, err = a.Authenticate(f.bearer("adm"))
+	requireUnauthorized(t, err)
+	var rec map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &rec); err != nil {
+		t.Fatalf("警告が 1 行の JSON でない: %q: %v", buf.String(), err)
+	}
+	if rec["level"] != "WARN" || rec["msg"] != "tokens.toml を読み込めないため認証を拒否します" || rec["error"] == nil {
+		t.Errorf("警告の中身が違う: %v", rec)
+	}
+
+	// nil ロガー（f.a）でも拒否は同じで、パニックしない。
+	_, err = f.a.Authenticate(f.bearer("adm"))
+	requireUnauthorized(t, err)
 }
