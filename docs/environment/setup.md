@@ -130,3 +130,4 @@ make install
 | 1.8 | 2026-11-02 | golangci-lint のキャッシュを worktree ごとに分ける（Makefile の `GOLANGCI_LINT_CACHE`、lefthook、`.gitignore` の `/.cache/`）。setup-quality.md に混入の原因と直接実行の注意を追加 | Issue #32 |
 | 1.9 | 2026-11-02 | Linterly を `@latest` から `v0.3.3` 固定に変更（ci.yml・setup-ci.md・setup-quality.md・setup.md） | Issue #52 |
 | 1.10 | 2026-11-02 | 初回セットアップの `make check` の内訳に `plan-test`・`install-test` を足した（Makefile・setup-quality.md と同じ順序）。ディレクトリ構造に `deploy/`・`.github/scripts/`・`.gitignore` を追加 | Issue #39・#47 |
+| 1.11 | 2026-11-02 | setup-ci.md の「最初のリリース」の行を過去形の経緯に直した（「今はタグ・リリースとも無い」を削除） | Issue #63 |
