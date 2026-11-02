@@ -4,6 +4,7 @@ package agent
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 )
@@ -127,3 +128,13 @@ func Names() []string {
 	sort.Strings(out)
 	return out
 }
+
+// builtinNames は組み込みのエージェント（FR-SAFE-3）。並びはここだけに書く。
+// pane_start・dispatch の agent の選択肢、agent_auth_status・report の auth、setup の質問、[agents.<name>] の検査はこの順・この対象。
+var builtinNames = [...]string{"omp", "claude", "codex"}
+
+// Builtin は組み込みのエージェント名を決まった並び（omp・claude・codex）で返す。呼ぶたびに新しいスライスを返すので、変更しても元は変わらない。
+func Builtin() []string { return slices.Clone(builtinNames[:]) }
+
+// IsBuiltin は name が組み込みのエージェントか。
+func IsBuiltin(name string) bool { return slices.Contains(builtinNames[:], name) }

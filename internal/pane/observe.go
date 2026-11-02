@@ -83,10 +83,16 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 }
 
 // identify はエージェントを特定する。まず /proc のプロセス木（process_match）、取れなければ画面の特徴（P-06）。
-// プロセス木を読めて前面コマンドがシェルなら、画面に残った過去の表示で誤判定しないよう画面は見ない。
+// 前面コマンドがシェルなら、画面に残った過去の表示で誤判定しないよう画面は見ない。木を読めるときは、木にエージェントが
+// いない（木が空でない）ことも条件にし、読めないときは前面コマンドだけで決める（/proc が読めない環境でも pane_close が誤って
+// exit_timeout にならないように。Issue #35）。
 func (r *SnapshotRegistry) identify(p tmux.PaneInfo, screen agent.Screen) (string, agent.Adapter) {
 	procs, err := r.deps.Host.ProcTree(p.PID)
-	if err == nil {
+	if err != nil {
+		if isShellCommand(p.CurrentCmd) {
+			return "", nil
+		}
+	} else {
 		for _, name := range r.names {
 			ad := r.deps.Adapters[name]
 			for _, pr := range procs {

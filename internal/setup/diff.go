@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/config/tomledit"
 )
@@ -17,7 +18,7 @@ func Diff(st *State, ans Values, home string) []tomledit.Op {
 	d.sessions(ans.Sessions, ans.DefaultSession)
 	d.paths(keyAllowed, ans.AllowedRoots, config.DefaultAllowedRoots())
 	d.paths(keyDenied, ans.DeniedPaths, config.DefaultDeniedPaths())
-	for _, name := range AgentNames {
+	for _, name := range agent.Builtin() {
 		d.agent(name, ans.Agents[name])
 	}
 	return d.ops

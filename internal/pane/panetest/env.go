@@ -42,7 +42,8 @@ func NewEnv() *Env {
 	}
 }
 
-// Pane は 1 ペインを tmux・host に登録する。argv が nil ならプロセス木は設定しない（/proc が読めない状態）。
+// Pane は 1 ペインを tmux・host に登録する。argv が nil ならプロセス木は shell だけ（エージェントなし）。
+// プロセス木が読めない状態にするには、あとで Host.ClearTree(pid) を呼ぶ。
 // session "0"・window 0 で、シェルの前面コマンドは bash。
 func (e *Env) Pane(id string, pid, top, left int, screen string, argv []string) tmux.PaneInfo {
 	p := tmux.PaneInfo{ID: id, Session: "0", PaneIndex: pid, Top: top, Left: left, PID: pid, CurrentCmd: "bash", Title: "t" + id, CurrentPath: "/work"}

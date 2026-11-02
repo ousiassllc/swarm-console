@@ -17,6 +17,29 @@ func TestRegistered(t *testing.T) {
 	}
 }
 
+// 組み込みの一覧は、登録済みのアダプタと同じ名前（並びだけ違う）で、呼び出し側が変更しても元は変わらない。
+func TestBuiltinMatchesRegistered(t *testing.T) {
+	got := agent.Builtin()
+	if !slices.Equal(got, []string{"omp", "claude", "codex"}) {
+		t.Fatalf("Builtin = %v", got)
+	}
+	if sorted := slices.Sorted(slices.Values(got)); !slices.Equal(sorted, agent.Names()) {
+		t.Fatalf("Builtin %v と登録済み %v が食い違う", got, agent.Names())
+	}
+	got[0] = "changed"
+	if again := agent.Builtin(); again[0] != "omp" {
+		t.Fatalf("呼び出し側の変更が元に入った: %v", again)
+	}
+	for _, name := range agent.Names() {
+		if !agent.IsBuiltin(name) {
+			t.Errorf("IsBuiltin(%q) = false", name)
+		}
+	}
+	if agent.IsBuiltin("vim") || agent.IsBuiltin("") {
+		t.Error("組み込みでない名前を認めた")
+	}
+}
+
 // 不正な正規表現は、どのアダプタ・どのキーでも Factory のエラーになる。
 func TestInvalidRegexpIsFactoryError(t *testing.T) {
 	const bad = `(unclosed`

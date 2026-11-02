@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/pane"
@@ -163,8 +164,9 @@ func (e *env) agentAuthStatus(_ context.Context, _ auth.Client, raw json.RawMess
 		return Result{}, err
 	}
 	now := e.now()
-	entries := make([]authEntryJSON, 0, len(pane.Agents))
-	for _, name := range pane.Agents {
+	names := agent.Builtin()
+	entries := make([]authEntryJSON, 0, len(names))
+	for _, name := range names {
 		var authFile string
 		if ov, ok := e.Cfg.Agents[name]; ok && ov.AuthFile != nil {
 			authFile = *ov.AuthFile
