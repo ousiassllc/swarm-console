@@ -78,3 +78,25 @@ func TestResourceReadFollowsACL(t *testing.T) {
 		t.Errorf("boss はセッション内の位置（T3）を使えない: %v", err)
 	}
 }
+
+// 認証を通っていない（名前の無い）Client は resources でも何も見えず・読めない。
+func TestResourcesAnonymousClientGetsNothing(t *testing.T) {
+	f := twoSessions(t)
+	anon := auth.Client{Scope: auth.ScopeOps}
+	if got := listPanes(t, f, anon); len(got) != 0 {
+		t.Errorf("list = %v", got)
+	}
+	if f.Tools.ReportReadable(anon) {
+		t.Error("swarm://report を読めてしまう")
+	}
+	ctx := context.Background()
+	if _, err := f.Tools.ReportMarkdown(ctx, anon, "T1"); apperr.As(err).Code != apperr.SessionForbidden && apperr.As(err).Code != apperr.PaneNotFound {
+		t.Errorf("ReportMarkdown: %v", err)
+	}
+	if text, err := f.Tools.NoteJSON(ctx, anon, "%1"); err == nil {
+		t.Errorf("NoteJSON が読めた: %s", text)
+	}
+	if _, err := f.Tools.ReportMarkdown(ctx, anon, ""); apperr.As(err).Code != apperr.SessionRequired {
+		t.Errorf("全体: %v", err)
+	}
+}

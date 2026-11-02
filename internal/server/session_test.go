@@ -156,3 +156,24 @@ func TestAuditLogRecordsSession(t *testing.T) {
 		}
 	}
 }
+
+// resources/list が返した URI は、そのまま resources/read で読める（位置の ":" を %3A にしているため。
+// main では "swarm://pane/work:T1" のように ":" を生で載せ、読むと transport に Bad Request で拒否されていた）。
+func TestListedResourceURIsAreReadable(t *testing.T) {
+	e := sessionEnv(t)
+	for _, name := range []string{"kana", "natsumi", "boss"} {
+		cs := e.connect(t, "/ops", name)
+		uris := resourceURIs(t, cs)
+		if len(uris) < 2 {
+			t.Fatalf("%s: %v", name, uris)
+		}
+		for _, uri := range uris {
+			if name == "boss" && uri == "swarm://report" {
+				continue // 許可が複数だと session_required（一覧には出さない）
+			}
+			if _, err := readRes(t, cs, uri); err != nil {
+				t.Errorf("%s: list にある %s を読めません: %v", name, uri, err)
+			}
+		}
+	}
+}
