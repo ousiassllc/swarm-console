@@ -231,3 +231,4 @@ erDiagram
 | 1.5 | 2026-11-01 | `config.toml` に `usage_check`・`usage_interval` を追加。実行時の状態（`Snapshot`・`HOST_STATE`）にレポートに足す値を追加 | Issue #21〜#25 |
 | 1.6 | 2026-11-02 | §5 config.toml：検証表に `config` が実際に拒否する値（`sessions` の名前・`tmux_socket`・`title_prefix`・期間の下限・`allowed_roots` の空配列・`listen_addr` のゾーンとポート・`agents.<name>` の検証）を追加し、`AGENT_CONFIG` に `status_line_re`・`border_re` を追加。実装は変えない | Issue #45 |
 | 1.7 | 2026-11-02 | §7 最終報告の存在判定を、シンボリックリンクを辿らず「無し」とする（P-30 と揃える） | Issue #55 |
+| 1.8 | 2026-11-02 | §5 config.toml の検証表：`default_lang`・`report_dir` の行を追加、`pane_names` にキーの形（`<セッション>:<ウィンドウ>.<ペイン番号>`・`sessions` に含まれる）を追加し、`%` 始まりは名前の規則（英字始まり）の帰結と直した。`~` は `~` 単体か `~/…`（`~user` 形式は不可）と直した。実装は変えない | Issue #62 |
