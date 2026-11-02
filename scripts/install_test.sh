@@ -84,7 +84,7 @@ EOF
   chmod +x "$d"/*
 }
 
-# 偽の最新リリース：make_release <フォルダ> <版> [ずらす: badhash|noline|dup|crlf|star|badver]
+# 偽の最新リリース：make_release <フォルダ> <版> [ずらす: badhash|noline|dup|crlf|star|tab|sp3|sp1|badver]
 make_release() {
   local fix="$1" tag="$2" mode="${3:-}" asset dir h
   asset="swarm-console_${tag}_linux_amd64"
@@ -102,6 +102,9 @@ make_release() {
     dup) printf '%s  %s\n%s  %s\n' "$h" "$asset" "$h" "$asset" >"$dir/SHA256SUMS" ;;
     crlf) printf '%s  %s\r\n' "$h" "$asset" >"$dir/SHA256SUMS" ;;
     star) printf '%s *%s\n' "$h" "$asset" >"$dir/SHA256SUMS" ;;
+    tab) printf '%s\t%s\n' "$h" "$asset" >"$dir/SHA256SUMS" ;;
+    sp3) printf '%s   %s\n' "$h" "$asset" >"$dir/SHA256SUMS" ;;
+    sp1) printf '%s %s\n' "$h" "$asset" >"$dir/SHA256SUMS" ;;
     *) printf '%s  %s\n' "$h" "$asset" >"$dir/SHA256SUMS" ;;
   esac
   echo "$tag" >"$fix/latest"
@@ -184,8 +187,8 @@ run_install
 check "失敗する" test "$CODE" -ne 0
 check "入っているバイナリは変わらない" test "$(hash_of "$BIN")" = "$before"
 
-# 6. SHA256SUMS の形：行なし・重複は失敗、CRLF・* は許す
-for mode in noline dup; do
+# 6. SHA256SUMS の形：行なし・重複・タブ・空白 3 つ・空白 1 つ（* なし）は失敗（FR-UPD-14）、CRLF・* は許す
+for mode in noline dup tab sp3 sp1; do
   new_case "SHA256SUMS $mode"
   release v0.1.4 "$mode"
   run_install
@@ -256,16 +259,19 @@ check "失敗する" test "$CODE" -ne 0
 check "リンクも中身も変わらない" bash -c "[[ -L '$BIN' && \"\$(cat '$C/elsewhere/real')\" == old ]]"
 check "systemd に触れない" lacks "daemon-reload" "$STUB_LOG"
 
-# 11. unit が違う・リンクなら実ファイルで書き直して daemon-reload
-new_case "unit の書き直し"
-release v0.1.4
-mkdir -p "$H/.config/systemd/user" "$C/elsewhere"
-echo '[Unit]' >"$C/elsewhere/old.service"
-ln -s "$C/elsewhere/old.service" "$UNIT"
-run_install
-check "実ファイルになり deploy/ と同じ" bash -c "[[ ! -L '$UNIT' ]] && cmp -s '$ROOT/deploy/swarm-console.service' '$UNIT'"
-check "リンク先は変わらない" test "$(cat "$C/elsewhere/old.service")" = "[Unit]"
-check "daemon-reload する" has "daemon-reload" "$STUB_LOG"
+# 11. unit がリンクなら（リンク先が別内容でも deploy/ と同じ内容でも）実ファイルで書き直して daemon-reload。リンク先は変えない
+for target in '[Unit]' "$(cat "$ROOT/deploy/swarm-console.service")"; do
+  new_case "unit の書き直し（リンク先 ${target:0:6}）"
+  release v0.1.4
+  mkdir -p "$H/.config/systemd/user" "$C/elsewhere"
+  echo "$target" >"$C/elsewhere/old.service"
+  ln -s "$C/elsewhere/old.service" "$UNIT"
+  run_install
+  check "実ファイルになり deploy/ と同じ" bash -c "[[ ! -L '$UNIT' ]] && cmp -s '$ROOT/deploy/swarm-console.service' '$UNIT'"
+  check "リンク先は変わらない" test "$(cat "$C/elsewhere/old.service")" = "$target"
+  check "unit: written と出る" out_has "written"
+  check "daemon-reload が 1 回" test "$(grep -cF daemon-reload "$STUB_LOG")" -eq 1
+done
 
 # 12. 対応外の環境・起動しないサービス・リンガリングがすでに yes
 new_case "対応外の環境"
