@@ -3,6 +3,7 @@ package rendertest
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -60,6 +61,10 @@ func TestPaneJSONTruncatedOnlyWhenActivityCut(t *testing.T) {
 	status, err := render.PanesStatusJSON(snap)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// キーは note の次（API 仕様 §4。既存のキー順は変えない）。
+	if !regexp.MustCompile(`"note":null,"truncated":true`).Match(status) {
+		t.Fatalf("truncated が note の次に出ていない: %s", status)
 	}
 	for name, body := range map[string]string{
 		"panes_status": string(status),

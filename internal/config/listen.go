@@ -30,7 +30,7 @@ func IsTailnet(ip netip.Addr) bool {
 // 返す文字列は netip で正規化したもの。
 func CheckListenAddr(s string) (string, error) {
 	if s == "" {
-		return "", errors.New("listen_addr は必須です（tailnet の IP:ポート）")
+		return "", errors.New("listen_addr は必須です（tailnet の IP:48120）")
 	}
 	ap, err := netip.ParseAddrPort(s)
 	if err != nil {

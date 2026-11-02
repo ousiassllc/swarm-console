@@ -80,7 +80,7 @@ func notTerminal(in, out *os.File, termEnv string) string {
 
 // manualGuide は端末が無いときの手書きの案内。
 func manualGuide(path string) string {
-	return fmt.Sprintf(`手で書く場合は %s を作り、listen_addr（tailnet の IP:ポート。テスト用はループバック）を書いてください。例:
+	return fmt.Sprintf(`手で書く場合は %s を作り、listen_addr（tailnet の IP:48120。テスト用はループバック）を書いてください。例:
   mkdir -p "$(dirname %s)"
   printf 'listen_addr = "100.x.y.z:48120"\n' > %s
   swarm-console token add <名前> --scope ops
