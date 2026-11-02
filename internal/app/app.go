@@ -80,11 +80,11 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 		return nil, err
 	}
 	clk := clock.Real{}
-	authn, err := auth.Open(cfg.TokensPath, clk)
+	authn, err := auth.Open(cfg.TokensPath, clk, logger)
 	if err != nil {
 		return nil, fmt.Errorf("tokens.toml を開けません: %w", err)
 	}
-	store, err := notes.NewStore(cfg.NotesPath, clk, notes.WithSecretDetector(safety.DetectSecret))
+	store, err := notes.NewStore(cfg.NotesPath, clk, notes.WithSecretDetector(safety.DetectSecret), notes.WithLogger(logger))
 	if err != nil {
 		return nil, fmt.Errorf("notes.json を開けません: %w", err)
 	}
