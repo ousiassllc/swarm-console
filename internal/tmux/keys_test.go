@@ -34,6 +34,41 @@ func TestSendKeysAndLiteral(t *testing.T) {
 	srv.WaitFor(id, func(s string) bool { return strings.Contains(s, "12") })
 }
 
+// 末尾が ";"・"\;" のテキストも、tmux に区切りと解釈されず ";" ごとペインへ入力される。
+func TestSendLiteralKeepsTrailingSemicolon(t *testing.T) {
+	srv, c := setup(t)
+	ctx := context.Background()
+	id := srv.NewSession("semi", 80, 20, catPane)
+	srv.WaitForText(id, "READY")
+	for _, lit := range []string{"echo hi;", `echo bye\;`} {
+		if err := c.SendLiteral(ctx, id, lit); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.SendKeys(ctx, id, "Enter"); err != nil {
+			t.Fatal(err)
+		}
+		// cat が行を打ち返す。入力は stty -echo で見えないので、行ぜんたいが一致する行を待つ。
+		srv.WaitFor(id, func(s string) bool {
+			for _, line := range strings.Split(s, "\n") {
+				if strings.TrimRight(line, " ") == lit {
+					return true
+				}
+			}
+			return false
+		})
+	}
+}
+
+func TestEscapeTrailingSemicolon(t *testing.T) {
+	for in, want := range map[string]string{
+		"": "", "abc": "abc", "a;b": "a;b", "abc;": `abc\;`, `abc\;`: `abc\\;`, ";": `\;`, "a;;": `a;\;`,
+	} {
+		if got := escapeTrailingSemicolon(in); got != want {
+			t.Errorf("escapeTrailingSemicolon(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestSendKeysRejectsBadNames(t *testing.T) {
 	c := New("sctest-never-started")
 	ctx := context.Background()

@@ -216,6 +216,22 @@ func TestSetTitleIsLiteral(t *testing.T) {
 	}
 }
 
+// 末尾が ";" の引数は tmux にコマンドの区切りと解釈されて ";" が消える。末尾が ";"・"\;" でもそのまま入る。
+func TestSetTitleKeepsSemicolon(t *testing.T) {
+	srv, c := setup(t)
+	ctx := context.Background()
+	id := srv.NewSession("semi", 80, 20, sleepCmd)
+	for _, title := range []string{"abc;", `abc\;`, "a;b", ";", "x;;", "#a;"} {
+		if err := c.SetTitle(ctx, id, title); err != nil {
+			t.Fatal(err)
+		}
+		ps, err := c.ListPanes(ctx, []string{"semi"})
+		if err != nil || len(ps) != 1 || ps[0].Title != title {
+			t.Fatalf("タイトル %q が文字どおりに出ていない: %v %+v", title, err, ps)
+		}
+	}
+}
+
 func TestServerStartAndVersion(t *testing.T) {
 	srv, c := setup(t)
 	srv.NewSession("v", 80, 20, sleepCmd)
