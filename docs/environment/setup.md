@@ -51,7 +51,7 @@ swarm-console/
 | tmux | 3.x | 統合テスト・実運用（`load-buffer -`・`paste-buffer -p` が必要） | `apt install tmux` |
 | golangci-lint | v2 系（2.12 以上） | lint / format | 公式のインストールスクリプト、または `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest` |
 | Lefthook | 2.x | Git Hooks | `go install github.com/evilmartians/lefthook@latest` |
-| Linterly | 最新 | 行数管理 | `go install github.com/ousiassllc/linterly/cmd/linterly@latest` |
+| Linterly | v0.3.3（固定。CI と同じ） | 行数管理 | `go install github.com/ousiassllc/linterly/cmd/linterly@v0.3.3` |
 | make | — | タスクランナー | `apt install make` |
 | tailscale | — | 実機での接続確認のみ（開発・テストでは不要） | 運用ホストに導入済み |
 
@@ -125,3 +125,4 @@ make install
 | 1.6 | 2026-11-01 | 300 行超過ファイルを分割（§CI/CD を setup-ci.md、Lint 以降を setup-quality.md へ移動。`.linterlyignore` の `docs/**` 除外を廃止（P-31）、ほかの内容は変更なし） | Issue #3 |
 | 1.7 | 2026-11-01 | 「運用ホストに入れる（`make install`）」を追加、ディレクトリ構造に `scripts/`、Makefile に `install`・`install-test` を追加 | Issue #18 |
 | 1.8 | 2026-11-02 | golangci-lint のキャッシュを worktree ごとに分ける（Makefile の `GOLANGCI_LINT_CACHE`、lefthook、`.gitignore` の `/.cache/`）。setup-quality.md に混入の原因と直接実行の注意を追加 | Issue #32 |
+| 1.9 | 2026-11-02 | Linterly を `@latest` から `v0.3.3` 固定に変更（ci.yml・setup-ci.md・setup-quality.md・setup.md） | Issue #52 |

@@ -59,7 +59,7 @@ golangci-lint は、パッケージの中身（モジュールパス・モジュ
 | 項目 | 内容 |
 |------|------|
 | 目的 | ファイル・ディレクトリの行数肥大化を防ぐ |
-| インストール | `go install github.com/ousiassllc/linterly/cmd/linterly@latest`（Go プロジェクトのため bun ではなく go install） |
+| インストール | `go install github.com/ousiassllc/linterly/cmd/linterly@v0.3.3`（CI と同じ固定版。Go プロジェクトのため bun ではなく go install） |
 | 設定ファイル | `.linterly.yml`、除外は `.linterlyignore` |
 | 実行 | `make linterly`（`linterly check`） |
 
