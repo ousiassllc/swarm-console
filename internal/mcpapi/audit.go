@@ -22,8 +22,8 @@ func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 		start := time.Now()
 		ev := Event{Endpoint: b.endpoint, Method: method}
-		name, paneArg := describe(req)
-		ev.Target, ev.Pane = b.auditTarget(method, name), paneArg
+		name, paneArg, sessionArg := describe(req)
+		ev.Target, ev.Pane, ev.Session = b.auditTarget(method, name), paneArg, sessionArg
 		var (
 			res mcp.Result
 			err error
@@ -79,38 +79,36 @@ func (b *builder) hasPrompt(name string) bool {
 	return name == "report" || (name == "dispatch" && b.endpoint == tools.EndpointOps)
 }
 
-// describe は要求からツール名・prompt 名・resource 種別と pane（短く切ったもの）を取り出す。
+// describe は要求からツール名・prompt 名・resource 種別と、pane・session（短く切ったもの）を取り出す。
 // 名前はクライアントの入力のままなので、記録の前に auditTarget を通す。
-// 引数の本文・メモの内容など、pane 以外の値は見ない。
-func describe(req mcp.Request) (target, paneArg string) {
+// 引数の本文・メモの内容など、pane・session 以外の値は見ない。
+func describe(req mcp.Request) (target, paneArg, sessionArg string) {
 	switch r := req.(type) {
 	case *mcp.CallToolRequest:
 		if r.Params != nil {
-			return r.Params.Name, argPane(r.Params.Arguments)
+			return r.Params.Name, argString(r.Params.Arguments, "pane"), argString(r.Params.Arguments, "session")
 		}
 	case *mcp.GetPromptRequest:
 		if r.Params != nil {
-			return r.Params.Name, clip(r.Params.Arguments["pane"], 40)
+			return r.Params.Name, clip(r.Params.Arguments["pane"], 40), clip(r.Params.Arguments["session"], 40)
 		}
 	case *mcp.ReadResourceRequest:
 		if r.Params != nil {
 			kind, pos, _ := parseURI(r.Params.URI)
-			return kind, clip(pos, 40)
+			return kind, clip(pos, 40), ""
 		}
 	}
-	return "", ""
+	return "", "", ""
 }
 
-// argPane は tools/call の引数から pane（文字列のときだけ）を取り出す。短く切って記録する。
-func argPane(args json.RawMessage) string {
-	var a struct {
-		Pane json.RawMessage `json:"pane"`
-	}
+// argString は tools/call の引数から key（文字列のときだけ）を取り出す。短く切って記録する。
+func argString(args json.RawMessage, key string) string {
+	var a map[string]json.RawMessage
 	if json.Unmarshal(args, &a) != nil {
 		return ""
 	}
 	var s string
-	if json.Unmarshal(a.Pane, &s) != nil {
+	if json.Unmarshal(a[key], &s) != nil {
 		return ""
 	}
 	return clip(s, 40)

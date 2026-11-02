@@ -30,6 +30,10 @@ type Options struct {
 	Config        map[string]string            // config.toml の最上位キーの追加・上書き（値は TOML のリテラル。"" ならそのキーを書かない）
 	Agents        map[string]map[string]string // [agents.<名前>] のキーの追加・上書き（値は TOML のリテラル）
 	Profiles      string                       // あれば profiles.toml の中身
+	// ExtraSessions は main のほかに作る tmux セッション（config.toml の sessions に main のあとへ並べる。default_session は main）。
+	ExtraSessions []string
+	// TokenSessions は、トークン名（OpsA など）ごとの allowed_sessions。無いトークンは書かない（config の sessions すべて）。
+	TokenSessions map[string][]string
 }
 
 // H は起動済みの swarm-console と、その専用 tmux・設定・トークン。
@@ -44,7 +48,8 @@ type H struct {
 	Addr    string
 	Config  string // config.toml のパス
 	TM      *tmuxtest.Server
-	P0      string // 最初のセッションの最初のペイン（シェル）
+	P0      string            // 最初のセッションの最初のペイン（シェル）
+	PExtra  map[string]string // ExtraSessions の各セッションの最初のペイン（シェル）
 	App     *app.App
 
 	tokens map[string]string
@@ -126,7 +131,7 @@ func Prepare(t *testing.T, o Options) *H {
 	}
 	tokensPath := filepath.Join(dir, "tokens.toml")
 	for name, scope := range map[string]auth.Scope{OpsA: auth.ScopeOps, OpsB: auth.ScopeOps, ReportA: auth.ScopeReport, ReportB: auth.ScopeReport} {
-		tok, err := auth.Add(tokensPath, name, scope, time.Now())
+		tok, err := auth.Add(tokensPath, name, scope, time.Now(), o.TokenSessions[name]...)
 		if err != nil {
 			t.Fatalf("トークンを発行できません: %v", err)
 		}
@@ -141,6 +146,10 @@ func Prepare(t *testing.T, o Options) *H {
 		out := h.TM.Run("start-server", ";", "set", "-g", "default-terminal", "tmux-256color", ";",
 			"new-session", "-d", "-P", "-F", "#{pane_id}", "-s", Session, "-x", strconv.Itoa(w), "-y", strconv.Itoa(hh))
 		h.P0 = strings.TrimSpace(out)
+		h.PExtra = map[string]string{}
+		for _, s := range o.ExtraSessions {
+			h.PExtra[s] = strings.TrimSpace(h.TM.Run("new-session", "-d", "-P", "-F", "#{pane_id}", "-s", s, "-x", strconv.Itoa(w), "-y", strconv.Itoa(hh)))
+		}
 	}
 	return h
 }

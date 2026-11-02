@@ -1,7 +1,9 @@
 package pane
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -30,7 +32,7 @@ type layoutWarning struct {
 }
 
 // posEntry は前回スナップショットの ID と位置（位置順）。
-type posEntry struct{ id, pos string }
+type posEntry struct{ id, pos, session string }
 
 // track はハッシュの履歴を更新し、PaneState の時間まわりの項目を決める。
 func (r *SnapshotRegistry) track(id string, o observation, now time.Time) (changedAt time.Time, hash string, state agent.State, elapsed string) {
@@ -68,7 +70,8 @@ func (r *SnapshotRegistry) track(id string, o observation, now time.Time) (chang
 	return h.changedAt, h.hash, state, elapsed
 }
 
-// layoutDiff は前回との位置の差を日本語の固定文にする。差が無ければ ""。
+// layoutDiff は前回との位置の差を日本語の固定文にする。差が無ければ ""。prev・cur は同じセッションのペインで、
+// 位置はセッション内の名前（Local）を使う（ほかのセッションの位置を警告に混ぜない）。
 func layoutDiff(prev []posEntry, cur []PaneState) string {
 	prevPos := make(map[string]string, len(prev))
 	for _, e := range prev {
@@ -82,9 +85,9 @@ func layoutDiff(prev []posEntry, cur []PaneState) string {
 		old, ok := prevPos[p.ID]
 		switch {
 		case !ok:
-			parts = append(parts, p.Pos+" が追加されました")
-		case old != p.Pos:
-			parts = append(parts, p.Pos+" が "+old+"→"+p.Pos+" に変わりました")
+			parts = append(parts, p.Local+" が追加されました")
+		case old != p.Local:
+			parts = append(parts, p.Local+" が "+old+"→"+p.Local+" に変わりました")
 		}
 	}
 	for _, e := range prev {
@@ -98,23 +101,75 @@ func layoutDiff(prev []posEntry, cur []PaneState) string {
 	return "並びが変わりました: " + strings.Join(parts, ", ")
 }
 
-// updateLayout は前回との差を検知し、layout_changed の警告（layout_warning_ttl の間）を返す。
+// updateLayout は前回との差をセッションごとに検知し、layout_changed の警告（layout_warning_ttl の間）を返す。
 // 比較対象が無い最初の 1 回は警告しない。
 func (r *SnapshotRegistry) updateLayout(cur []PaneState, now time.Time) []Warning {
+	sessions := r.sessionsOf(cur)
 	if r.prevPos != nil {
-		if msg := layoutDiff(r.prevPos, cur); msg != "" {
-			r.layoutWarn = &layoutWarning{msg: msg, at: now}
+		for _, s := range sessions {
+			var prev []posEntry
+			for _, e := range r.prevPos {
+				if e.session == s {
+					prev = append(prev, e)
+				}
+			}
+			var inSession []PaneState
+			for i := range cur {
+				if cur[i].Session == s {
+					inSession = append(inSession, cur[i])
+				}
+			}
+			if msg := layoutDiff(prev, inSession); msg != "" {
+				r.layoutWarn[s] = &layoutWarning{msg: msg, at: now}
+			}
 		}
 	}
 	r.prevPos = make([]posEntry, len(cur))
 	for i := range cur {
-		r.prevPos[i] = posEntry{cur[i].ID, cur[i].Pos}
+		r.prevPos[i] = posEntry{cur[i].ID, cur[i].Local, cur[i].Session}
 	}
-	if r.layoutWarn != nil && now.Sub(r.layoutWarn.at) < r.deps.Cfg.LayoutWarningTTL {
-		return []Warning{{Code: WarnLayoutChanged, Message: r.layoutWarn.msg}}
+	var out []Warning
+	for _, s := range sessions {
+		w := r.layoutWarn[s]
+		if w == nil {
+			continue
+		}
+		if now.Sub(w.at) >= r.deps.Cfg.LayoutWarningTTL {
+			delete(r.layoutWarn, s)
+			continue
+		}
+		out = append(out, Warning{Code: WarnLayoutChanged, Message: w.msg, Session: s})
 	}
-	r.layoutWarn = nil
-	return nil
+	return out
+}
+
+// sessionsOf は今回と前回のスナップショットにあるセッションを、config の sessions の順（それ以外は名前順）で返す。
+func (r *SnapshotRegistry) sessionsOf(cur []PaneState) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	for i := range cur {
+		add(cur[i].Session)
+	}
+	for _, e := range r.prevPos {
+		add(e.session)
+	}
+	for s := range r.layoutWarn {
+		add(s)
+	}
+	rank := func(s string) int {
+		if i := slices.Index(r.deps.Cfg.Sessions, s); i >= 0 {
+			return i
+		}
+		return len(r.deps.Cfg.Sessions)
+	}
+	slices.SortFunc(out, func(a, b string) int { return cmp.Or(cmp.Compare(rank(a), rank(b)), cmp.Compare(a, b)) })
+	return out
 }
 
 // vanishAfter は「消えた」と判定する連続スナップショット数（P-15）。

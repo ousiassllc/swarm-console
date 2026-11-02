@@ -16,9 +16,13 @@
 # tmux_socket = "default"
 
 # 監視する tmux セッション（1 つ以上・重複なし）。既定 ["0"]
+# tmux セッションを分けて運用するときは、例：sessions = ["0", "1"]（それぞれ 3 列×2 段など）。
+# トークンごとに触れるセッションは tokens.toml の allowed_sessions（`swarm-console token add <名前> --scope ops --sessions 0`）で決める。
+# 触れるセッションが複数のトークンは、ツールの引数 session を必ず指定する。
 # sessions = ["0"]
 
 # 既定のセッション（sessions のどれか）。sessions が 1 つなら省略できる。
+# default_session は位置の接頭辞を省略するセッションを決めるだけで、ツールの許可や session の既定には使わない。
 # default_session = "0"
 
 # レポートなどの言語（ja か en）。既定 "ja"

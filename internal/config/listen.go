@@ -57,8 +57,13 @@ func checkSocket(s string) error {
 	return nil
 }
 
+// ValidSessionName は sessions・allowed_sessions に使える名前か（空・"."・":"・制御文字は不可）。
+// tmux はセッション名の "." と ":" を "_" に置き換えるため、それを含む名前は一致しない。
+func ValidSessionName(s string) bool {
+	return strings.TrimSpace(s) != "" && !strings.ContainsAny(s, ".:") && strings.IndexFunc(s, unicode.IsControl) < 0
+}
+
 // CheckSessions は sessions の既定（["0"]）・重複・default_session を検査する。
-// tmux はセッション名の "." と ":" を "_" に置き換えるため、それを含む名前は一致しないので拒否する。
 func CheckSessions(sessions []string, def string) ([]string, string, error) {
 	if sessions == nil {
 		sessions = DefaultSessions()
@@ -68,7 +73,7 @@ func CheckSessions(sessions []string, def string) ([]string, string, error) {
 	}
 	seen := make(map[string]bool, len(sessions))
 	for _, s := range sessions {
-		if strings.TrimSpace(s) == "" || strings.ContainsAny(s, ".:") || strings.IndexFunc(s, unicode.IsControl) >= 0 {
+		if !ValidSessionName(s) {
 			return nil, "", errors.New("sessions に使えない名前があります（空・\".\"・\":\"・制御文字は不可）")
 		}
 		if seen[s] {

@@ -12,10 +12,11 @@ import (
 )
 
 type paneStartArgs struct {
-	Pane  *string `json:"pane"`
-	Agent *string `json:"agent"`
-	Cwd   *string `json:"cwd"`
-	Title *string `json:"title"`
+	Session *string `json:"session"`
+	Pane    *string `json:"pane"`
+	Agent   *string `json:"agent"`
+	Cwd     *string `json:"cwd"`
+	Title   *string `json:"title"`
 }
 
 type paneStartJSON struct {
@@ -32,16 +33,17 @@ func (e *env) paneStartTool() Tool {
 		Description: descPaneStart,
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane", "agent", "cwd", "title"}, props{
-			"pane":  strProp("shell のペイン。" + panePropDesc),
-			"agent": enumProp("起動するエージェント", agent.Builtin()...),
-			"cwd":   strProp("作業フォルダの絶対パス（許可されたフォルダの下の既存ディレクトリ）"),
-			"title": strProp("タイトル（80 字まで、制御文字なし）。設定の接頭辞が付く"),
+			"pane":    strProp("shell のペイン。" + panePropDesc),
+			"session": sessionProp(),
+			"agent":   enumProp("起動するエージェント", agent.Builtin()...),
+			"cwd":     strProp("作業フォルダの絶対パス（許可されたフォルダの下の既存ディレクトリ）"),
+			"title":   strProp("タイトル（80 字まで、制御文字なし）。設定の接頭辞が付く"),
 		}),
 		Handler: e.paneStart,
 	}
 }
 
-func (e *env) paneStart(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) paneStart(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a paneStartArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -54,7 +56,7 @@ func (e *env) paneStart(ctx context.Context, _ auth.Client, raw json.RawMessage)
 	if err != nil {
 		return Result{}, err
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}
@@ -108,17 +110,17 @@ func (e *env) paneCloseTool() Tool {
 		Name:        "pane_close",
 		Description: descPaneClose,
 		Scope:       ScopeOps,
-		Schema:      object([]string{"pane"}, props{"pane": paneProp()}),
+		Schema:      object([]string{"pane"}, props{"pane": paneProp(), "session": sessionProp()}),
 		Handler:     e.paneClose,
 	}
 }
 
-func (e *env) paneClose(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) paneClose(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a paneArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}

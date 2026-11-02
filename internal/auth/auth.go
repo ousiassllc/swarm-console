@@ -7,8 +7,10 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -26,9 +28,12 @@ const (
 )
 
 // Client は認証に成功したクライアント。
+// AllowedSessions は触れる tmux セッション。nil は config の sessions すべて（tokens.toml の allowed_sessions が無い）。
+// 実際に使えるのはこれと config の sessions の共通部分（internal/session）。
 type Client struct {
-	Name  string
-	Scope Scope
+	Name            string
+	Scope           Scope
+	AllowedSessions []string
 }
 
 type clientKey struct{}
@@ -69,6 +74,7 @@ type entry struct {
 	scope   Scope
 	hash    []byte
 	revoked bool
+	allowed []string // allowed_sessions。nil は config の sessions すべて
 }
 
 // Authenticator は tokens.toml を持ち、呼び出しごとに更新を検知して認証する。
@@ -80,8 +86,10 @@ type Authenticator struct {
 
 	mu      sync.RWMutex
 	entries []entry
-	stamp   fileStamp
-	healthy bool // 直近の読み込みが成功したか。false の間は認証を通さない
+	// sessions は serve が渡した config の sessions（CheckSessions）。nil の間（Open 直後）は食い違いを見ない。
+	sessions []string
+	stamp    fileStamp
+	healthy  bool // 直近の読み込みが成功したか。false の間は認証を通さない
 }
 
 // Open は path の tokens.toml を読んで Authenticator を返す。
@@ -128,7 +136,46 @@ func (a *Authenticator) Authenticate(authorization string) (Client, error) {
 		return Client{}, apperr.New(apperr.Unauthorized)
 	}
 	e := a.entries[found]
-	return Client{Name: e.name, Scope: e.scope}, nil
+	return Client{Name: e.name, Scope: e.scope, AllowedSessions: slices.Clone(e.allowed)}, nil
+}
+
+// CheckSessions は config の sessions を覚え、失効していないトークンの allowed_sessions がすべてその中にあるか確かめる。
+// 外れた名前があれば error（serve の起動拒否。トークン名とセッション名だけを含み、ハッシュは含まない）。
+// 以降の再読み込み（起動後の tokens.toml の変更）で外れた名前が出ても拒否せず、警告ログだけを出す。
+func (a *Authenticator) CheckSessions(configured []string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.sessions = slices.Clone(configured)
+	if bad := a.mismatches(); len(bad) > 0 {
+		return fmt.Errorf("tokens.toml: %s", bad[0])
+	}
+	return nil
+}
+
+// warnMismatch は a.mu を書き込みロックした状態で呼ぶ。config に無いセッションを許可しているトークンを警告する。
+func (a *Authenticator) warnMismatch() {
+	for _, m := range a.mismatches() {
+		a.logger.Warn("tokens.toml の allowed_sessions に config の sessions に無い名前があります（共通部分だけを許可します）", "detail", m)
+	}
+}
+
+// mismatches は a.sessions に無い許可セッションを「トークン名 … セッション名」の文にして返す。a.sessions が nil なら見ない。
+func (a *Authenticator) mismatches() []string {
+	if a.sessions == nil {
+		return nil
+	}
+	var out []string
+	for _, e := range a.entries {
+		if e.revoked {
+			continue
+		}
+		for _, s := range e.allowed {
+			if !slices.Contains(a.sessions, s) {
+				out = append(out, fmt.Sprintf("トークン %s の allowed_sessions のセッション %q は config の sessions にありません", e.name, s))
+			}
+		}
+	}
+	return out
 }
 
 // bearerToken は "Bearer <token>"（スキーム名の大文字小文字は不問）から token を取り出す。
@@ -170,9 +217,12 @@ func (a *Authenticator) load(st fileStamp) error {
 	}
 	entries := make([]entry, len(recs))
 	for i, r := range recs {
-		entries[i] = entry{name: r.Name, scope: Scope(r.Scope), hash: []byte(r.Hash), revoked: r.RevokedAt != ""}
+		entries[i] = entry{
+			name: r.Name, scope: Scope(r.Scope), hash: []byte(r.Hash), revoked: r.RevokedAt != "", allowed: r.AllowedSessions,
+		}
 	}
 	a.entries, a.healthy = entries, true
+	a.warnMismatch()
 	return nil
 }
 

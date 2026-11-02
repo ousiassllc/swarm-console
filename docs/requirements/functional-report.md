@@ -13,7 +13,7 @@
 | FR-REP-1 | `report` は全ペインの状況をサーバーが組み立てた markdown で返す。クライアントは手を加えずそのまま表示する（ツールの説明に書く） |
 | FR-REP-2 | 中身は、見出し（時刻・サーバー負荷・CPU・スワップ・ディスク・更新確認・ログイン期限）、ペインの表（位置・エージェント・状態・経過・依頼元・リポジトリ／Issue・いまやっていること・次にやること）、要対応の一覧（質問カードで止まっている・止まっているように見える・完了して報告待ち・ログイン期限切れ・ログイン期限間近）、使用状況（Claude・Cursor・Codex） |
 | FR-REP-3 | 状態は絵文字つきの決まった言葉で出す（下表） |
-| FR-REP-4 | 引数：`format`（`markdown` 既定・`json`）、`pane`（1 ペインの詳しい版）、`lang`（`ja` 既定・`en`）。既定の言語は `default_lang` で変えられる |
+| FR-REP-4 | 引数：`format`（`markdown` 既定・`json`）、`pane`（1 ペインの詳しい版）、`session`（任意。FR-REP-19）、`lang`（`ja` 既定・`en`）。既定の言語は `default_lang` で変えられる |
 | FR-REP-5 | テンプレートは言語ごとに `templates/report.ja.md`・`templates/report.en.md`。サーバーの設定フォルダ（`~/.config/swarm-console/templates/`）に置けば組み込みのものより優先され、直せばどのクライアントにも同じく反映される |
 | FR-REP-6 | メモの中身（依頼元・次にやること など）は書かれたままの言葉で出す（訳さない） |
 | FR-REP-7 | 同じスナップショットからは、クライアントによらず 1 文字も違わない出力を返す（時刻はスナップショットの時刻を使い、呼び出し時刻・クライアント名などを含めない）。受け入れ確認 §8 の条件 |
@@ -28,6 +28,7 @@
 | FR-REP-16 | ログイン期限（Issue #25）：`agent_auth_status` と同じ判定を `auth` として返す。`expired`・`expiring_soon`（48 時間以内）だけ要対応の一覧に入れる（`kind`：`auth_expired`・`auth_expiring`）。`unknown` は要対応に入れず、`auth` に `unknown` のまま残し、markdown の見出しに「不明」と出す。`pane` を指定した場合も、ログインの要対応は入れる（ペインに属さないので絞らない。並びはペインの項目のあと。API 仕様 §5.5）。閾値・設定は足さない |
 | FR-REP-17 | `host_status` は、同じスナップショットの値として `cpu`・`swap`・拡張した `disk`・`usage`・`omp` を返す（キーと形は `report` の JSON と同じ。API 仕様 §5.3）。`format: markdown` に出す新しい値の見た目（行の並び・言葉）は §5.3・§5.4 に従う |
 | FR-REP-18 | メール・`accountId`・`orgId`・トークン・`omp` のコマンド出力の文面・パスは、レポートと `host_status` のどこにも出さない。アカウントは [report-values.md §2.2](../architecture/report-values.md#22-アカウント名) の名前だけで示す（NFR-SEC-5） |
+| FR-REP-19 | `report` は任意の `session` を取る（決め方は FR-SESS-5）。ペインの表・`layout`・要対応のペインの項目（`asking`・`stalled`・`report_waiting`）・警告をそのセッションだけに絞り、位置はセッション内の位置にする（FR-SESS-7・8）。見出し（時刻・サーバー負荷・CPU・スワップ・ディスク・更新・ログイン）・使用状況・ログインの要対応はホスト全体のままで、`session` に関係なく同じ（FR-SESS-9）。許可が 2 つ以上のトークンが省略すると `session_required` |
 
 ### 5.2 状態の言葉
 
@@ -148,7 +149,7 @@ flowchart TD
 
 | ID | 要件 |
 |----|------|
-| FR-DIS-1 | 引数：`pane`、`agent`、`cwd`、`title`、`command`（1 行目のスラッシュコマンド）、`task`（本文）、`profile`（`sweep`・`fix`・`investigate`）、`extra_rules`（追加の条件）、`note`（メモ。一緒に保存する） |
+| FR-DIS-1 | 引数：`session`（任意。許可が 1 つなら省略可。FR-SESS-5）、`pane`、`agent`、`cwd`、`title`、`command`（1 行目のスラッシュコマンド）、`task`（本文）、`profile`（`sweep`・`fix`・`investigate`）、`extra_rules`（追加の条件）、`note`（メモ。一緒に保存する）。`pane` は決めたセッションの中で解決する（FR-SESS-6）。`{report_path}` のファイル名は全体の位置から付ける（FR-SESS-7） |
 | FR-DIS-2 | 指示文は `command` ＋ `task` ＋ 条件（共通の条件 → プロファイル固有の条件 → `extra_rules`）の決まった形に組み立てる（API 仕様 §5.6）。`task` と `extra_rules` 以外にサーバーが足すのは、固定の見出しとプロファイルの条件文だけ。人の名前・経緯は足さない |
 | FR-DIS-3 | 条件のひな形は `profiles.toml` に置く。初期値は元の omp-dispatch の条件そのまま（下表） |
 | FR-DIS-4 | ペインが `shell` なら `pane_start` してから送り、`idle` ならそのまま送る。`working`・`asking` ほかは拒否（何も送らない） |
@@ -190,3 +191,4 @@ flowchart TD
 | AC-4 | 同じ `dispatch` の引数を 2 つのクライアントから送り、ペインに入る指示文が同じ | 実 tmux ＋ 擬似エージェントで貼り付け内容を比較 |
 | AC-5 | 認証なし・違うトークン・窓口違い・許可していないフォルダ・作業中のペインを閉じる・Esc の `confirm` なし、がどのクライアントからでも同じエラーになる | 自動テスト ＋ 実接続 |
 | AC-6 | 非機能要件 §7 のテスト（実 tmux、擬似画面、拒否、メモの書き込み途中停止）が全部通り、CI が緑 | CI |
+| AC-7 | `sessions = ["0", "1"]`、トークン A は `["0"]`・B は `["1"]` のとき、A は `session` を省略するとセッション `0` の位置（`T1`〜）だけが返り、`1` の `panes_status`・`pane_tail`・`dispatch` は `session_forbidden`。許可が 2 つのトークンが省略すると `session_required`、`sessions` にない名前は `invalid_args`。`sessions = ["0"]` だけ・`allowed_sessions` なしでは、どのツールも `session` なしで今までどおり動く（FR-SESS） | 実 tmux の統合テスト（2 セッション）＋ 自動テスト |

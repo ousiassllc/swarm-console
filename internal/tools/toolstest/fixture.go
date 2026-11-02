@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/tools"
 )
 
-// Fixture はテストで使う一式。ペインは次の 5 つ（位置: ID, 状態）。
+// Fixture はテストで使う一式。セッション 0 のペインは次の 5 つ（位置: ID, 状態。上段 2・下段 3）。
 //
 //	T1: %1 omp idle / T2: %2 omp asking / B1: %3 エージェントなし shell / B2: %4 claude working / B3: %5 エージェントなし unknown
 type Fixture struct {
@@ -100,8 +101,10 @@ func DefaultHostStatus() host.Status {
 
 // DefaultSnapshot は Fixture の 5 ペインのスナップショット。
 func DefaultSnapshot() *pane.Snapshot {
-	mk := func(id, pos, ag string, st agent.State) pane.PaneState {
-		return pane.PaneState{ID: id, Pos: pos, Session: "0", Agent: ag, State: st, Title: "agent: " + pos, Cwd: "/mnt/nvme/x"}
+	mk := func(id, pos, ag string, st agent.State, top, left int) pane.PaneState {
+		return pane.PaneState{
+			ID: id, Pos: pos, Session: "0", Top: top, Left: left, Agent: ag, State: st, Title: "agent: " + pos, Cwd: "/mnt/nvme/x",
+		}
 	}
 	return &pane.Snapshot{
 		At: At, Host: DefaultHostStatus(),
@@ -111,13 +114,27 @@ func DefaultSnapshot() *pane.Snapshot {
 		Auth: []host.Auth{
 			{Agent: "omp", Status: host.AuthUnknown}, {Agent: "claude", Status: host.AuthUnknown}, {Agent: "codex", Status: host.AuthUnknown},
 		},
-		Layout: pane.Layout{Rows: 2, Cols: []int{3, 2}}, TmuxSession: true,
+		Layout: pane.Layout{Rows: 2, Cols: []int{2, 3}}, TmuxSession: true,
 		Panes: []pane.PaneState{
-			mk("%1", "T1", "omp", agent.StateIdle),
-			mk("%2", "T2", "omp", agent.StateAsking),
-			mk("%3", "B1", "", agent.StateShell),
-			mk("%4", "B2", "claude", agent.StateWorking),
-			mk("%5", "B3", "", agent.StateUnknown),
+			mk("%1", "T1", "omp", agent.StateIdle, 0, 0),
+			mk("%2", "T2", "omp", agent.StateAsking, 0, 40),
+			mk("%3", "B1", "", agent.StateShell, 20, 0),
+			mk("%4", "B2", "claude", agent.StateWorking, 20, 40),
+			mk("%5", "B3", "", agent.StateUnknown, 20, 80),
 		},
+	}
+}
+
+// UseTwoSessions は config の sessions を 0・1 にし、セッション 0（既定。DefaultSnapshot の 5 ペイン）に、
+// セッション 1 の 3 列×2 段の 6 ペイン（%11–%16。全体の位置は 1:T1…、セッション内の位置は T1…）を足す。
+func (f *Fixture) UseTwoSessions() {
+	f.Cfg.Sessions = []string{"0", "1"}
+	locals := []string{"T1", "T2", "T3", "B1", "B2", "B3"}
+	agents := []string{"omp", "omp", "claude", "", "omp", "codex"}
+	for i, l := range locals {
+		f.Registry.Snap.Panes = append(f.Registry.Snap.Panes, pane.PaneState{
+			ID: "%" + strconv.Itoa(11+i), Pos: "1:" + l, GlobalPos: "1:" + l, Local: l, Session: "1",
+			Top: (i / 3) * 20, Left: (i % 3) * 40, Agent: agents[i], State: agent.StateIdle, Title: "agent: 1:" + l, Cwd: "/mnt/nvme/secret",
+		})
 	}
 }

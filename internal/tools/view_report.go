@@ -11,15 +11,17 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/render"
+	"github.com/ousiassllc/swarm-console/internal/session"
 )
 
 // detailTailLines は pane 指定の詳しい版に出す画面の行数（機能要件 §5.3）。
 const detailTailLines = 15
 
 type reportArgs struct {
-	Format *string `json:"format"`
-	Pane   *string `json:"pane"`
-	Lang   *string `json:"lang"`
+	Session *string `json:"session"`
+	Format  *string `json:"format"`
+	Pane    *string `json:"pane"`
+	Lang    *string `json:"lang"`
 }
 
 func (e *env) reportTool() Tool {
@@ -28,15 +30,16 @@ func (e *env) reportTool() Tool {
 		Description: descReport,
 		Scope:       ScopeReport,
 		Schema: object(nil, props{
-			"format": enumProp("出力形式。markdown（既定）か json", render.FormatMarkdown, render.FormatJSON),
-			"pane":   strProp("指定すると 1 ペインの詳しい版。" + panePropDesc),
-			"lang":   enumProp("言語。省略は設定の既定", render.LangJA, render.LangEN),
+			"session": sessionProp(),
+			"format":  enumProp("出力形式。markdown（既定）か json", render.FormatMarkdown, render.FormatJSON),
+			"pane":    strProp("指定すると 1 ペインの詳しい版。" + panePropDesc),
+			"lang":    enumProp("言語。省略は設定の既定", render.LangJA, render.LangEN),
 		}),
 		Handler: e.report,
 	}
 }
 
-func (e *env) report(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) report(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a reportArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -45,7 +48,24 @@ func (e *env) report(ctx context.Context, _ auth.Client, raw json.RawMessage) (R
 	if err := checkReportArgs(in); err != nil {
 		return Result{}, err
 	}
-	text, err := e.renderReport(ctx, in, a.Pane)
+	allowed := e.allowed(c)
+	s, err := session.Pick(allowed, e.Cfg.Sessions, a.Session)
+	if err != nil {
+		return Result{}, err
+	}
+	full, err := e.Registry.Current(ctx)
+	if err != nil {
+		return Result{}, apperr.Wrap(apperr.Internal, err)
+	}
+	var ref *pane.Ref
+	if a.Pane != nil && *a.Pane != "" {
+		r, err := session.Resolve(full, allowed, s, *a.Pane)
+		if err != nil {
+			return Result{}, err
+		}
+		ref = &r
+	}
+	text, err := e.renderReport(ctx, in, full.ForSession(s), ref)
 	if err != nil {
 		return Result{}, apperr.As(err)
 	}
@@ -67,25 +87,18 @@ func checkReportArgs(in render.ReportInput) error {
 	return nil
 }
 
-// renderReport は同じスナップショットから report を作る。resource（swarm://report・swarm://pane/…）も使う。
-// paneArg が nil か空なら全体。
-func (e *env) renderReport(ctx context.Context, in render.ReportInput, paneArg *string) (string, error) {
-	snap, err := e.Registry.Current(ctx)
-	if err != nil {
-		return "", apperr.Wrap(apperr.Internal, err)
-	}
+// renderReport は snap（1 セッションに絞ったスナップショット）から report を作る。resource（swarm://report・swarm://pane/…）も使う。
+// ref が nil なら全体、あればその 1 ペインの詳しい版。
+func (e *env) renderReport(ctx context.Context, in render.ReportInput, snap *pane.Snapshot, ref *pane.Ref) (string, error) {
 	in.Snapshot = snap
 	in.Templates = e.Templates
 	in.DefaultLang = e.Cfg.DefaultLang
 	in.ReportDir = e.Cfg.ReportDir
-	if paneArg != nil && *paneArg != "" {
-		ref, err := e.Registry.Resolve(ctx, *paneArg)
-		if err != nil {
-			return "", err
-		}
+	if ref != nil {
 		in.PaneID = ref.ID
 		if in.Format != render.FormatJSON {
-			if in.Detail, err = e.paneDetail(ctx, snap, ref); err != nil {
+			var err error
+			if in.Detail, err = e.paneDetail(ctx, snap, *ref); err != nil {
 				return "", err
 			}
 		}

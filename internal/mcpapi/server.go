@@ -21,6 +21,7 @@ type Event struct {
 	Method   string        // tools/call・prompts/get・resources/read など
 	Target   string        // ツール名・prompt 名・resource 名（report|pane|notes）。無ければ ""
 	Pane     string        // 引数・URI の pane（位置または ID）。無ければ ""
+	Session  string        // 引数の session（送られたまま）。無ければ ""
 	Code     string        // "ok" またはエラーコード
 	Duration time.Duration // 所要時間
 }
@@ -34,10 +35,10 @@ type Options struct {
 	Audit func(context.Context, Event)
 }
 
-// NewReportServer は /report の MCP サーバー（見るツール 9 つ・prompts は report のみ・resources は全部）。
+// NewReportServer は /report の MCP サーバー（見るツール 10・prompts は report のみ・resources は全部）。
 func NewReportServer(o Options) *mcp.Server { return newServer(tools.EndpointReport, o) }
 
-// NewOpsServer は /ops の MCP サーバー（見る 9 ＋ 操作 8 のツール・prompts は report と dispatch・resources は全部）。
+// NewOpsServer は /ops の MCP サーバー（見る 10 ＋ 操作 8 のツール・prompts は report と dispatch・resources は全部）。
 func NewOpsServer(o Options) *mcp.Server { return newServer(tools.EndpointOps, o) }
 
 func newServer(endpoint string, o Options) *mcp.Server {

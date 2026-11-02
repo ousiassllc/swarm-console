@@ -20,10 +20,12 @@ const (
 	WarnPaneUnreadable  = "pane_unreadable"
 )
 
-// Warning はスナップショットの警告。
+// Warning はスナップショットの警告。Session が空でなければそのセッションの警告
+// （セッションを絞った応答にはそのセッションの分と Session が空のものだけを載せる）。
 type Warning struct {
 	Code    string
 	Message string
+	Session string
 }
 
 // Layout は panes_status の layout。Cols は段ごとの列数（上の段から）。
@@ -35,7 +37,10 @@ type Layout struct {
 // PaneState は 1 ペインのスナップショット上の状態（ER §4）。作ったあと変更しない。
 type PaneState struct { //nolint:revive // render・tools が使う公開契約の名前
 	ID        string // %12
-	Pos       string // T1 / work:B2 / w1.T2（固定名があればそれ）
+	Pos       string // T1 / work:B2 / w1.T2（固定名があればそれ）。セッションを絞った応答（ForSession）では Local
+	Local     string // セッション内の位置（接頭辞なし。T1 / w1.T2。固定名があればそれ）
+	Fixed     bool   // pane_names の固定名が付いている（Local・GlobalPos とも固定名。セッションをまたいで一意）
+	GlobalPos string // 接頭辞つきの位置。ForSession が Pos を Local に替えても、最終報告のファイル名はこれで決める
 	Session   string
 	Window    int
 	PaneIndex int
@@ -72,13 +77,30 @@ type Snapshot struct {
 	TmuxSession bool
 }
 
+// ReportPos は最終報告ファイル名（<位置>.md）に使う位置。セッションごとに別の名前になる（接頭辞つき）。
+func (p *PaneState) ReportPos() string {
+	if p.GlobalPos != "" {
+		return p.GlobalPos
+	}
+	return p.Pos
+}
+
+// LocalPos はセッション内の位置（接頭辞なし）。Local が空（スナップショットを組み立てていない手組みの値）なら Pos。
+func (p *PaneState) LocalPos() string {
+	if p.Local != "" {
+		return p.Local
+	}
+	return p.Pos
+}
+
 // Find は ID または位置（大文字小文字を区別しない）でペインを探す。
 func (s *Snapshot) Find(arg string) (*PaneState, bool) { return findPane(s, arg) }
 
-// Ref は解決済みのペイン参照。
+// Ref は解決済みのペイン参照。Pos は接頭辞つきの位置（最終報告のファイル名に使う）、Local はセッション内の位置。
 type Ref struct {
-	ID  string
-	Pos string
+	ID    string
+	Pos   string
+	Local string
 }
 
 // Tail は pane_tail の結果。
@@ -92,8 +114,6 @@ type Registry interface {
 	Current(ctx context.Context) (*Snapshot, error)
 	// Refresh は強制再取得。
 	Refresh(ctx context.Context) (*Snapshot, error)
-	// Resolve は位置（大文字小文字不問）または tmux ID を解決する。解決できなければ apperr.PaneNotFound。
-	Resolve(ctx context.Context, arg string) (Ref, error)
 	// Tail は最後の lines 行。raw=false なら Clean 済み（agent が unknown なら raw 相当）。
 	// 1 行 500 字・全体 20,000 字で切り、切ったら Truncated。
 	Tail(ctx context.Context, ref Ref, lines int, raw bool) (Tail, error)

@@ -2,6 +2,7 @@ package mcpapi_test
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/mcpapi"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
@@ -33,7 +35,11 @@ func (r *recorder) all() []mcpapi.Event {
 func connect(t *testing.T, f *toolstest.Fixture, rec *recorder) *mcp.ClientSession {
 	t.Helper()
 	srv := mcpapi.NewOpsServer(mcpapi.Options{Tools: f.Tools, Audit: rec.add})
-	ts := httptest.NewServer(mcpapi.NewHTTPHandler(srv))
+	// 認証は server パッケージの仕事。ここでは認証済みのクライアントを ctx に載せる（名前の無い Client は何も許可されない）。
+	inner := mcpapi.NewHTTPHandler(srv)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		inner.ServeHTTP(w, r.WithContext(auth.WithClient(r.Context(), auth.Client{Name: "tester", Scope: auth.ScopeOps})))
+	}))
 	t.Cleanup(ts.Close)
 	cs, err := mcp.NewClient(&mcp.Implementation{Name: "t", Version: "1"}, nil).Connect(context.Background(),
 		&mcp.StreamableClientTransport{Endpoint: ts.URL, HTTPClient: ts.Client(), DisableStandaloneSSE: true, MaxRetries: -1}, nil)

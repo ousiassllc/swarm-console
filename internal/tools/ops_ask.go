@@ -9,9 +9,10 @@ import (
 )
 
 type askPickArgs struct {
-	Pane *string `json:"pane"`
-	N    *int    `json:"n"`
-	Text *string `json:"text"`
+	Session *string `json:"session"`
+	Pane    *string `json:"pane"`
+	N       *int    `json:"n"`
+	Text    *string `json:"text"`
 }
 
 type pickedJSON struct {
@@ -32,15 +33,16 @@ func (e *env) askPickTool() Tool {
 		Description: descAskPick,
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane"}, props{
-			"pane": paneProp(),
-			"n":    map[string]any{"type": "integer", "minimum": 1, "description": "選ぶ番号（1 始まり）。text と同時に指定しない"},
-			"text": strProp("「その他」に打つ文字（8000 字まで）。n と同時に指定しない"),
+			"pane":    paneProp(),
+			"session": sessionProp(),
+			"n":       map[string]any{"type": "integer", "minimum": 1, "description": "選ぶ番号（1 始まり）。text と同時に指定しない"},
+			"text":    strProp("「その他」に打つ文字（8000 字まで）。n と同時に指定しない"),
 		}),
 		Handler: e.askPick,
 	}
 }
 
-func (e *env) askPick(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) askPick(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a askPickArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -61,7 +63,7 @@ func (e *env) askPick(ctx context.Context, _ auth.Client, raw json.RawMessage) (
 			return Result{}, withField(err, "text")
 		}
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}

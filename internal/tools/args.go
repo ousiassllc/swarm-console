@@ -2,7 +2,6 @@ package tools
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
-	"github.com/ousiassllc/swarm-console/internal/pane"
 )
 
 // fieldName は details.field に載せてよい引数名の形。クライアントが打った未知キーをそのまま返さないための絞り込み。
@@ -107,17 +105,4 @@ func withField(err error, field string) error {
 	}
 	e.Details["field"] = field
 	return e
-}
-
-// resolvePane は pane 引数を位置・ID から解決する。
-func resolvePane(ctx context.Context, reg pane.Registry, arg *string) (pane.Ref, error) {
-	name, err := requireStr(arg, "pane")
-	if err != nil {
-		return pane.Ref{}, err
-	}
-	ref, err := reg.Resolve(ctx, name)
-	if err != nil {
-		return pane.Ref{}, apperr.As(err)
-	}
-	return ref, nil
 }

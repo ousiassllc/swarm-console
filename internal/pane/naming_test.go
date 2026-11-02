@@ -116,3 +116,25 @@ func TestFindCaseInsensitive(t *testing.T) {
 		t.Error("存在しない ID を見つけた")
 	}
 }
+
+// NameLocalPositions は接頭辞を付けない以外は NamePositions と同じ（既定以外のセッションも T1 から）。
+func TestNameLocalPositionsOmitsSessionPrefix(t *testing.T) {
+	cfg := &config.Config{Sessions: []string{"0", "1"}, DefaultSession: "0"}
+	panes := []tmux.PaneInfo{
+		pi("%0", "0", 0, 0, 0), pi("%1", "0", 0, 20, 0),
+		pi("%7", "1", 0, 0, 0), pi("%8", "1", 0, 0, 50), pi("%9", "1", 0, 20, 0),
+	}
+	want := map[string]string{"%0": "T1", "%1": "B1", "%7": "T1", "%8": "T2", "%9": "B1"}
+	if got := NameLocalPositions(panes, cfg); !reflect.DeepEqual(got, want) {
+		t.Fatalf("local = %v, want %v", got, want)
+	}
+	// 接頭辞つきの名前は従来どおり。
+	if got := NamePositions(panes, cfg); got["%7"] != "1:T1" || got["%9"] != "1:B1" || got["%0"] != "T1" {
+		t.Fatalf("global = %v", got)
+	}
+	// ウィンドウが複数のセッションでは、セッション内でも w<index>. は付く。
+	multi := []tmux.PaneInfo{pi("%0", "1", 0, 0, 0), pi("%1", "1", 1, 0, 0)}
+	if got := NameLocalPositions(multi, cfg); got["%0"] != "w0.T1" || got["%1"] != "w1.T1" {
+		t.Fatalf("multi window = %v", got)
+	}
+}

@@ -49,8 +49,8 @@ WantedBy=default.target
 |------|------|------|
 | `listen_addr` | （必須） | tailnet IP:48120 |
 | `tmux_socket` | なし | tmux の `-L` ソケット名（テスト用） |
-| `sessions` | `["0"]` | 対象セッション |
-| `default_session` | `sessions` の先頭（1 つだけのとき） | 位置の接頭辞を省略するセッション |
+| `sessions` | `["0"]` | 対象セッション。トークンの `allowed_sessions`（`tokens.toml`）はこの部分集合（FR-SESS-1） |
+| `default_session` | `sessions` の先頭（1 つだけのとき） | 位置の接頭辞を省略するセッション（ツールの許可・`session` の既定には使わない。P-87） |
 | `default_lang` | `"ja"` | `report` の既定言語 |
 | `poll_interval` | `5s` | サンプラー間隔 |
 | `snapshot_ttl` | `2s` | 読み取りツールが再取得する閾値 |

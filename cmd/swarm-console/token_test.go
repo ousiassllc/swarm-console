@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -116,5 +117,83 @@ func TestTokenUsageErrors(t *testing.T) {
 func TestVersion(t *testing.T) {
 	if code, stdout, _ := runCLI(t, "version"); code != 0 || strings.TrimSpace(stdout) != version {
 		t.Errorf("version = %d %q", code, stdout)
+	}
+}
+
+// writeConfig は sessions を持つ最小の config.toml を cfg に書く。
+func writeConfig(t *testing.T, cfg string, sessions string) {
+	t.Helper()
+	body := "listen_addr = \"127.0.0.1:48120\"\nsessions = " + sessions + "\n"
+	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTokenAddSessions(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "config.toml")
+	writeConfig(t, cfg, `["0", "1"]`)
+	tokens := filepath.Join(filepath.Dir(cfg), "tokens.toml")
+
+	code, stdout, stderr := runCLI(t, "token", "add", "kana", "--scope", "ops", "--sessions", "0", "--config", cfg)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	kana := strings.TrimSpace(stdout)
+	code, stdout, stderr = runCLI(t, "token", "add", "boss", "--scope=ops", "--sessions=0,1", "--config", cfg)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	boss := strings.TrimSpace(stdout)
+	if code, stdout, _ = runCLI(t, "token", "add", "all", "--scope", "report", "--config", cfg); code != 0 {
+		t.Fatalf("--sessions なし: exit %d", code)
+	}
+	all := strings.TrimSpace(stdout)
+
+	a, err := auth.Open(tokens, clock.Real{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for plain, want := range map[string][]string{kana: {"0"}, boss: {"0", "1"}, all: nil} {
+		c, err := a.Authenticate("Bearer " + plain)
+		if err != nil || !reflect.DeepEqual(c.AllowedSessions, want) {
+			t.Errorf("Authenticate = %+v, %v, want %v", c, err, want)
+		}
+	}
+	data, _ := os.ReadFile(tokens) //nolint:gosec // テストが一時フォルダに作ったパス
+	if strings.Count(string(data), "allowed_sessions") != 2 {
+		t.Errorf("--sessions を省いたトークンにはキーを書かない:\n%s", data)
+	}
+	if strings.Contains(string(data), kana) || strings.Contains(string(data), boss) {
+		t.Error("tokens.toml に平文が書かれています")
+	}
+}
+
+func TestTokenAddSessionsRejected(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "config.toml")
+	tokens := filepath.Join(filepath.Dir(cfg), "tokens.toml")
+	for name, c := range map[string]struct {
+		config   string // "" なら config.toml を作らない
+		sessions string
+		wantExit int
+	}{
+		"config に無いセッション": {`["0", "1"]`, "0,2", 1},
+		"config.toml が無い": {"", "0", 1},
+		"空の要素":            {`["0", "1"]`, "0,,1", 2},
+		"空文字":             {`["0", "1"]`, "", 2},
+		"重複":              {`["0", "1"]`, "0,0", 1},
+		"コロンを含む":          {`["0", "1"]`, "1:T1", 1},
+	} {
+		_ = os.Remove(cfg)
+		if c.config != "" {
+			writeConfig(t, cfg, c.config)
+		}
+		code, stdout, stderr := runCLI(t, "token", "add", "x", "--scope", "ops", "--sessions", c.sessions, "--config", cfg)
+		if code != c.wantExit || stdout != "" {
+			t.Errorf("%s: exit %d stdout=%q stderr=%q, want exit %d と標準出力なし", name, code, stdout, stderr, c.wantExit)
+		}
+		if _, err := os.Stat(tokens); err == nil {
+			t.Errorf("%s: 拒否したのに tokens.toml ができています", name)
+			_ = os.Remove(tokens)
+		}
 	}
 }

@@ -12,6 +12,7 @@ graph TD
     AUTH["internal/auth"]
     MCPAPI["internal/mcpapi"]
     TOOLS["internal/tools"]
+    SESSION["internal/session"]
     PANE["internal/pane"]
     NOTES["internal/notes"]
     RENDER["internal/render"]
@@ -31,7 +32,10 @@ graph TD
     SRV --> AUTH
     SRV --> MCPAPI
     MCPAPI --> TOOLS
+    MCPAPI --> SESSION
     TOOLS --> PANE
+    TOOLS --> SESSION
+    SESSION --> PANE
     TOOLS --> NOTES
     TOOLS --> RENDER
     TOOLS --> SAFETY
@@ -67,6 +71,7 @@ swarm-console/
 │   ├── setup/                `setup` の画面（huh）、tailnet 候補の列挙、入力 → 編集操作の変換、保存（競合・検査・原子的書き込み）
 │   ├── server/               HTTP サーバー、窓口ルーティング、リクエスト上限、監査ログ
 │   ├── auth/                 tokens.toml、Bearer 検証、スコープ、token CLI
+│   ├── session/              セッション ACL とセッション内のペイン解決（許可セッションの決定・`session` 引数の決め方・ペインの解決。状態を持たない純関数）
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
 │   ├── tools/                ツールごとのハンドラ（引数検証・エラー整形）
 │   ├── pane/                 ペイン台帳、位置解決、スナップショット、サンプラー、ロック、操作の実行
@@ -106,10 +111,11 @@ swarm-console/
 | `config/tomledit` | `go-toml/v2` の `unstable.Parser` で値のバイト範囲を取り、変更したキーの値だけを置き換える・無いキーを足す。変更範囲の外を 1 バイトも変えない（ER §5.1） | `Edit(src []byte, ops []Op) ([]byte, error)`、`Op{Key []string, Value any}` | FR-SET-3, NFR-OPS-8 |
 | `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options{Path, Out, Home, Prompter, IssueToken}`。`Path` は `config.toml` のパス、`Prompter` は画面の差し替え、`IssueToken` は `token add` と同じ処理の注入で FR-SET-10）。tailnet 候補は `HostCandidates()`（`net.InterfaceAddrs` を直接呼ぶ）と `Candidates(addrs)`（引数のアドレスから選ぶ純関数。差し替えの接点） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
 | `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(Options) (*Server, error)`（`Options{ListenAddr, Auth, Report, Ops, Logger, ShutdownTimeout}`）、`Server.Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
-| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、定数時間照合、スコープ判定、`token add/revoke` | `Open(path, clk, logger)`（`logger` は再読み込み失敗の警告の出力先。nil なら出さない）、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope}`、`Add`・`Revoke` | NFR-SEC-3〜6 |
+| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、`allowed_sessions` の検証、定数時間照合、スコープ判定、`token add/revoke`（`add` は `--sessions`） | `Open(path, clk, logger)`（`logger` は再読み込み失敗の警告の出力先。nil なら出さない）、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope, AllowedSessions []string}`（`nil` は `sessions` 全部、値があれば明示のリスト）、`Add`・`Revoke` | NFR-SEC-3〜6, FR-SESS-1〜3 |
 | `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録 | `NewReportServer(Options)`、`NewOpsServer(Options)`（`Options{Tools, Version, Logger, Audit}`）、`NewHTTPHandler(s)` | FR-SAFE-6 |
-| `tools` | ツール 17 個のハンドラ。引数検証、窓口の権限確認、`pane` の解決、エラーコードへの変換 | `Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Registry` | API 仕様 §5 |
-| `pane` | スナップショットとサンプラー、位置の命名、ペイン解決、ペインロック（`pane/ops` の `Operator.Lock`）、`send_text`・`ask_pick` などの操作実行 | `Registry`（`Current`・`Refresh`・`Resolve(ctx, arg)`・`Tail`・`Card`）、`Snapshot`、`Ops` | FR-POS, FR-STATE, FR-O |
+| `tools` | ツール 18 個のハンドラ。引数検証、窓口の権限確認、`session` の決定と `pane` の解決（`session` パッケージ経由）、エラーコードへの変換 | `Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Registry` | API 仕様 §5 |
+| `session` | 許可セッション（`auth.Client.AllowedSessions` と `config.sessions` の共通部分）の計算、`session` 引数の決め方（`invalid_args`・`session_forbidden`・`session_required`）、決めたセッションの中での `pane` の解決（別のセッションのペインに当たるときの `session_forbidden`・`invalid_args`）。`tools` と `mcpapi`（resources）が使う | `Allowed(granted, configured)`、`Pick(allowed, configured, arg)`、`Resolve(snap, allowed, in, arg)` | FR-SESS-4〜6・11 |
+| `pane` | スナップショットとサンプラー、位置の命名（全体の名前とセッション内の名前）、ペインロック（`pane/ops` の `Operator.Lock`）、`send_text`・`ask_pick` などの操作実行（ペイン引数の解決は `session` パッケージ） | `Registry`（`Current`・`Refresh`・`Tail`・`Card`）、`Snapshot`（`Find`・`ForSession(session)`）、`Ops` | FR-POS, FR-STATE, FR-O |
 | `agent` | アダプタの契約（下記 §4）とレジストリ。設定の上書きの適用。組み込みのエージェント名の一覧（`Builtin()`・`IsBuiltin(name)`。並びの定義はここ 1 か所） | `Adapter`、`Register(name, factory)`、`New(name, ov)`、`Names()`、`Builtin()`、`IsBuiltin(name)` | FR-AD |
 | `notes` | `notes.json` の読み書き、`note_set` のマージ・検証、履歴、孤児化 | `Store`、`Get/Set/Log/Archive/History` | FR-NOTE |
 | `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(ReportInput)`、`Dispatch(DispatchInput)` | FR-REP, FR-DIS |
@@ -192,7 +198,6 @@ type Snapshot struct {
 type Registry interface {
     Current(ctx) (*Snapshot, error)   // snapshot_ttl 内ならキャッシュ、古ければ singleflight で取り直す
     Refresh(ctx) (*Snapshot, error)   // 強制再取得（操作の後）
-    Resolve(ctx, arg string) (Ref, error) // 位置・ID → ペイン
     Tail(ctx, ref Ref, lines int, raw bool) (Tail, error) // pane_tail
     Card(ctx, ref Ref) (*agent.Card, error)               // 質問カード（asking でなければ nil）
 }
@@ -239,9 +244,9 @@ type Tool struct {
 | レンダリング | ゴールデンファイル（`report` の `ja`・`en`、`dispatch` の全プロファイル） | 決定性・1 文字一致（NFR-TEST-5） |
 | メモ | 一時ディレクトリ ＋ 書き込み途中停止の注入 | 壊れない・秘密拒否・500 件・50 行 |
 | 安全 | 表駆動 | 許可外の `cwd`・`file`・制御文字・シンボリックリンク・秘密パターン |
-| 認証 | `httptest` | 401・403・失効・定数時間の経路・`/report` の `tools/list` |
-| 統合 | 実 tmux（専用ソケット `-L`、一時セッション）＋ `test/fakeagent` | 各ツールの正常系と拒否（NFR-TEST-1〜4）、`pane_close` の画面確認、並び変更の警告 |
-| 受け入れ（自動化分） | MCP クライアント（SDK の client）で `/report`・`/ops` に接続 | AC-1〜AC-5 のうち自動で担保できる範囲 |
+| 認証・許可セッション | `httptest`、`session` パッケージの表駆動の単体テスト | 401・403・失効・定数時間の経路・`/report` の `tools/list`、`allowed_sessions` の読み込み、`session` の決め方とセッション内のペイン解決（AC-7） |
+| 統合 | 実 tmux（専用ソケット `-L`、一時セッション。2 セッション）＋ `test/fakeagent` | 各ツールの正常系と拒否（NFR-TEST-1〜4）、`pane_close` の画面確認、並び変更の警告、セッションごとの許可・`sessions_list`・resources の許可 |
+| 受け入れ（自動化分） | MCP クライアント（SDK の client）で `/report`・`/ops` に接続 | AC-1〜AC-5・AC-7 のうち自動で担保できる範囲 |
 | 設定の編集（`setup`） | `tomledit` の表駆動の単体テスト ＋ 手書きの見本ファイル（`testdata/config/handwritten.toml`）に対する「入力値 → 編集」の検査 ＋ 実 tmux のペインで `setup` を起動して `send-keys` で入力 | 変更範囲の外のバイト列が同一・`serve` と同じ検証・TTY でない起動の拒否・中止で書かない（NFR-TEST-12・13） |
 | 新しい版の確認 | `httptest` で GitHub の応答を差し替え ＋ `clock` を進める | 結果の区別・版の比較・失敗の分類・`serve` が止まらない・`host_status.update`（NFR-TEST-14） |
 | 自己更新 | `httptest` の偽の配信元 ＋ 一時ディレクトリの `HOME` ＋ `clock` を進める。実 systemd は使わない | 入れ替えの成功・検証失敗・各ステップの失敗で本体が残る・許可外のリダイレクト・ダウングレードしない・試運転の `boots` と 60 秒・戻し・`blocked`・`working` でも待たない（NFR-TEST-16）。実機の再起動と戻しは未確認の報告に明記 |
@@ -279,3 +284,4 @@ type Tool struct {
 | 2.2 | 2026-11-02 | §3 の `setup` の公開 IF を実装の `Options{Path, Out, Home, Prompter, IssueToken}` に合わせた（実装にない `Options` の項目の記述を除き、`HostCandidates()`・`Candidates(addrs)` を明記。実装は変えない） | Issue #59 |
 | 2.3 | 2026-11-02 | §2 のツリーに `test/setup/`（実 tmux のペインで `setup` を起動して `send-keys` で確かめるテスト。NFR-TEST-13）を追加（実装は変えない） | Issue #66 |
 | 2.4 | 2026-11-02 | §tmux の許可サブコマンドと `Paste` の流れに `delete-buffer -b <一意名>`（失敗時・中断時の後始末）を追加 | Issue #57 |
+| 2.5 | 2026-11-02 | `auth.Client` に `AllowedSessions` を追加（`token add --sessions`）。新しいパッケージ `internal/session`（セッション ACL とセッション内のペイン解決）を追加。`tools` を 17 個から 18 個に（`sessions_list`）。§1 の依存図・§2 のツリー・§3 の表を更新 | セッション分割運用（許可セッションの分離） |

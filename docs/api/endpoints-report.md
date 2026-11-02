@@ -12,10 +12,12 @@
 |------|-----|------|------|
 | `format` | string | 任意 | `markdown`（既定）・`json` |
 | `pane` | string | 任意 | 指定すると 1 ペインの詳しい版 |
+| `session` | string | 任意 | [API 仕様 §4.1](endpoints.md#41-session-引数と許可セッション)。ペインに関する項目をそのセッションだけに絞る |
 | `lang` | string | 任意 | `ja`（既定、`default_lang` で変更）・`en` |
 
 - `markdown`：`content[0].text` に機能要件 §5.3 の markdown 本文を入れる（他のキーは足さない）。ツールの説明に「返った markdown に手を加えずそのまま表示する」と書く。
 - `json`：`panes_status` と同じ構造に、要対応の一覧と、足した値（使用状況・CPU・スワップ・ディスク・更新確認・ログイン期限）を入れる。言語に依存しない。値は全部スナップショットに入った値（FR-REP-10）。
+- `session`：`panes`・`layout`・`attention` のペインの項目・`warnings` を、決まったセッションだけに絞る（`pos` はセッション内の位置。`report_waiting` の `detail` のパスのファイル名は全体の位置から付く。§4.1）。`host`・`usage`・`omp`・`update`・`auth` と、ログインの要対応（`auth_expired`・`auth_expiring`）は絞らず全体の値を入れる。markdown も同じ（ペインの表・要対応のペインの項目・警告だけがそのセッション。見出し・使用状況は全体）。`pane` と一緒に指定したときは、`pane` をそのセッションの中で解決する（§4.1）。許可セッションが 2 つ以上のトークンが `session` を省略すると `session_required`。
 
 ```json
 {
@@ -68,7 +70,7 @@
 }
 ```
 
-同じスナップショットなら、クライアントによらず同じ出力（FR-REP-7）。
+同じスナップショット・同じ `session` なら、クライアントによらず同じ出力（FR-REP-7）。
 
 #### 足した値の形
 
@@ -108,6 +110,7 @@
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | `shell` または `idle` のペイン |
+| `session` | string | 任意 | [API 仕様 §4.1](endpoints.md#41-session-引数と許可セッション)。`pane` はこのセッションの中で解決する |
 | `agent` | string | 必須 | `omp`・`claude`・`codex`。`idle` のペインで実際のエージェントと違えば `invalid_args` |
 | `cwd` | string | `shell` のとき必須 | `pane_start` と同じ規則。`idle` のペインでは無視（省略可） |
 | `title` | string | `shell` のとき必須 | `pane_start` と同じ規則 |
@@ -142,7 +145,7 @@
 - <extra_rules の各行>
 ```
 
-- 共通の条件 → プロファイルの条件 → `extra_rules` の順。`{report_path}` は最終報告ファイルの実パス（`/tmp/swarm-console/reports/<位置>.md`。`<位置>` の `:`・`/`・`\` は `_` にする。[er-config §7](../architecture/er-config.md#7-最終報告ファイル)）に置換。
+- 共通の条件 → プロファイルの条件 → `extra_rules` の順。`{report_path}` は最終報告ファイルの実パス（`/tmp/swarm-console/reports/<位置>.md`）に置換。`<位置>` はセッション内の位置ではなく全体の位置（既定セッションは `T1`、それ以外は `1:T1`）で、`:`・`/`・`\` は `_` にする（例 `1:T1` → `1_T1.md`。別のセッションのファイルが衝突しない。[er-config §7](../architecture/er-config.md#7-最終報告ファイル)）。
 - 見出し（`## やること`・`## 条件`）と `profiles.toml` の条件文以外の文は足さない。人の名前・経緯は入れない。
 - 組み立て後の全文は 8000 字以内。`forbidden_control_char`（`\n`・`\t` 以外）・`text_too_long`・`secret_detected`（`note`）はここで検出し、何も送らない。
 
@@ -163,7 +166,7 @@
 | 名前 | 窓口 | 引数 | 内容 |
 |------|------|------|------|
 | `report` | `/report`・`/ops` | `lang`（任意） | 「`report` ツールを呼び、返った markdown を手を加えずそのまま表示する」というユーザーメッセージ |
-| `dispatch` | `/ops` | `pane`・`agent`・`cwd`・`title`・`command`・`task`・`profile`・`extra_rules`（`profile` と `task` は必須） | 「この引数のまま `dispatch` ツールを呼び、返った `sent` と結果を報告する」というユーザーメッセージ |
+| `dispatch` | `/ops` | `session`・`pane`・`agent`・`cwd`・`title`・`command`・`task`・`profile`・`extra_rules`（`profile` と `task` は必須。`session` は引数の先頭で、許可セッションがちょうど 1 つなら省略でき、そうでなければ指定が要る。prompt の定義としては任意の引数。P-86） | 「この引数のまま `dispatch` ツールを呼び、返った `sent` と結果を報告する」というユーザーメッセージ（引数を描画する JSON でも `session` は先頭） |
 
 プロンプトの文面はサーバー側で固定（クライアントによらず同じ）。
 
@@ -171,12 +174,13 @@
 
 | URI | MIME | 内容 |
 |-----|------|------|
-| `swarm://report` | `text/markdown` | `report`（markdown、既定言語）と同じ |
+| `swarm://report` | `text/markdown` | `report`（markdown、既定言語）と同じ。許可セッションがちょうど 1 つのときだけ読める（そのセッションの report）。2 つ以上のトークンは `session_required` で、`resources/list` にも載せない |
 | `swarm://pane/<位置>` | `text/markdown` | `report` の `pane` 指定（1 ペインの詳しい版） |
 | `swarm://notes/<位置>` | `application/json` | `note_get` と同じ |
 
-- `<位置>` は位置の名前または tmux ID。ID の `%` は URI では `%25` にする（`swarm://pane/%2512`）。`resources/list` は現在のペインぶんの URI を列挙し、`resources/templates/list` にテンプレート（`swarm://pane/{pos}`・`swarm://notes/{pos}`）を返す。
-- 解決できない位置は `pane_not_found`（resources は JSON-RPC のエラーコード `-32002` ＋ 同じ本文）。
+- `<位置>` は位置の名前または tmux ID。ID の `%` は URI では `%25`、位置の `:` は `%3A` にする（`swarm://pane/%2512`・`swarm://pane/1%3AT1`。`resources/list` はこの形で載せる）。許可セッションが 1 つのトークンでは、位置はそのセッション内の位置（接頭辞なし）か tmux ID。2 つ以上のトークンでは、全体の名前（既定セッション以外は `1:T1`、既定セッションは `T1`。全体の名前は一意）か tmux ID で、`resources/list` も全体の名前で載せる。
+- `resources/list` は許可セッションのペインぶんの URI だけを列挙し、`resources/templates/list` にテンプレート（`swarm://pane/{pos}`・`swarm://notes/{pos}`）を返す。`resources/read` もツールと同じ許可の検査をする。
+- エラーは JSON-RPC エラーに [API 仕様 §3.1](endpoints.md#31-形式) の本文を `data` として載せる：解決できない位置は `pane_not_found`、許可外のセッションのペインは `session_forbidden`（どちらも `-32002`）、`swarm://report` の `session_required` は `-32602`（invalid params）。
 
 ## 7. 上限一覧
 

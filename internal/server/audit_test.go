@@ -18,6 +18,7 @@ type auditLine struct {
 	Method   string `json:"method"`
 	Tool     string `json:"tool"`
 	Pane     string `json:"pane"`
+	Session  string `json:"session"`
 	Code     string `json:"code"`
 	Status   int    `json:"status"`
 }

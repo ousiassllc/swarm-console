@@ -97,7 +97,7 @@ func TestResources(t *testing.T) {
 		for _, r := range list.Resources {
 			uris = append(uris, r.URI)
 		}
-		for _, want := range []string{"swarm://report", "swarm://pane/work:T1", "swarm://notes/work:T1", "swarm://pane/B3", "swarm://notes/B3"} {
+		for _, want := range []string{"swarm://report", "swarm://pane/work%3AT1", "swarm://notes/work%3AT1", "swarm://pane/B3", "swarm://notes/B3"} {
 			if !slices.Contains(uris, want) {
 				t.Errorf("%s: resources/list に %s がありません: %v", ep.path, want, uris)
 			}

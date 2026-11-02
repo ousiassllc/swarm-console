@@ -9,9 +9,10 @@ import (
 )
 
 type sendTextArgs struct {
-	Pane *string `json:"pane"`
-	Text *string `json:"text"`
-	File *string `json:"file"`
+	Session *string `json:"session"`
+	Pane    *string `json:"pane"`
+	Text    *string `json:"text"`
+	File    *string `json:"file"`
 }
 
 type sendTextJSON struct {
@@ -27,15 +28,16 @@ func (e *env) sendTextTool() Tool {
 		Description: descSendText,
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane"}, props{
-			"pane": paneProp(),
-			"text": strProp("貼り付ける本文（8000 字まで。制御文字は改行とタブだけ）。file と同時に指定しない"),
-			"file": strProp("サーバー上のファイルの絶対パス（許可された根の下、UTF-8、8000 字まで）。text と同時に指定しない"),
+			"pane":    paneProp(),
+			"session": sessionProp(),
+			"text":    strProp("貼り付ける本文（8000 字まで。制御文字は改行とタブだけ）。file と同時に指定しない"),
+			"file":    strProp("サーバー上のファイルの絶対パス（許可された根の下、UTF-8、8000 字まで）。text と同時に指定しない"),
 		}),
 		Handler: e.sendText,
 	}
 }
 
-func (e *env) sendText(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) sendText(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a sendTextArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -60,7 +62,7 @@ func (e *env) sendText(ctx context.Context, _ auth.Client, raw json.RawMessage) 
 			return Result{}, apperr.New(apperr.FileUnreadable, "field", "file")
 		}
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}
@@ -72,6 +74,7 @@ func (e *env) sendText(ctx context.Context, _ auth.Client, raw json.RawMessage) 
 }
 
 type sendEscapeArgs struct {
+	Session *string `json:"session"`
 	Pane    *string `json:"pane"`
 	Confirm *bool   `json:"confirm"`
 }
@@ -89,13 +92,14 @@ func (e *env) sendEscapeTool() Tool {
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane", "confirm"}, props{
 			"pane":    paneProp(),
+			"session": sessionProp(),
 			"confirm": boolProp("true でなければ実行しない"),
 		}),
 		Handler: e.sendEscape,
 	}
 }
 
-func (e *env) sendEscape(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) sendEscape(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a sendEscapeArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -106,7 +110,7 @@ func (e *env) sendEscape(ctx context.Context, _ auth.Client, raw json.RawMessage
 	if a.Confirm == nil || !*a.Confirm {
 		return Result{}, apperr.New(apperr.ConfirmRequired)
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}

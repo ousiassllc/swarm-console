@@ -1,9 +1,10 @@
 package tools
 
-// all は登録順（API 仕様 §1.1）の 17 ツール。見る 9 つのあとに操作 8 つ。
+// all は登録順（API 仕様 §1.1）の 18 ツール。見る 10 のあとに操作 8 つ。
 func (e *env) all() []Tool {
 	return []Tool{
 		e.reportTool(),
+		e.sessionsListTool(),
 		e.panesStatusTool(),
 		e.paneTailTool(),
 		e.askCardTool(),

@@ -2,7 +2,6 @@ package pane
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"github.com/ousiassllc/swarm-console/internal/host"
@@ -40,16 +39,14 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 	r.reconcileServer(ctx)
 	infos = SortPanes(infos, cfg)
 	snap.TmuxSession = len(infos) > 0
-	if w, ok := missingSessions(infos, cfg.Sessions); ok {
-		snap.Warnings = append(snap.Warnings, w)
-	}
+	snap.Warnings = append(snap.Warnings, missingSessions(infos, cfg.Sessions)...)
 	if len(infos) == 0 {
 		// 一覧が空のときは一時的な失敗と区別できないので、消えた判定・並びの比較には使わない。
 		r.built = true
 		return snap, nil
 	}
 
-	names := NamePositions(infos, cfg)
+	names, locals := NamePositions(infos, cfg), NameLocalPositions(infos, cfg)
 	obs := r.observeAll(ctx, infos)
 	sums := r.deps.Notes.Summaries()
 	snap.Panes = make([]PaneState, len(infos))
@@ -57,8 +54,10 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 		o := obs[i]
 		changedAt, hash, state, elapsed := r.track(p.ID, o, now)
 		act, trunc := TruncateRunes(oneLine(o.activity), activityMax)
+		_, fixed := fixedName(p, cfg)
 		ps := PaneState{
-			ID: p.ID, Pos: names[p.ID], Session: p.Session, Window: p.Window, PaneIndex: p.PaneIndex,
+			Fixed: fixed,
+			ID:    p.ID, Pos: names[p.ID], Local: locals[p.ID], GlobalPos: names[p.ID], Session: p.Session, Window: p.Window, PaneIndex: p.PaneIndex,
 			Top: p.Top, Left: p.Left,
 			Agent: o.agentName, State: state, Title: p.Title, Cwd: p.CurrentPath,
 			Elapsed: elapsed, Activity: act, ActivityTrunc: trunc,
@@ -70,7 +69,7 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 			ps.Note = &s
 		}
 		if !o.readable {
-			snap.Warnings = append(snap.Warnings, Warning{Code: WarnPaneUnreadable, Message: "ペイン " + ps.Pos + " の画面を読めませんでした"})
+			snap.Warnings = append(snap.Warnings, Warning{Code: WarnPaneUnreadable, Message: "ペイン " + ps.Local + " の画面を読めませんでした", Session: ps.Session})
 		}
 		snap.Panes[i] = ps
 	}
@@ -99,22 +98,19 @@ func (r *SnapshotRegistry) observeAll(ctx context.Context, infos []tmux.PaneInfo
 	return obs
 }
 
-// missingSessions は 1 つもペインが見つからなかった対象セッションの警告を返す。
-func missingSessions(infos []tmux.PaneInfo, sessions []string) (Warning, bool) {
+// missingSessions は 1 つもペインが見つからなかった対象セッションの警告を、セッションごとに返す。
+func missingSessions(infos []tmux.PaneInfo, sessions []string) []Warning {
 	have := map[string]bool{}
 	for _, p := range infos {
 		have[p.Session] = true
 	}
-	var missing []string
+	var out []Warning
 	for _, s := range sessions {
 		if !have[s] {
-			missing = append(missing, s)
+			out = append(out, Warning{Code: WarnSessionMissing, Message: "tmux セッションが見つかりません: " + s, Session: s})
 		}
 	}
-	if len(missing) == 0 {
-		return Warning{}, false
-	}
-	return Warning{Code: WarnSessionMissing, Message: "tmux セッションが見つかりません: " + strings.Join(missing, ", ")}, true
+	return out
 }
 
 // reconcileServer は tmux サーバーの起動時刻を読んでメモ側に渡す（P-15）。サーバーが無い（空）ときは渡さない。

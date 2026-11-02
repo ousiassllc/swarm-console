@@ -10,8 +10,9 @@ import (
 )
 
 type noteSetArgs struct {
-	Pane *string                    `json:"pane"`
-	Set  map[string]json.RawMessage `json:"set"`
+	Session *string                    `json:"session"`
+	Pane    *string                    `json:"pane"`
+	Set     map[string]json.RawMessage `json:"set"`
 }
 
 type noteSetJSON struct {
@@ -25,14 +26,15 @@ func (e *env) noteSetTool() Tool {
 		Description: descNoteSet,
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane", "set"}, props{
-			"pane": paneProp(),
-			"set":  objectProp("書き換える項目だけ。値が null ならその項目を消す（updated_at・log は不可）"),
+			"pane":    paneProp(),
+			"session": sessionProp(),
+			"set":     objectProp("書き換える項目だけ。値が null ならその項目を消す（updated_at・log は不可）"),
 		}),
 		Handler: e.noteSet,
 	}
 }
 
-func (e *env) noteSet(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) noteSet(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a noteSetArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -40,7 +42,7 @@ func (e *env) noteSet(ctx context.Context, _ auth.Client, raw json.RawMessage) (
 	if a.Set == nil {
 		return Result{}, invalidArg("set")
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}
@@ -52,8 +54,9 @@ func (e *env) noteSet(ctx context.Context, _ auth.Client, raw json.RawMessage) (
 }
 
 type noteLogArgs struct {
-	Pane *string `json:"pane"`
-	Text *string `json:"text"`
+	Session *string `json:"session"`
+	Pane    *string `json:"pane"`
+	Text    *string `json:"text"`
 }
 
 type noteLogJSON struct {
@@ -67,14 +70,15 @@ func (e *env) noteLogTool() Tool {
 		Description: descNoteLog,
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane", "text"}, props{
-			"pane": paneProp(),
-			"text": strProp("ログの 1 行（500 字まで、改行なし）"),
+			"pane":    paneProp(),
+			"session": sessionProp(),
+			"text":    strProp("ログの 1 行（500 字まで、改行なし）"),
 		}),
 		Handler: e.noteLog,
 	}
 }
 
-func (e *env) noteLog(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) noteLog(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a noteLogArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -83,7 +87,7 @@ func (e *env) noteLog(ctx context.Context, _ auth.Client, raw json.RawMessage) (
 	if err != nil {
 		return Result{}, err
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}

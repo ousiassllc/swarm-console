@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 
 	_ "github.com/ousiassllc/swarm-console/internal/agent/allagents" // 組み込みアダプタの登録（FR-AD-4）
 
@@ -46,6 +47,21 @@ func TokensPath(configPath string) (string, error) {
 	return filepath.Join(dir, "tokens.toml"), nil
 }
 
+// CheckTokenSessions は token add --sessions の名前が、configPath の config.toml の sessions に含まれるか確かめる。
+// config.toml を読めない（無い・不正）ときもエラー（どのセッションが有効か分からないまま許可を書かない）。
+func CheckTokenSessions(configPath string, sessions []string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("--sessions を確かめるため config.toml を読めません: %w", err)
+	}
+	for _, s := range sessions {
+		if !slices.Contains(cfg.Sessions, s) {
+			return fmt.Errorf("--sessions のセッション %q は config.toml の sessions にありません", s)
+		}
+	}
+	return nil
+}
+
 // App は組み立て済みの swarm-console。
 type App struct {
 	Cfg      *config.Config
@@ -83,6 +99,9 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 	authn, err := auth.Open(cfg.TokensPath, clk, logger)
 	if err != nil {
 		return nil, fmt.Errorf("tokens.toml を開けません: %w", err)
+	}
+	if err := authn.CheckSessions(cfg.Sessions); err != nil {
+		return nil, err
 	}
 	store, err := notes.NewStore(cfg.NotesPath, clk, notes.WithSecretDetector(safety.DetectSecret), notes.WithLogger(logger))
 	if err != nil {

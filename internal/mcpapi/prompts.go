@@ -31,7 +31,8 @@ func (b *builder) addPrompts(s *mcp.Server) {
 	s.AddPrompt(&mcp.Prompt{
 		Name: "dispatch", Description: "空きペインへ指示を送る dispatch ツールの呼び出しを組み立てる",
 		Arguments: []*mcp.PromptArgument{
-			{Name: "pane", Description: "送り先のペイン"}, {Name: "agent", Description: "omp・claude・codex"},
+			{Name: "session", Description: "送り先の tmux セッション。許可されたセッションがちょうど 1 つなら省略できる（複数なら必須）"},
+			{Name: "pane", Description: "送り先のペイン（セッション内の位置）"}, {Name: "agent", Description: "omp・claude・codex"},
 			{Name: "cwd", Description: "作業フォルダ（shell のとき）"}, {Name: "title", Description: "タイトル（shell のとき）"},
 			{Name: "command", Description: "1 行目のスラッシュコマンド"},
 			{Name: "task", Description: "やること", Required: true},
@@ -62,6 +63,7 @@ func (b *builder) reportPrompt(_ context.Context, req *mcp.GetPromptRequest) (*m
 
 // dispatchArgs は dispatch ツールの引数のキー順（API 仕様 §5.6 の表の順）。prompt に渡された分だけを並べる。
 type dispatchPromptArgs struct {
+	Session    *string  `json:"session,omitempty"`
 	Pane       *string  `json:"pane,omitempty"`
 	Agent      *string  `json:"agent,omitempty"`
 	Cwd        *string  `json:"cwd,omitempty"`
@@ -87,7 +89,7 @@ func (b *builder) dispatchPrompt(_ context.Context, req *mcp.GetPromptRequest) (
 		return nil
 	}
 	args := dispatchPromptArgs{
-		Pane: opt("pane"), Agent: opt("agent"), Cwd: opt("cwd"), Title: opt("title"), Command: opt("command"),
+		Session: opt("session"), Pane: opt("pane"), Agent: opt("agent"), Cwd: opt("cwd"), Title: opt("title"), Command: opt("command"),
 		Task: a["task"], Profile: a["profile"],
 	}
 	if v := a["extra_rules"]; v != "" {

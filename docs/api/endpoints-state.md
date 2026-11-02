@@ -1,6 +1,6 @@
 # API 仕様：サーバーの状態・メモのツール
 
-[API 仕様](endpoints.md) の続き。§5 ツールのうち、§5.3 サーバーの状態（`host_status`・`agent_auth_status`）と §5.4 メモ（`note_get`・`note_set`・`note_log`・`note_history`）を定める。
+[API 仕様](endpoints.md) の続き。§5 ツールのうち、§5.3 サーバーの状態（`sessions_list`・`host_status`・`agent_auth_status`）と §5.4 メモ（`note_get`・`note_set`・`note_log`・`note_history`）を定める。
 
 改訂履歴は [API 仕様（本書）](endpoints.md#改訂履歴) にまとめてある。
 
@@ -8,9 +8,38 @@
 
 ### 5.3 サーバーの状態
 
+#### `sessions_list`
+
+`session` を選ぶための一覧。`config.toml` の `sessions` の順に返す。`/report`・`/ops` の両方で使える。
+
+| 引数 | 型 | 必須 | 説明 |
+|------|-----|------|------|
+| `all` | bool | 任意 | 既定 `false`。`true` なら許可されていないセッションもスタブで含める |
+
+```json
+{"sessions": [
+  {"id": "0", "allowed": true, "operable": true, "layout": {"rows": 2, "cols": [3, 3]}, "panes": ["T1", "T2", "T3", "B1", "B2", "B3"]},
+  {"id": "1", "allowed": false, "operable": false}
+]}
+```
+
+| キー | 意味 |
+|------|------|
+| `id` | tmux セッション名（`sessions` の値そのもの） |
+| `allowed` | 呼び出し元の許可セッションか（[API 仕様 §4.1](endpoints.md#41-session-引数と許可セッション)） |
+| `operable` | `allowed` かつトークンのスコープが `ops` かつ `/ops` 経由のときだけ `true`。`/report` 経由は（`ops` のトークンでも）`false` |
+| `layout` | 許可セッションだけ。そのセッションのペインから計算（`panes_status` の `layout` と同じ形） |
+| `panes` | 許可セッションだけ。そのセッション内の位置（接頭辞なし）を位置順に |
+
+- 既定は許可セッションだけを返す。`all: true` の許可外はスタブ `{"id", "allowed": false, "operable": false}`（`layout`・`panes` は出さない）で、ペインの中身は漏らさない。
+- 許可されていて `sessions` にあるが tmux に無いセッションは `"layout": {"rows": 0, "cols": []}`・`"panes": []`（警告は `panes_status` の `session_missing`）。
+- `session` は取らない（セッションを選ぶための一覧）。
+
 #### `host_status`
 
-引数なし。
+| 引数 | 型 | 必須 | 説明 |
+|------|-----|------|------|
+| `session` | string | 任意 | [§4.1](endpoints.md#41-session-引数と許可セッション)。ホスト全体の値は変えず、`agents` と `tmux_session` だけそのセッションに絞る。許可が 2 つ以上のトークンが省略すると `session_required` |
 
 ```json
 {"load": [98.2, 95.1, 90.4], "cpus": 32, "mem_total_gb": 128, "mem_free_gb": 41.3,
@@ -25,7 +54,7 @@
             "apply": {"state": "idle"}}}
 ```
 
-`disk` は設定した監視マウント（既定 `/` と `/mnt/nvme`。SSD 2 台はこの 2 つ）。`agents` は種別ごとのペイン数。
+`disk` は設定した監視マウント（既定 `/` と `/mnt/nvme`。SSD 2 台はこの 2 つ）。`agents` は種別ごとのペイン数。`session`（または許可が 1 つのときの省略）で決まったセッションについて、`agents` はそのセッションのペインだけを数え、`tmux_session` はそのセッションにペインがあるかを返す。`load`・`cpus`・`mem_*`・`cpu`・`swap`・`disk`・`uptime`・`usage`・`omp`・`update` はセッションによらずホスト全体の値。
 
 `cpu`・`swap`・`disk`（`available`・`total_gb`・`used_percent`）・`usage`・`omp` は、`report` の JSON と同じ形・同じ値（形と取れないときの値は [API 仕様 §5.5](endpoints-report.md#55-report)、取り方は [report-values.md](../architecture/report-values.md)）。FR-REP-17。値はスナップショットに入っていたもので、呼び出しでコマンドを実行しない。取れない値はキーを残し `available: false` と `null` にする（FR-REP-11）。
 
@@ -53,7 +82,7 @@
 
 #### `agent_auth_status`
 
-引数なし。
+引数なし（`session` は取らない。ホスト上のログイン期限で、ペインに属さない）。
 
 ```json
 {"agents": [
@@ -72,18 +101,20 @@
 | 引数 | 型 | 必須 |
 |------|-----|------|
 | `pane` | string | 必須 |
+| `session` | string | 任意 |
 
 ```json
 {"pane": "B4", "id": "%12", "note": {"from": "agent-b", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる", "log": [], "updated_at": "2026-10-31T21:50:12+09:00"}}
 ```
 
-メモがなければ `"note": null`。
+メモがなければ `"note": null`。`pane` は対象のセッション内の位置（接頭辞なし）。
 
 #### `note_set`（`/ops` のみ）
 
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | |
+| `session` | string | 任意 | [§4.1](endpoints.md#41-session-引数と許可セッション) |
 | `set` | object | 必須 | 書き換える項目だけ。値が `null` ならその項目を消す。キーは ER §2.2 の項目（`updated_at`・`log` は不可） |
 
 ```json
@@ -95,6 +126,7 @@
 | 引数 | 型 | 必須 | 説明 |
 |------|-----|------|------|
 | `pane` | string | 必須 | |
+| `session` | string | 任意 | [§4.1](endpoints.md#41-session-引数と許可セッション) |
 | `text` | string | 必須 | 1 行・500 字まで |
 
 ```json
@@ -114,4 +146,4 @@
 {"entries": [{"pane_id": "%4", "pos": "B1", "agent": "omp", "title": "agent: funid #981", "closed_at": "2026-10-31T18:40:00+09:00", "closed_by": "pane_close", "from": "agent-a", "repo": "ousiassllc/funid", "items": ["#981"], "log": []}], "total": 1}
 ```
 
-新しい順。`total` は絞り込み後の件数（`limit` 前）。
+新しい順。`total` は絞り込み後の件数（`limit` 前）。`session` は取らない（`repo`・`from`・`items` だけで絞り、ペインのセッションでは絞らない。既知の限界。P-89）。

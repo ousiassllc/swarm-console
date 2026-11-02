@@ -47,6 +47,14 @@ func (h *H) Status() Status {
 	return s
 }
 
+// StatusOf は ops クライアントで session を指定して panes_status を呼ぶ（許可が複数のトークンは session が必須）。
+func (h *H) StatusOf(session string) Status {
+	h.T.Helper()
+	var s Status
+	h.Ops().Must("panes_status", map[string]any{"session": session}).Decode(h.T, &s)
+	return s
+}
+
 // Pane は ID のペインの現在の様子。無ければ false。
 func (h *H) Pane(id string) (Pane, bool) {
 	h.T.Helper()

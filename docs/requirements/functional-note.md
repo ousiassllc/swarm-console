@@ -21,6 +21,7 @@
 | FR-NOTE-9 | 書き込みは一時ファイルに書いてから rename（途中で落ちても壊れない）。権限 600 |
 | FR-NOTE-10 | `send_escape` の実行は `note_log` に自動で残す |
 | FR-NOTE-11 | tmux ペインが外部で消えた・tmux サーバーが再起動して ID が再利用され得る場合、旧メモを履歴へ移す（P-15） |
+| FR-NOTE-12 | `note_get`・`note_set`・`note_log` は任意の `session` を取り、`pane` を決めたセッションの中で解決する（FR-SESS-5・6）。許可外のセッションのペインのメモは、読み書きとも `session_forbidden`。メモは tmux ID に結び付いたまま（FR-POS-8）。`note_history` は `session` を取らず、ペインのセッションで絞らない（P-89）。メモの要約（`panes_status`・`report`）の位置はセッション内の位置 |
 
 ## 10. 安全のための決まり（FR-SAFE）
 
@@ -33,8 +34,9 @@
 | FR-SAFE-5 | 送れる文字 | 通常の文字と Enter だけ。Esc は `/ops` の `send_escape`（`confirm` 必須）だけ。その他の制御キーは拒否 |
 | FR-SAFE-6 | 窓口 | `/report` からは何も変えられない（メモの書き込みも不可）。`/report` の `tools/list` に操作のツールは載らない |
 | FR-SAFE-7 | 作業中は閉じない | `pane_close` は `working` のペインを拒否 |
-| FR-SAFE-8 | ログ | 誰が・いつ・どのツールを・どのペインに使ったかを記録する。送った本文とトークンは記録しない |
+| FR-SAFE-8 | ログ | 誰が・いつ・どのツールを・どのペインに（と、どの `session` 引数で）使ったかを記録する。送った本文とトークンは記録しない |
 | FR-SAFE-9 | 呼び出しの間隔 | 同じペインへの操作は前の操作が終わるまで待たせる |
+| FR-SAFE-10 | セッションの許可 | トークンごとの許可セッション以外のペインは、読み取りも操作も拒否する（`session_forbidden`。FR-SESS-10） |
 
 ## 11. 対話型の設定（FR-SET）
 

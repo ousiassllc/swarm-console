@@ -16,7 +16,7 @@ func TestAuthenticateSuccess(t *testing.T) {
 	f := newFixture(t)
 	for name, scope := range map[string]Scope{"rep": ScopeReport, "adm": ScopeOps} {
 		c, err := f.a.Authenticate(f.bearer(name))
-		if err != nil || c != (Client{Name: name, Scope: scope}) {
+		if err != nil || c.Name != name || c.Scope != scope || c.AllowedSessions != nil {
 			t.Fatalf("%s: c=%+v err=%v", name, c, err)
 		}
 	}
@@ -48,7 +48,7 @@ func TestAuthenticateAllFailuresAreIdenticalUnauthorized(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c, err := f.a.Authenticate(h)
 			requireUnauthorized(t, err)
-			if c != (Client{}) {
+			if c.Name != "" || c.Scope != "" || c.AllowedSessions != nil {
 				t.Fatalf("失敗時は空の Client: %+v", c)
 			}
 		})
@@ -78,7 +78,7 @@ func TestContextRoundTrip(t *testing.T) {
 	}
 	want := Client{Name: "adm", Scope: ScopeOps}
 	got, ok := FromContext(WithClient(context.Background(), want))
-	if !ok || got != want {
+	if !ok || got.Name != want.Name || got.Scope != want.Scope {
 		t.Fatalf("got %+v ok=%v", got, ok)
 	}
 }

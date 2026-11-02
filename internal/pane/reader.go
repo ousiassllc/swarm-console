@@ -15,8 +15,7 @@ const (
 	cardOptMax   = 20
 	cardQMax     = 1000
 	cardLabelMax = 300
-	argEchoMax   = 100 // pane_not_found の details に載せる引数の最大字数
-	cleanMargin  = 30  // Clean で落ちる飾りの分、多めに取る行数
+	cleanMargin  = 30 // Clean で落ちる飾りの分、多めに取る行数
 )
 
 // Run はサンプラー。poll_interval ごとに Refresh し、ctx が終わるまで続く。
@@ -32,20 +31,6 @@ func (r *SnapshotRegistry) Run(ctx context.Context) error {
 		case <-r.clk.After(r.deps.Cfg.PollInterval):
 		}
 	}
-}
-
-// Resolve は位置（大文字小文字不問）または tmux ID を解決する。
-func (r *SnapshotRegistry) Resolve(ctx context.Context, arg string) (Ref, error) {
-	snap, err := r.Current(ctx)
-	if err != nil {
-		return Ref{}, apperr.Wrap(apperr.Internal, err)
-	}
-	p, ok := snap.Find(arg)
-	if !ok {
-		shown, _ := TruncateRunes(arg, argEchoMax)
-		return Ref{}, apperr.New(apperr.PaneNotFound, "pane", shown)
-	}
-	return Ref{ID: p.ID, Pos: p.Pos}, nil
 }
 
 // target はスナップショット上の ref のペインを返す。消えていれば pane_not_found。

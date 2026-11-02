@@ -14,6 +14,7 @@ import (
 )
 
 type dispatchArgs struct {
+	Session    *string                    `json:"session"`
 	Pane       *string                    `json:"pane"`
 	Agent      *string                    `json:"agent"`
 	Cwd        *string                    `json:"cwd"`
@@ -41,6 +42,7 @@ func (e *env) dispatchTool() Tool {
 		Scope:       ScopeOps,
 		Schema: object([]string{"pane", "agent", "task", "profile"}, props{
 			"pane":        strProp("shell または idle のペイン。" + panePropDesc),
+			"session":     sessionProp(),
 			"agent":       enumProp("エージェント", agent.Builtin()...),
 			"cwd":         strProp("作業フォルダの絶対パス（shell のとき必須。idle では無視）"),
 			"title":       strProp("タイトル（shell のとき必須。80 字まで、制御文字なし）"),
@@ -56,7 +58,7 @@ func (e *env) dispatchTool() Tool {
 
 // dispatch は API 仕様 §5.6。何かを送る前に引数・指示文・メモ・cwd をすべて検証し、
 // 1 つでも落ちたら何も送らず何も保存しない。メモは送信後（受理の成否によらず）に保存する（P-23）。
-func (e *env) dispatch(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) dispatch(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a dispatchArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -65,7 +67,7 @@ func (e *env) dispatch(ctx context.Context, _ auth.Client, raw json.RawMessage) 
 	if err != nil {
 		return Result{}, err
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}
