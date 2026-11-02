@@ -12,7 +12,7 @@ swarm-console の開発環境・CI/CD・Lint・Format・Linterly・Git Hooks の
 
 | 項目 | 内容 |
 |------|------|
-| 言語 | Go 1 バイナリ（`go.mod` の `go` ディレクティブは 1.26 以上。開発機は go1.26.5） |
+| 言語 | Go 1 バイナリ。`go.mod` の `go` ディレクティブはパッチ版まで最新を保つ（現在 1.26.10。`actions/setup-go` はその版を正確に入れるため）。上げたら `govulncheck ./...` で標準ライブラリの到達可能な脆弱性が 0 件であることを確かめる。開発機は go1.26.10 |
 | MCP | 公式 Go SDK（`github.com/modelcontextprotocol/go-sdk`） |
 | パッケージ管理 | Go modules（`go.mod`・`go.sum`）。TypeScript / JavaScript は使わないため bun は不要 |
 | 外部ランタイム依存 | tmux 3.x（開発機は 3.2a）。テストでも実 tmux を使う |
@@ -50,7 +50,7 @@ swarm-console/
 
 | ツール | バージョン | 用途 | 導入 |
 |--------|-----------|------|------|
-| Go | 1.26 以上 | ビルド・テスト | https://go.dev/dl/ |
+| Go | 1.26.10 以上（`go.mod` の `go` と同じパッチ版以上） | ビルド・テスト | https://go.dev/dl/ |
 | tmux | 3.x | 統合テスト・実運用（`load-buffer -`・`paste-buffer -p` が必要） | `apt install tmux` |
 | golangci-lint | v2 系（2.12 以上） | lint / format | 公式のインストールスクリプト、または `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest` |
 | Lefthook | 2.x | Git Hooks | `go install github.com/evilmartians/lefthook@latest` |
@@ -131,3 +131,4 @@ make install
 | 1.9 | 2026-11-02 | Linterly を `@latest` から `v0.3.3` 固定に変更（ci.yml・setup-ci.md・setup-quality.md・setup.md） | Issue #52 |
 | 1.10 | 2026-11-02 | 初回セットアップの `make check` の内訳に `plan-test`・`install-test` を足した（Makefile・setup-quality.md と同じ順序）。ディレクトリ構造に `deploy/`・`.github/scripts/`・`.gitignore` を追加 | Issue #39・#47 |
 | 1.11 | 2026-11-02 | setup-ci.md の「最初のリリース」の行を過去形の経緯に直した（「今はタグ・リリースとも無い」を削除） | Issue #63 |
+| 1.12 | 2026-11-02 | `go.mod` の `go` をパッチ版まで最新に保つ決まりと、上げたときの `govulncheck ./...` 確認を追加（setup-ci.md・setup.md）。`go` を 1.26.10 へ更新 | Issue #67 |

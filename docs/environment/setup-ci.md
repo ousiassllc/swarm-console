@@ -93,6 +93,7 @@ jobs:
 | 権限 | 既定は `contents: read`。`contents: write` を持つのは `release` ジョブだけ（ビルドのジョブは書き込みトークンを持たない）。PR のコードは動かさない（`workflow_run` は main の CI だけが対象）。使う action は GitHub 公式（`actions/*`）だけ |
 | ランナー | GitHub ホスト（`ubuntu-latest`）。リポジトリは public |
 | 最初のリリース | 設計時の経緯：新しい `release.yml` が main に入ったあとの、次の main の CI 成功で `v0.1.0` を付けた。以降は main の CI 成功ごとに自動で次の版が付く。`workflow_run` は main にあるワークフローファイルだけが動くので、`release.yml` を変える PR 自身ではリリースは動かない |
+| Go のパッチ版 | `actions/setup-go` は `go-version-file: go.mod` の版を正確に入れる（`go 1.26.10` なら 1.26.10）。そのためリリースのバイナリのビルドに使う標準ライブラリの版は `go.mod` の `go` で決まる。`go` ディレクティブはパッチ版まで最新を保つ（古いままだと標準ライブラリの既知の脆弱性が残ったまま配布される。Issue #67）。上げたときは、ローカルの Go も同じパッチ版以上にして `go run golang.org/x/vuln/cmd/govulncheck@latest ./...` を実行し、到達可能な脆弱性が 0 件であることを確かめる（CI のステップには入れない。依存にも加えない） |
 
 手順（`plan` ジョブ）：
 
