@@ -11,9 +11,6 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/config"
 )
 
-// MaxTextRunes は text・file の中身・組み立て後の全文の上限（字）。
-const MaxTextRunes = 8000
-
 // Policy は設定から作る不変の安全ポリシー。複数の goroutine から同時に使える。
 type Policy struct {
 	allowedRoots []string

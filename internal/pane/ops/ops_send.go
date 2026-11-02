@@ -8,11 +8,9 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 )
-
-// maxTextRunes は貼り付け本文の上限（FR-O2）。
-const maxTextRunes = 8000
 
 // inputAreaLines は入力欄とみなす画面の下側の非空行数（受理確認用）。
 const inputAreaLines = 6
@@ -22,7 +20,7 @@ const escapeLog = "Esc を送った（中断）"
 
 // builtinCheckText は pane.Deps.CheckText が無いときの簡易検査。許可する制御文字は \n・\t だけ（P-13）。
 func builtinCheckText(text string) error {
-	if utf8.RuneCountInString(text) > maxTextRunes {
+	if utf8.RuneCountInString(text) > config.MaxTextRunes {
 		return apperr.New(apperr.TextTooLong)
 	}
 	for _, r := range text {
