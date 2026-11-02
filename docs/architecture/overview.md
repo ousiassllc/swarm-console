@@ -227,3 +227,4 @@ flowchart TD
 | 1.12 | 2026-11-02 | agent-patterns.md：omp の `/exit` を実機（omp v18.15.0）で確認した内容に更新（Issue #53）。`command`・`exit_command` の空文字は設定エラーと明記（Issue #45）。コード・設定は変えない | Issue #45・#53 |
 | 1.13 | 2026-11-02 | §2 のテンプレートの理由を実装どおりに直した（言語ごとに差し替えるのはレポートだけ。指示文は `profiles.toml` の条件から組み立てる） | Issue #42 |
 | 1.14 | 2026-11-02 | §3 の依存の文を実装の名前（`pane.Tmux`・`agent.Adapter`・`clock.Clock`・`pane.ReportFS`）に合わせ、実装にない tmux のインターフェース名を除いた。エントリ層の CLI に `setup` を追加（コード・設定は変えない） | Issue #60 |
+| 1.15 | 2026-11-02 | agent-auth.md：ログイン期限の判定を入れるのは `report` だけで、`host_status` には入れない（`agent_auth_status` が同じ判定を返す）と直した。コード・設定は変えない | Issue #61 |

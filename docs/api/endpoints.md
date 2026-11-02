@@ -141,3 +141,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.7 | 2026-11-02 | `pane_close` が終了コマンドのあと `shell` に戻るまで待つと明記し、エラーコード `exit_timeout` を追加（戻らなければ `cd ~` 以降は送らない） | Issue #30 |
 | 1.8 | 2026-11-02 | `pane_close` の `exit_timeout` はエラーだけを返す（`ok`・`steps`・`note_archived` は返らない）、終了コマンドは送ってあり呼び直してよい、`shell` に戻ったかの判定は `panes_status` と同じで `/proc` に依ると明記 | Issue #30 |
 | 1.9 | 2026-11-02 | `pane_close` の `shell` に戻ったかの判定は、`/proc` が読めないとき前面コマンドが shell なら戻ったとみなす（1.8 の「`/proc` に依る」を改めた） | Issue #35 |
+| 1.10 | 2026-11-02 | endpoints-report.md：「足した値の形」で、`auth`・`attention[]` は `report` の JSON だけと明記し、`host_status` と共通なのは `cpu`・`swap`・`disk`（`report` では `host.` の下）・`usage`・`omp`・`update` と直した（1.5 の「`host_status` に同じ値を追加」の範囲を正した）。実装は変えない | Issue #61 |
