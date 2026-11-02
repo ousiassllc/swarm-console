@@ -142,7 +142,7 @@
 - <extra_rules の各行>
 ```
 
-- 共通の条件 → プロファイルの条件 → `extra_rules` の順。`{report_path}` は最終報告ファイルの実パス（`/tmp/swarm-console/reports/<位置>.md`）に置換。
+- 共通の条件 → プロファイルの条件 → `extra_rules` の順。`{report_path}` は最終報告ファイルの実パス（`/tmp/swarm-console/reports/<位置>.md`。`<位置>` の `:`・`/`・`\` は `_` にする。[er-config §7](../architecture/er-config.md#7-最終報告ファイル)）に置換。
 - 見出し（`## やること`・`## 条件`）と `profiles.toml` の条件文以外の文は足さない。人の名前・経緯は入れない。
 - 組み立て後の全文は 8000 字以内。`forbidden_control_char`（`\n`・`\t` 以外）・`text_too_long`・`secret_detected`（`note`）はここで検出し、何も送らない。
 

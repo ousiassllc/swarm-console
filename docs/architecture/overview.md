@@ -229,3 +229,5 @@ flowchart TD
 | 1.14 | 2026-11-02 | §3 の依存の文を実装の名前（`pane.Tmux`・`agent.Adapter`・`clock.Clock`・`pane.ReportFS`）に合わせ、実装にない tmux のインターフェース名を除いた。エントリ層の CLI に `setup` を追加（コード・設定は変えない） | Issue #60 |
 | 1.15 | 2026-11-02 | agent-auth.md：ログイン期限の判定を入れるのは `report` だけで、`host_status` には入れない（`agent_auth_status` が同じ判定を返す）と直した。コード・設定は変えない | Issue #61 |
 | 1.16 | 2026-11-02 | decisions.md：P-30 に、最終報告の有無の判定（`report_exists`・1 ペインの詳しい版の最終報告欄・アーカイブ先の重複判定）もシンボリックリンクを辿らない（`lstat`）と追記。er-config.md §7 も同じ（er.md 1.7）。コード・設定は変えない | Issue #55 |
+| 1.17 | 2026-11-02 | decisions.md：P-11 の最終報告ファイル名の規則を、位置の `:` だけでなく `/`・`\` も `_` にする（実装の `reportBase` と同じ。アーカイブ名も同じ）と直し、例 `a/b:T1` → `a_b_T1.md` を足した。er-config.md §7 も同じ（er.md 1.9）。コード・設定は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
+| 1.18 | 2026-11-02 | agent-patterns.md：`[agents.<name>]` の空文字は `command`・`exit_command` に加えて `auth_file` も設定エラー（起動拒否）と直した（ほかのキーの空文字・空配列は「上書きしない」）。er-config.md §5 の `agents.<name>` 行も同じ（er.md 1.10）。コード・設定は変えない | Issue #76 |
