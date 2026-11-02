@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/render"
 )
 
@@ -34,6 +35,24 @@ func TestDispatchGolden(t *testing.T) {
 					golden(t, name+".txt", got)
 				})
 			}
+		}
+	}
+}
+
+// セッション名に「/」を含む位置でも、指示文のパスとサーバーが探すパス（pane.ReportPath）が同じになる。
+func TestDispatchReportPathMatchesPane(t *testing.T) {
+	for _, tc := range []struct{ pos, want string }{
+		{"a/b:T1", "/r/a_b_T1.md"},
+		{"work:B2", "/r/work_B2.md"},
+	} {
+		got, err := render.Dispatch(render.DispatchInput{
+			Task: "T", Profile: "fix", Profiles: testProfiles(), ReportDir: "/r", Pos: tc.pos,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p := pane.ReportPath("/r", tc.pos); p != tc.want || !strings.Contains(got, "`"+p+"`") {
+			t.Errorf("pos %q: pane.ReportPath=%q want %q, 指示文:\n%s", tc.pos, p, tc.want, got)
 		}
 	}
 }
