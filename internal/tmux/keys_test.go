@@ -137,6 +137,20 @@ func TestPasteJapaneseAndLong(t *testing.T) {
 	}
 }
 
+// ctx が中断済みでも、本文は名前付きバッファとして残らない（#57）。
+func TestPasteCancelledLeavesNoBuffer(t *testing.T) {
+	srv, c := setup(t)
+	id := srv.NewSession("pc", 80, 20, sleepCmd)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := c.Paste(ctx, id, "secret body"); err == nil {
+		t.Fatal("中断した ctx で Paste が成功した")
+	}
+	if got := srv.Run("list-buffers"); got != "" {
+		t.Fatalf("バッファが残っている: %q", got)
+	}
+}
+
 func TestPasteRejectsEmptyAndBadID(t *testing.T) {
 	c := New("sctest-never-started")
 	if ae := apperr.As(c.Paste(context.Background(), "%1", "")); ae.Code != apperr.InvalidArgs {
@@ -152,6 +166,10 @@ func TestPasteFailureIsTmuxError(t *testing.T) {
 	srv.NewSession("pf", 80, 20, sleepCmd)
 	err := c.Paste(context.Background(), "%999", "text")
 	assertTmuxError(t, err, "paste-buffer")
+	// 貼り付けに失敗しても、本文が名前付きバッファとして tmux に残らない（#57）。
+	if got := srv.Run("list-buffers"); got != "" {
+		t.Fatalf("バッファが残っている: %q", got)
+	}
 	if strings.Contains(err.Error(), "text") && strings.Contains(apperr.As(err).Message(), "text") {
 		t.Fatal("本文がメッセージに出ている")
 	}

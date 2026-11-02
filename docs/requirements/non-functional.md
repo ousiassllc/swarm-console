@@ -8,7 +8,7 @@
 |----|------|------|------|
 | NFR-PERF-1 | `panes_status` の応答時間 | 8 ペインで p95 500 ms 以内（スナップショットが新しい場合は 50 ms 以内） | tmux 呼び出しはペイン並列。P-05 |
 | NFR-PERF-2 | `report` の応答時間 | `panes_status` と同等 + 描画 20 ms 以内 | 同じスナップショットを使う |
-| NFR-PERF-3 | 応答サイズ（文字量削減） | `panes_status` 8 ペインで 8 KB 以内、`report`（markdown）で 6 KB 以内、`ask_card` で 2 KB 以内 | 元仕様の目的 1。画面全文は返さない |
+| NFR-PERF-3 | 応答サイズ（文字量削減） | **よくある入力での目標**。単位は **バイト**（UTF-8。日本語 1 字は 3 バイト。KB は 1,024 バイト）。`panes_status` 8 ペインで 8 KB 以内、`report`（markdown）で 6 KB 以内、`ask_card` で 2 KB 以内。前提：`panes_status` と `report` は 8 ペインで、メモの `next` は数十字・`items` は数件・`activity` は 1 行（120 字以内）。`ask_card` は `question` が 1〜2 文・選択肢が数個（`label` は数十字）。API 仕様 §7 の上限いっぱいの入力（メモの文字列 2,000 字、選択肢 20 個×300 字など）までは保証しない | 元仕様の目的 1。画面全文は返さない。テスト（`rendertest/size_test.go`・`tooltests/size_test.go`）は上の前提の入力を表す |
 | NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着。ただし `pane_close` は待ちが 2 つあるので、上限は 仕様で定めた待ち ＋ `shell` に戻るまでの待ち（`accept_timeout`）＋ 画面確認の待ち（`accept_timeout`） | 超えたら `ok: false` と現在の `state`。例外：`pane_close` で最初の待ち（終了コマンドのあと `shell` に戻るまで）を超えたときは `ok: false` ではなく `exit_timeout` のエラーを返す（機能要件 FR-O5・FR-O-C2） |
 | NFR-PERF-5 | 常駐時の負荷 | ホスト負荷が高い状態（load average が CPU 数を大きく上回る状態）でも劣化しない。サンプラーの CPU は 1 コア未満の数 % | 負荷が高い開発機で確認する |
 | NFR-PERF-6 | メモリ | 常駐 100 MB 以内 | ペインのハッシュ・直近画面のみ保持 |
@@ -20,13 +20,13 @@
 
 | ID | 要件 |
 |----|------|
-| NFR-SEC-1 | 待ち受けは example-host の tailnet IP のポート 48120 だけ。`0.0.0.0`・`::`・ワイルドカード・設定未指定は起動拒否。tailnet の範囲（`100.64.0.0/10` または `fd7a:115c:a1e0::/48`）か、テスト用のループバックのみ許可（P-01） |
+| NFR-SEC-1 | 待ち受けは example-host の tailnet IP のポート 48120 だけ。`0.0.0.0`・`::`・ワイルドカード・設定未指定は起動拒否。tailnet の範囲（`100.64.0.0/10` または `fd7a:115c:a1e0::/48`）の IP は **ポート 48120 以外も起動拒否**。テスト用のループバックだけはどのポートでも許可（P-01・P-73） |
 | NFR-SEC-2 | インターネットに出さない（Funnel・Tunnel・silent 経由は使わない）。経路は クライアントのユーザースペース tailscale から直接 |
 | NFR-SEC-3 | 認証は Bearer トークン。クライアントごとに別のトークンを発行し、名前と窓口（`report`/`ops`）を付ける。なし・不一致は 401、窓口違いは 403。比較は定数時間（全登録トークンを必ず走査し、早期終了しない） |
 | NFR-SEC-4 | トークンはサーバーにハッシュ（SHA-256）だけ保存する。`~/.config/swarm-console/tokens.toml` は権限 600。権限が 600 でなければ起動拒否。発行時に 1 度だけ平文を表示する（P-04） |
 | NFR-SEC-5 | トークンの平文・ハッシュ・`Authorization` ヘッダーをログ・応答・エラー・メモに出さない。クライアント側は環境変数 `SWARM_CONSOLE_TOKEN` から読む |
 | NFR-SEC-6 | トークンを 1 つだけ無効にできる（`token revoke <名前>`）。再起動なしで次のリクエストから効く（P-04） |
-| NFR-SEC-7 | 任意のシェルコマンドは実行しない。許可するのは決まった tmux サブコマンド（`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`select-pane -T`・`display -p`・`list-panes`）と、決まったファイル・`/proc` の読み取りだけ。例外は、レポートの値のための **引数固定の 2 コマンド** `omp usage --json` と `omp update --check` だけ（FR-REP-12・15。`[agents.omp] command` の先頭の語の実行ファイルを、ほかの引数なしで、標準入力 `/dev/null`・打ち切り付きで実行する。`omp update` など、ほかの `omp` のサブコマンド・引数は実行しない）。引数は `exec` の引数配列で渡し、シェルを経由しない。`omp` のコマンドが行う通信は `omp` の仕様で、`swarm-console` 自身は通信しない（NFR-SEC-15 は変えない） |
+| NFR-SEC-7 | 任意のシェルコマンドは実行しない。許可するのは決まった tmux サブコマンド（`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`delete-buffer`（`Paste` が自分で作った一意名のバッファを、貼り付けの失敗時・中断時に消すときだけ。`-b <その名前>` を必ず付け、ほかのバッファは消さない）・`select-pane -T`・`display -p`・`list-panes`）と、決まったファイル・`/proc` の読み取りだけ。例外は、レポートの値のための **引数固定の 2 コマンド** `omp usage --json` と `omp update --check` だけ（FR-REP-12・15。`[agents.omp] command` の先頭の語の実行ファイルを、ほかの引数なしで、標準入力 `/dev/null`・打ち切り付きで実行する。`omp update` など、ほかの `omp` のサブコマンド・引数は実行しない）。引数は `exec` の引数配列で渡し、シェルを経由しない。`omp` のコマンドが行う通信は `omp` の仕様で、`swarm-console` 自身は通信しない（NFR-SEC-15 は変えない） |
 | NFR-SEC-8 | `pane_start` の `cwd` は `/mnt/nvme/` の下と `~/projects/` の下だけ許可。`denied_paths` に書いたパスは拒否（既定は `~/dotfiles` だけ。オーナーの checkout も拒否したいなら `denied_paths` に書く。P-29）。シンボリックリンクは解決後のパスで判定する |
 | NFR-SEC-9 | 送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。Esc は `send_escape`（`confirm: true` 必須・`/ops` のみ） |
 | NFR-SEC-10 | `/report` に操作のツールを出さない（`tools/list` にも載らない）。`/report` からは書き込み（メモを含む）ができない |
@@ -127,3 +127,4 @@
 | 1.8 | 2026-11-02 | NFR-PERF-4：`pane_close` の応答時間の上限を、`shell` に戻るまでの待ちと画面確認の待ちの 2 つの `accept_timeout` を含む形にし、最初の待ちを超えたときは `exit_timeout`（`ok: false` ではない）と明記 | Issue #30 |
 | 1.9 | 2026-11-02 | NFR-SEC-8：拒否するパスの設定を `denied_paths`（既定は `~/dotfiles` だけ。P-29）と明記し、存在しない「オーナーの checkout の一覧」設定を示す書き方をやめた。実装・設定の挙動は変えない | Issue #46 |
 | 1.10 | 2026-11-02 | NFR-TEST-8 の CI のステップ一覧に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
+| 1.11 | 2026-11-02 | NFR-SEC-1：tailnet の IP は 48120 以外のポートを起動拒否にし、ループバックだけどのポートでもよいと明記（P-73）。NFR-SEC-7：許可サブコマンドに `delete-buffer`（自分が作った一意名のバッファの後始末だけ）を追加（P-71）。NFR-PERF-3：「よくある入力での目標」と明記し、前提と単位（バイト）を書いた（P-74。実装は変えない） | Issue #72・#57・#71 |

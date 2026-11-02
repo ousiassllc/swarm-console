@@ -13,7 +13,7 @@ erDiagram
     CONFIG ||--o{ AGENT_CONFIG : "agents"
 
     CONFIG {
-        string listen_addr PK "tailnet IP:48120（必須）"
+        string listen_addr PK "tailnet IP:48120 かループバック（必須）"
         string tmux_socket "tmux -L のソケット名"
         array sessions "既定 [0]"
         string default_session
@@ -61,7 +61,7 @@ erDiagram
 
 | 検証 | 内容 |
 |------|------|
-| `listen_addr` | 必須。`0.0.0.0`・`::`・ホスト名ワイルドカードは拒否。tailnet の範囲またはループバックのみ（P-01）。ゾーン付き IPv6（`fe80::1%eth0` など）は拒否。ループバック以外はポート 0 も拒否 |
+| `listen_addr` | 必須。`0.0.0.0`・`::`・ホスト名ワイルドカードは拒否。tailnet の範囲（**ポートは 48120 だけ**。`100.64.0.1:8080`・`[fd7a:115c:a1e0::1]:1` などは拒否）またはループバック（どのポートでも可。ポート 0 も可）のみ（P-01・P-73）。ゾーン付き IPv6（`fe80::1%eth0` など）は拒否 |
 | `tmux_socket` | 省略（既定のソケット）か `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`（英数字で始まり 64 字まで） |
 | `sessions` | 1 つ以上。重複なし。名前は空（空白だけを含む）・`.`・`:`・制御文字を含まない（tmux が `.`・`:` を `_` に置き換えて一致しなくなるため）。`default_session` は `sessions` のどれか |
 | `default_lang` | 省略（`ja`）か `"ja"`・`"en"`。それ以外は起動拒否 |

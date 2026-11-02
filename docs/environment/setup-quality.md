@@ -146,7 +146,7 @@ pre-push:
 | `make install-test` | `bash scripts/install_test.sh`（`make install` のテスト。偽の `curl`・`systemctl`・`loginctl` と一時 `HOME` を使い、実際の GitHub・systemd・`HOME` には触れない。NFR-TEST-18） |
 | `make install` | `bash scripts/install.sh`（運用ホストへの導入。最新リリースを取って `SHA256SUMS` で照合し、`~/bin/swarm-console` に置いて systemd のユーザーサービスとして常駐させる。`make check` には入れない。FR-INS） |
 | `make test` | `go test -race ./...` |
-| `make check` | build → vet → lint → linterly → plan-test → install-test → test を別ターゲットとして順に実行 |
+| `make check` | `go build ./...`（CI の `Build` ステップと同じ。`make build` は呼ばない）→ vet → lint → linterly → plan-test → install-test → test を順に実行（vet 以降は別ターゲット） |
 
 Makefile は `GOLANGCI_LINT_CACHE` を worktree ごとに固定して export する。
 

@@ -35,9 +35,9 @@ install:
 test:
 	go test -race ./...
 
-# CI の ci.yml と同じ順序・同じコマンド。
+# CI の ci.yml と同じ順序・同じコマンド。先頭は CI の Build ステップと同じ go build ./...（全パッケージのコンパイル確認。bin は作らないので make build とは別）。
 check:
-	$(MAKE) build
+	go build ./...
 	$(MAKE) vet
 	$(MAKE) lint
 	$(MAKE) linterly

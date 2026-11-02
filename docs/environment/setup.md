@@ -132,3 +132,4 @@ make install
 | 1.10 | 2026-11-02 | 初回セットアップの `make check` の内訳に `plan-test`・`install-test` を足した（Makefile・setup-quality.md と同じ順序）。ディレクトリ構造に `deploy/`・`.github/scripts/`・`.gitignore` を追加 | Issue #39・#47 |
 | 1.11 | 2026-11-02 | setup-ci.md の「最初のリリース」の行を過去形の経緯に直した（「今はタグ・リリースとも無い」を削除） | Issue #63 |
 | 1.12 | 2026-11-02 | `go.mod` の `go` をパッチ版まで最新に保つ決まりと、上げたときの `govulncheck ./...` 確認を追加（setup-ci.md・setup.md）。`go` を 1.26.10 へ更新 | Issue #67 |
+| 1.13 | 2026-11-02 | `make check` の先頭を CI の `Build` ステップと同じ `go build ./...` にした（`make build` は呼ばない。Makefile・setup-quality.md・README も同じ） | Issue #40 |

@@ -56,7 +56,7 @@ graph TD
 | 言語 | Go（1 バイナリ） | 元仕様。配布が単純で、systemd 常駐に向く |
 | MCP | 公式 Go SDK（`github.com/modelcontextprotocol/go-sdk`） | 元仕様。Streamable HTTP・prompts・resources に対応 |
 | HTTP | 標準 `net/http` | 窓口 2 つと認証だけで済む |
-| tmux 操作 | `tmux` コマンド（`os/exec`、引数配列）。専用ソケットを `tmux_socket` で指定可 | 元仕様。`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`select-pane -T`・`display -p` |
+| tmux 操作 | `tmux` コマンド（`os/exec`、引数配列）。専用ソケットを `tmux_socket` で指定可 | 元仕様。`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`delete-buffer`（自分が作った一意名のバッファの後始末だけ）・`select-pane -T`・`display -p` |
 | 設定・ひな形 | TOML（`github.com/pelletier/go-toml/v2`） | 人が編集する設定・トークン・プロファイル。コメントが書ける |
 | メモ | JSON 1 ファイル（`encoding/json`） | 元仕様。500 件までで十分小さい |
 | テンプレート | `text/template`（`go:embed` で既定を同梱） | レポートを言語ごとに差し替えるため（指示文はテンプレートではなく `profiles.toml` の条件から組み立てる） |
@@ -231,3 +231,4 @@ flowchart TD
 | 1.16 | 2026-11-02 | decisions.md：P-30 に、最終報告の有無の判定（`report_exists`・1 ペインの詳しい版の最終報告欄・アーカイブ先の重複判定）もシンボリックリンクを辿らない（`lstat`）と追記。er-config.md §7 も同じ（er.md 1.7）。コード・設定は変えない | Issue #55 |
 | 1.17 | 2026-11-02 | decisions.md：P-11 の最終報告ファイル名の規則を、位置の `:` だけでなく `/`・`\` も `_` にする（実装の `reportBase` と同じ。アーカイブ名も同じ）と直し、例 `a/b:T1` → `a_b_T1.md` を足した。er-config.md §7 も同じ（er.md 1.9）。コード・設定は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
 | 1.18 | 2026-11-02 | agent-patterns.md：`[agents.<name>]` の空文字は `command`・`exit_command` に加えて `auth_file` も設定エラー（起動拒否）と直した（ほかのキーの空文字・空配列は「上書きしない」）。er-config.md §5 の `agents.<name>` 行も同じ（er.md 1.10）。コード・設定は変えない | Issue #76 |
+| 1.19 | 2026-11-02 | §tmux の許可サブコマンドに `delete-buffer` を追加（`Paste` の失敗時・中断時の後始末だけ）。decisions.md に P-71〜P-75 を追加（Issue #57・#70・#72・#71・#40 の方針） | Issue #57・#70・#72・#71・#40 |

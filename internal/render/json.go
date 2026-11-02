@@ -31,6 +31,8 @@ type jsonPane struct {
 	Activity   *string        `json:"activity"`
 	ChangedAgo *string        `json:"changed_ago"`
 	Note       *notes.Summary `json:"note"`
+	// Truncated は activity を上限で切ったときだけ true（API 仕様 §4。切っていなければキーごと出さない）。
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 type jsonWarning struct {
@@ -86,6 +88,7 @@ func newJSONPane(p *pane.PaneState) jsonPane {
 	jp := jsonPane{
 		Pos: p.Pos, ID: p.ID, Agent: nilIfEmpty(p.Agent), State: string(p.State), Title: p.Title, Cwd: p.Cwd,
 		Elapsed: nilIfEmpty(p.Elapsed), Activity: nilIfEmpty(p.Activity), ChangedAgo: nilIfEmpty(p.ChangedAgo),
+		Truncated: p.ActivityTrunc,
 	}
 	if p.Note != nil && !p.Note.IsZero() {
 		n := *p.Note

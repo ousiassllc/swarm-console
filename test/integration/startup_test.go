@@ -27,6 +27,7 @@ func TestStartupRefusals(t *testing.T) {
 		{"listen_addr ホスト名", harness.Options{Config: map[string]string{"listen_addr": `"localhost:48120"`}}, nil, "listen_addr"},
 		{"listen_addr ポートなし", harness.Options{Config: map[string]string{"listen_addr": `"127.0.0.1"`}}, nil, "listen_addr"},
 		{"listen_addr tailnet 外の IP", harness.Options{Config: map[string]string{"listen_addr": `"192.168.1.10:48120"`}}, nil, "listen_addr"},
+		{"listen_addr tailnet の IP で 48120 以外のポート", harness.Options{Config: map[string]string{"listen_addr": `"100.64.0.1:8080"`}}, nil, "listen_addr"},
 		{"未知のキー", harness.Options{Config: map[string]string{"listen_adr": `"127.0.0.1:1"`}}, nil, "listen_adr"},
 		{"期間が不正", harness.Options{Config: map[string]string{"poll_interval": `"はやい"`}}, nil, "poll_interval"},
 		{"tokens.toml が 600 でない", harness.Options{}, func(h *harness.H) {

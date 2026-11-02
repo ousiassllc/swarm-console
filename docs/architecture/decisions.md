@@ -10,7 +10,7 @@
 
 | ID | 論点 | 提案 | 確認 |
 |----|------|------|------|
-| P-01 | 待ち受けアドレス | `listen_addr` を設定に明記。`0.0.0.0`・`::`・未指定は起動拒否。tailnet の範囲（`100.64.0.0/10`、`fd7a:115c:a1e0::/48`）かループバックのみ許可（ループバックはテスト用） | OK 時 |
+| P-01 | 待ち受けアドレス | `listen_addr` を設定に明記。`0.0.0.0`・`::`・未指定は起動拒否。tailnet の範囲（`100.64.0.0/10`、`fd7a:115c:a1e0::/48`）かループバックのみ許可（ループバックはテスト用）。tailnet の IP のポートは 48120 だけ（P-73） | OK 時 |
 | P-02 | MCP のセッション | Streamable HTTP はステートレスで動かす（`Mcp-Session-Id` を持たない）。SDK が対応していなければ、セッション ID を発行しても状態を持たない構成にする | 実装時（SDK の対応） |
 | P-03 | `ops` トークンで `/report` | 呼べる（`ops` は `report` を含む）。`report` トークンは `/ops` で 403 | OK 時 |
 | P-04 | トークンの形式 | `sc_` ＋ base64url 32 バイト。`tokens.toml` に SHA-256 を保存。失効は削除でなく `revoked_at` を付ける（名前の再利用は不可）。ファイルの更新時刻が変わるたびに再読み込み。発行時に 1 度だけ平文を標準出力へ | OK 時 |
@@ -80,3 +80,8 @@
 | P-68 | `pane` 指定の JSON でのログインの要対応（Issue #25） | **確定（実装時の確認で選択）**：`pane` を指定しても `auth_expired`・`auth_expiring`・`usage`・`omp`・`update`・`auth`・`host` は絞らず常に入れる（ペインに属さない。markdown の詳しい版が見出し・使用状況を全体と同じに出すのと同じ）。`panes` とペインの項目だけ絞る。並びはペインの項目のあとにログイン | 確定 |
 | P-69 | 英語の「あと N 時間」（Issue #25） | **確定（実装時の確認で選択）**：`in 5 min`・`in 10 h 5 min`・`in 2 d 3 h`（単位は ja に 1 対 1：`min`・`h`・`d`。区切りの規則は ja と同じ） | 確定 |
 | P-70 | `pane_close` が終了コマンドのあと待つ方法（Issue #30） | 終了コマンドのあと、ペインの状態が `shell` に戻るまで（スナップショットを `refreshStep` = 500 ms ごとに取り直し、状態の判定は `panes_status` と同じ）待ってから `cd ~` 以降を送る。上限は新しい設定を増やさず既存の `accept_timeout`（既定 10 秒）。超えたら `cd ~` 以降を送らずエラー `exit_timeout`（FR-O-C2 の「`ok: false`」の例外。メモ・最終報告は移さず `note_archived` は `false`）。`shell` のペインは今までどおり終了コマンドを飛ばす | 実装時に決めた |
+| P-71 | `Paste` が失敗したあとのバッファ（Issue #57） | 許可サブコマンドに `delete-buffer` を足す（NFR-SEC-7・overview・components も同じ）。`Paste` は `load-buffer` か `paste-buffer` が失敗したとき（ctx の中断・タイムアウトを含む。中断済みの ctx でも消せるよう後始末は中断を引き継がない）、自分が作った一意名のバッファだけを `delete-buffer -b <名前>` で消す。ほかのバッファは触らない。残す案・`send-keys -l` で貼る案（bracketed paste が使えなくなる）は採らない | 決定済み（Issue #57） |
+| P-72 | `panes_status` の `truncated`（Issue #70） | 実装を API 仕様 §4・§7 に合わせる。`panes_status` と `report`（json）の `panes[]` に、`activity` を 120 字で切ったときだけ `"truncated": true` を付ける（`omitempty`。キーは `note` の次で、既存のキー順は変えない）。仕様は直さない | 決定済み（Issue #70） |
+| P-73 | `listen_addr` のポート（Issue #72） | 実装を NFR-SEC-1 に合わせる。tailnet の IP は 48120 以外のポートで起動拒否。ループバックはどのポートでもよい（ポート 0 も）。`setup` の候補は今までどおり 48120。48120 以外のポートで運用している既存の `config.toml` は起動できなくなる（運用ホストの設定は触らず、PR で報告する） | 決定済み（Issue #72） |
+| P-74 | NFR-PERF-3 の意味（Issue #71） | 「よくある入力での目標」と明記し、前提（8 ペイン・短いメモ・数個の選択肢）と単位（バイト）を書く。コードで上限は保証しない（API 仕様 §7 の上限いっぱいの入力は対象外）。コード・返り値は変えない | 決定済み（Issue #71） |
+| P-75 | `make check` の build（Issue #40） | `make check` の先頭を CI の `Build` ステップと同じ `go build ./...` にする。`make build`（`bin/swarm-console` を作る）は残すが、`check` は呼ばない | 決定済み（Issue #40） |
