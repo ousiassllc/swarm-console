@@ -227,13 +227,13 @@ func (i memInfo) ModTime() time.Time { return time.Time{} }
 func (i memInfo) IsDir() bool        { return false }
 func (i memInfo) Sys() any           { return nil }
 
-// Stat はファイルの情報（ディレクトリは対象外）。
-func (m *MemFS) Stat(p string) (fs.FileInfo, error) {
+// Lstat はファイルの情報（ディレクトリは対象外。リンクは持たない）。
+func (m *MemFS) Lstat(p string) (fs.FileInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	d, ok := m.files[p]
 	if !ok {
-		return nil, &fs.PathError{Op: "stat", Path: p, Err: fs.ErrNotExist}
+		return nil, &fs.PathError{Op: "lstat", Path: p, Err: fs.ErrNotExist}
 	}
 	return memInfo{path.Base(p), int64(len(d))}, nil
 }

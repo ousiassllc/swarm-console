@@ -1,6 +1,8 @@
 package registrytest
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -242,5 +244,34 @@ func TestSessionMissingWhenOnlySomeSessionsExist(t *testing.T) {
 	}
 	if !strings.Contains(s.Warnings[0].Message, "gone") {
 		t.Fatalf("message = %q", s.Warnings[0].Message)
+	}
+}
+
+// P-30: 最終報告がシンボリックリンクなら report_exists は false（通常ファイルは true）。
+func TestReportExistsIgnoresSymlink(t *testing.T) {
+	env := panetest.NewEnv()
+	twoRows(env)
+	dir := t.TempDir()
+	env.Cfg.ReportDir = dir
+	target := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(target, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, "T1.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "T2.md"), []byte("報告"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r, err := pane.NewRegistry(pane.Deps{
+		Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters,
+		Notes: env.Notes, Clock: env.Clock, FS: pane.OSReportFS{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := mustRefresh(t, r)
+	if byID(t, s, "%0").ReportExists || !byID(t, s, "%1").ReportExists {
+		t.Fatalf("report_exists: リンク(T1)=%v 通常(T2)=%v", byID(t, s, "%0").ReportExists, byID(t, s, "%1").ReportExists)
 	}
 }

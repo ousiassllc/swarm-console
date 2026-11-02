@@ -1,6 +1,8 @@
 package pane
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -47,5 +49,40 @@ func TestArchiveReport(t *testing.T) {
 		if !fsys.Has(want) {
 			t.Fatalf("%s が無い: %v", want, fsys.Files())
 		}
+	}
+}
+
+// P-30: 最終報告のリンクは辿らない。リンクは「無い」扱いで、アーカイブ先の重複判定にも辿らない。
+func TestReportExistsDoesNotFollowSymlink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(target, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, ReportPath(dir, "T1")); err != nil {
+		t.Fatal(err)
+	}
+	if ReportExists(OSReportFS{}, dir, "T1") {
+		t.Fatal("リンクを辿って存在扱いにした")
+	}
+	if err := os.WriteFile(ReportPath(dir, "T2"), []byte("報告"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !ReportExists(OSReportFS{}, dir, "T2") {
+		t.Fatal("通常ファイルが存在扱いにならない")
+	}
+	// アーカイブ先に壊れたリンクがあっても、辿らずに「ある」と見て（Stat なら無いと見て上書きしてしまう）別名にする。
+	now := time.Unix(1700000000, 0)
+	if err := os.MkdirAll(filepath.Join(dir, "archive"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dir, "nowhere"), filepath.Join(dir, "archive", "T2-1700000000.md")); err != nil {
+		t.Fatal(err)
+	}
+	if moved, err := ArchiveReport(OSReportFS{}, dir, "T2", now); err != nil || !moved {
+		t.Fatalf("moved=%v err=%v", moved, err)
+	}
+	if fi, err := os.Lstat(filepath.Join(dir, "archive", "T2-1700000000-1.md")); err != nil || !fi.Mode().IsRegular() {
+		t.Fatalf("リンクを上書きせず -1 に移るはず: %v", err)
 	}
 }
