@@ -1,8 +1,11 @@
 package notes
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,5 +152,26 @@ func TestFileLayoutAndKeyOrder(t *testing.T) {
 			t.Fatalf("キー順が宣言順でない（%s）:\n%s", k, s)
 		}
 		pos = i
+	}
+}
+
+// 退避の警告は WithLogger のロガーへ出る（NFR-OPS-5）。
+func TestCorruptFileWarningUsesInjectedLogger(t *testing.T) {
+	e := newEnv(t)
+	if err := os.MkdirAll(filepath.Dir(e.path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(e.path, []byte("{壊れた"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	e.open(WithLogger(slog.New(slog.NewJSONHandler(&buf, nil))))
+	var rec map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &rec); err != nil {
+		t.Fatalf("警告が 1 行の JSON でない: %q: %v", buf.String(), err)
+	}
+	if rec["level"] != "WARN" || rec["msg"] != "notes.json が壊れているため退避して空で開始します" ||
+		rec["path"] != e.path || rec["moved_to"] == nil || rec["reason"] == nil {
+		t.Errorf("警告の中身が違う: %v", rec)
 	}
 }

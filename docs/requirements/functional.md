@@ -189,3 +189,4 @@ stateDiagram-v2
 | 1.12 | 2026-11-02 | FR-O5：終了コマンドのあと `shell` に戻るまで待ってから `cd ~` 以降を送る。上限（`accept_timeout`）までに戻らなければ `cd ~` 以降を送らず `exit_timeout` を返す（メモは移さない）。FR-O-C2 の「`ok: false`」の例外 | Issue #30 |
 | 1.13 | 2026-11-02 | FR-O5：`exit_timeout` はエラーだけを返す（結果の項目は返らない）、終了コマンドは送ってあり `pane_close` を呼び直してよい、`shell` に戻ったかの判定は `panes_status` と同じで `/proc` に依ると明記。状態遷移図に `exit_timeout` の経路（`idle` のまま）を追加 | Issue #30 |
 | 1.14 | 2026-11-02 | FR-O5・FR-AD-5：`/proc` が読めないときは、前面コマンドが shell なら `shell` とみなす（終了後も画面にエージェントの表示が残る `pane_close` が `exit_timeout` にならない）。1.13 の「`/proc` が読めることに依る」を改めた | Issue #35 |
+| 1.15 | 2026-11-02 | FR-SAFE-4：拒否するパスの設定を `denied_paths`（既定は `~/dotfiles` だけ。P-29）と明記し、存在しない「オーナーの checkout の一覧」設定を示す書き方をやめた。実装・設定の挙動は変えない | Issue #46 |

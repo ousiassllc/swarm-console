@@ -53,23 +53,28 @@ erDiagram
         string ask_re "質問カードの判定"
         string idle_re "入力待ちの目印"
         string spinner_chars
+        string status_line_re "ステータス行の目印"
+        string border_re "枠線の目印"
         string auth_file "認証ファイルのパス"
     }
 ```
 
 | 検証 | 内容 |
 |------|------|
-| `listen_addr` | 必須。`0.0.0.0`・`::`・ホスト名ワイルドカードは拒否。tailnet の範囲またはループバックのみ（P-01） |
-| `sessions` | 1 つ以上。重複なし。`default_session` は `sessions` のどれか |
+| `listen_addr` | 必須。`0.0.0.0`・`::`・ホスト名ワイルドカードは拒否。tailnet の範囲またはループバックのみ（P-01）。ゾーン付き IPv6（`fe80::1%eth0` など）は拒否。ループバック以外はポート 0 も拒否 |
+| `tmux_socket` | 省略（既定のソケット）か `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`（英数字で始まり 64 字まで） |
+| `sessions` | 1 つ以上。重複なし。名前は空（空白だけを含む）・`.`・`:`・制御文字を含まない（tmux が `.`・`:` を `_` に置き換えて一致しなくなるため）。`default_session` は `sessions` のどれか |
 | `pane_names` | 名前は `^[A-Za-z][A-Za-z0-9_-]*$`、他の固定名・自動名（`T1` など）・`%` 始まりと衝突しない |
-| `allowed_roots`・`file_roots`・`denied_paths` | 絶対パス。`~` は展開。比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file` の両方） |
+| `allowed_roots` | 1 つ以上（空配列は起動拒否）。書かなければ既定を使う |
+| `allowed_roots`・`file_roots`・`denied_paths`・`disk_mounts` | 絶対パス（空文字・制御文字を含むものは不可。`~` は `~/` の形だけ）。`~` は展開。比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file` の両方） |
 | `denied_paths` の既定 | 既定は `["~/dotfiles"]`。`config.toml` に書いたら既定と**入れ替わる**（足されない。書き方の例は [環境構築](../environment/setup.md#ローカルで動かす)）。P-29 |
-| 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h |
+| 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h、`usage_interval` ≥ 1m。`stalled_after`・`layout_warning_ttl`・`accept_timeout`・`start_timeout`・`lock_timeout` は 0 より大きい期間（下限は決めていない） |
+| `title_prefix` | 改行・制御文字を含まない 1 行 |
 | `update_check` | bool。省略は `true`。`false` なら `serve` は GitHub へ確認しに行かない（`version --check` の手動確認は動く。FR-UPD） |
 | `update_auto` | bool。省略は `true`。`false` なら自己更新だけ止まる（確認と `host_status` は続く）。`update_check = false` のときは無視される（確認も更新もしない。FR-UPD-19） |
 | `usage_check` | bool。省略は `true`。`false` なら `serve` は `omp usage --json` を実行せず、使用状況は `disabled`（FR-REP-12） |
 | `usage_interval` | 期間。省略は `5m`、`1m` 以上。使用状況の取得の間隔。前の実行が終わるまで次を始めない |
-| `agents.<name>` | 書かれたキーだけ組み込みの既定を上書きする。正規表現は起動時にコンパイルできること |
+| `agents.<name>` | `<name>` は `omp`・`claude`・`codex` だけ。書かれたキーだけ組み込みの既定を上書きする。正規表現（`working_re`・`ask_re`・`idle_re`・`status_line_re`・`border_re`・`process_match` の各要素）は起動時にコンパイルできること。`command`・`exit_command` は空文字不可で、改行・制御文字を含まない 1 行。`auth_file` は絶対パス（`~` 展開） |
 | 未知のキー | 起動拒否（打ち間違いを検知する） |
 
 ### 5.1 `setup` による書き戻し

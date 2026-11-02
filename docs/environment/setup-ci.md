@@ -62,7 +62,7 @@ jobs:
         with:
           version: v2.12
       - name: Linterly
-        run: go install github.com/ousiassllc/linterly/cmd/linterly@latest && linterly check
+        run: go install github.com/ousiassllc/linterly/cmd/linterly@v0.3.3 && linterly check
       - name: Release plan test
         run: bash .github/scripts/plan-release_test.sh
       - name: Install script test
@@ -73,7 +73,7 @@ jobs:
 
 - `push` は `main` のみ、それ以外は PR で検証する（ブランチ push と PR の二重実行を避ける）。
 - tmux のバージョンは ubuntu-latest のパッケージ（3.x）。テストは専用ソケットで起動し、固定時間の待ちに頼らない（NFR-TEST-7）。
-- 実装時に `linterly` を `@latest` から固定バージョンへ上げる（再現性のため）。
+- `linterly` は `@v0.3.3` に固定する（再現性のため。golangci-lint の `version: v2.12` と同じ扱い）。上げるときは `ci.yml`・この節・[setup-quality.md](setup-quality.md#linterly)・[setup.md](setup.md) の版をそろえ、ローカルで `linterly check` が通ることを確かめてから変える。
 
 ### `.github/workflows/release.yml`
 
