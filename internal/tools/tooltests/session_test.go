@@ -193,19 +193,16 @@ func TestSessionRequiredAndInvalid(t *testing.T) {
 // 複数許可のトークンは session を付ければ両方触れる。pane は session の中で解決する（同じ T1 でもセッションごとに別のペイン）。
 func TestMultiAllowedResolvesPaneInsideSession(t *testing.T) {
 	f := twoSessions(t)
-	for sess, wantID := range map[string]string{"0": "%1", "1": "%11"} {
-		m := mustAs(t, f, boss, "pane_tail", `{"session":"`+sess+`","pane":"T1"}`)
+	for _, c := range []struct{ session, wantID, wantPos string }{{"0", "%1", "T1"}, {"1", "%11", "1:T1"}} {
+		m := mustAs(t, f, boss, "pane_tail", `{"session":"`+c.session+`","pane":"T1"}`)
 		if m["pane"] != "T1" {
-			t.Errorf("セッション %s の pane = %v（接頭辞なしの位置を返す）", sess, m["pane"])
+			t.Errorf("セッション %s の pane = %v（接頭辞なしの位置を返す）", c.session, m["pane"])
 		}
-		mustAs(t, f, boss, "send_text", `{"session":"`+sess+`","pane":"T1","text":"x"}`)
-		if f.Ops.LastRef.ID != wantID {
-			t.Errorf("セッション %s の T1 = %s, want %s", sess, f.Ops.LastRef.ID, wantID)
+		mustAs(t, f, boss, "send_text", `{"session":"`+c.session+`","pane":"T1","text":"x"}`)
+		// 最終報告のファイル名には全体の位置（セッション 1 は 1:T1 → 1_T1.md）が使われる。
+		if ref := f.Ops.LastRef; ref.ID != c.wantID || ref.Pos != c.wantPos || ref.Local != "T1" {
+			t.Errorf("セッション %s の T1 = %+v, want ID=%s Pos=%s", c.session, ref, c.wantID, c.wantPos)
 		}
-	}
-	// 最終報告のファイル名には全体の位置（セッション 1 は 1:T1 → 1_T1.md）が使われる。
-	if f.Ops.LastRef.Pos != "1:T1" || f.Ops.LastRef.Local != "T1" {
-		t.Errorf("Ref = %+v", f.Ops.LastRef)
 	}
 	// 接頭辞つき・固定名も、session と一致するときだけ受け付ける。
 	mustAs(t, f, boss, "pane_tail", `{"session":"1","pane":"1:B2"}`)
