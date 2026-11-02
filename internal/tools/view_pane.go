@@ -24,9 +24,10 @@ const (
 )
 
 type paneTailArgs struct {
-	Pane  *string `json:"pane"`
-	Lines *int    `json:"lines"`
-	Raw   *bool   `json:"raw"`
+	Session *string `json:"session"`
+	Pane    *string `json:"pane"`
+	Lines   *int    `json:"lines"`
+	Raw     *bool   `json:"raw"`
 }
 
 type paneTailJSON struct {
@@ -42,15 +43,16 @@ func (e *env) paneTailTool() Tool {
 		Description: descPaneTail,
 		Scope:       ScopeReport,
 		Schema: object([]string{"pane"}, props{
-			"pane":  paneProp(),
-			"lines": intProp("最後の行数（既定 30）", 1, tailMaxLines),
-			"raw":   boolProp("true なら飾りも残す"),
+			"pane":    paneProp(),
+			"session": sessionProp(),
+			"lines":   intProp("最後の行数（既定 30）", 1, tailMaxLines),
+			"raw":     boolProp("true なら飾りも残す"),
 		}),
 		Handler: e.paneTail,
 	}
 }
 
-func (e *env) paneTail(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) paneTail(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a paneTailArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
@@ -62,7 +64,7 @@ func (e *env) paneTail(ctx context.Context, _ auth.Client, raw json.RawMessage) 
 			return Result{}, invalidArg("lines")
 		}
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}
@@ -70,11 +72,12 @@ func (e *env) paneTail(ctx context.Context, _ auth.Client, raw json.RawMessage) 
 	if err != nil {
 		return Result{}, apperr.As(err)
 	}
-	return marshalResult(paneTailJSON{Pane: ref.Pos, Lines: lines, Text: t.Text, Truncated: t.Truncated})
+	return marshalResult(paneTailJSON{Pane: ref.Local, Lines: lines, Text: t.Text, Truncated: t.Truncated})
 }
 
 type paneArgs struct {
-	Pane *string `json:"pane"`
+	Session *string `json:"session"`
+	Pane    *string `json:"pane"`
 }
 
 type optionJSON struct {
@@ -97,17 +100,17 @@ func (e *env) askCardTool() Tool {
 		Name:        "ask_card",
 		Description: descAskCard,
 		Scope:       ScopeReport,
-		Schema:      object([]string{"pane"}, props{"pane": paneProp()}),
+		Schema:      object([]string{"pane"}, props{"pane": paneProp(), "session": sessionProp()}),
 		Handler:     e.askCard,
 	}
 }
 
-func (e *env) askCard(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) askCard(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a paneArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}
@@ -141,17 +144,17 @@ func (e *env) reportReadTool() Tool {
 		Name:        "report_read",
 		Description: descReportRead,
 		Scope:       ScopeReport,
-		Schema:      object([]string{"pane"}, props{"pane": paneProp()}),
+		Schema:      object([]string{"pane"}, props{"pane": paneProp(), "session": sessionProp()}),
 		Handler:     e.reportRead,
 	}
 }
 
-func (e *env) reportRead(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) reportRead(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a paneArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}

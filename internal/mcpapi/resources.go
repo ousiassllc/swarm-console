@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/tools"
 )
 
@@ -43,8 +44,12 @@ func parseURI(uri string) (kind, pos string, ok bool) {
 	return "", "", false
 }
 
-// escapePos は位置・ID を URI のパス要素にする（% → %25）。
-func escapePos(pos string) string { return url.PathEscape(pos) }
+// escapePos は位置・ID を URI のパス要素にする（% → %25、: → %3A）。
+// SDK の URI テンプレート（swarm://pane/{pos}）は変数の中の ":" に一致しないので、"1:T1" のような
+// セッション接頭辞つきの位置は %3A にしないと resources/read で読めない。
+func escapePos(pos string) string {
+	return strings.ReplaceAll(url.PathEscape(pos), ":", "%3A")
+}
 
 func (b *builder) addResources(s *mcp.Server) {
 	s.AddResource(&mcp.Resource{
@@ -72,13 +77,14 @@ func (b *builder) readResource(ctx context.Context, req *mcp.ReadResourceRequest
 		mime = mimeMarkdown
 		err  error
 	)
+	c, _ := auth.FromContext(ctx)
 	switch kind {
 	case "report":
-		text, err = b.o.Tools.ReportMarkdown(ctx, "")
+		text, err = b.o.Tools.ReportMarkdown(ctx, c, "")
 	case "pane":
-		text, err = b.o.Tools.ReportMarkdown(ctx, pos)
+		text, err = b.o.Tools.ReportMarkdown(ctx, c, pos)
 	default:
-		text, err = b.o.Tools.NoteJSON(ctx, pos)
+		text, err = b.o.Tools.NoteJSON(ctx, c, pos)
 		mime = mimeJSON
 	}
 	if err != nil {
@@ -87,26 +93,33 @@ func (b *builder) readResource(ctx context.Context, req *mcp.ReadResourceRequest
 	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{URI: uri, MIMEType: mime, Text: text}}}, nil
 }
 
-// resourceNotFound は resource の失敗を JSON-RPC エラーにする。pane_not_found は -32002、それ以外は内部エラー。
-// どちらも API 仕様 §3.1 の本文を data に入れる。
+// resourceNotFound は resource の失敗を JSON-RPC エラーにする。pane_not_found・session_forbidden は -32002、
+// session_required・invalid_args（pane と session の食い違い）は -32602、それ以外は内部エラー。
+// いずれも API 仕様 §3.1 の本文を data に入れる。
 func resourceNotFound(err error) error {
 	e := apperr.As(err)
 	code := int64(jsonrpc.CodeInternalError)
-	if e.Code == apperr.PaneNotFound {
+	switch e.Code {
+	case apperr.PaneNotFound, apperr.SessionForbidden:
 		code = codeResourceNotFound
+	case apperr.SessionRequired, apperr.InvalidArgs:
+		code = int64(jsonrpc.CodeInvalidParams)
 	}
 	return &jsonrpc.Error{Code: code, Message: e.Message(), Data: json.RawMessage(tools.ErrorText(e))}
 }
 
 // listResources は resources/list の応答。swarm://report と、現在のペインぶんの pane・notes の URI を位置順に並べる。
 func (b *builder) listResources(ctx context.Context) (*mcp.ListResourcesResult, error) {
-	panes, err := b.o.Tools.Panes(ctx)
+	c, _ := auth.FromContext(ctx)
+	panes, err := b.o.Tools.Panes(ctx, c)
 	if err != nil {
 		return nil, resourceNotFound(err)
 	}
-	out := []*mcp.Resource{{
-		Name: "report", URI: uriReport, MIMEType: mimeMarkdown, Description: "全ペインの状況",
-	}}
+	var out []*mcp.Resource
+	// 許可されたセッションが 1 つでないと、swarm://report はどのセッションの報告か決められない。
+	if b.o.Tools.ReportReadable(c) {
+		out = append(out, &mcp.Resource{Name: "report", URI: uriReport, MIMEType: mimeMarkdown, Description: "全ペインの状況"})
+	}
 	for _, p := range panes {
 		out = append(out,
 			&mcp.Resource{Name: "pane " + p.Pos, URI: uriPanePfx + escapePos(p.Pos), MIMEType: mimeMarkdown, Description: "ペイン " + p.Pos + " の詳しい版"},

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"slices"
+
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
@@ -24,29 +24,19 @@ func (e *env) panesStatusTool() Tool {
 		Name:        "panes_status",
 		Description: descPanesStatus,
 		Scope:       ScopeReport,
-		Schema:      object(nil, props{"session": strProp("対象セッション名。省略は全セッション")}),
+		Schema:      object(nil, props{"session": sessionProp()}),
 		Handler:     e.panesStatus,
 	}
 }
 
-func (e *env) panesStatus(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) panesStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a panesStatusArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}
-	if a.Session != nil && !slices.Contains(e.Cfg.Sessions, *a.Session) {
-		return Result{}, invalidArg("session")
-	}
-	snap, err := e.Registry.Current(ctx)
+	snap, err := e.scoped(ctx, c, a.Session)
 	if err != nil {
-		return Result{}, apperr.Wrap(apperr.Internal, err)
-	}
-	if a.Session != nil {
-		filtered := *snap
-		filtered.Panes = slices.DeleteFunc(slices.Clone(snap.Panes), func(p pane.PaneState) bool {
-			return p.Session != *a.Session
-		})
-		snap = &filtered
+		return Result{}, err
 	}
 	b, err := render.PanesStatusJSON(snap)
 	if err != nil {
@@ -83,19 +73,20 @@ func (e *env) hostStatusTool() Tool {
 		Name:        "host_status",
 		Description: descHostStatus,
 		Scope:       ScopeReport,
-		Schema:      object(nil, props{}),
+		Schema:      object(nil, props{"session": sessionProp()}),
 		Handler:     e.hostStatus,
 	}
 }
 
-func (e *env) hostStatus(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
-	var a struct{}
+func (e *env) hostStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+	var a panesStatusArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}
-	snap, err := e.Registry.Current(ctx)
+	// 負荷・メモリ・使用状況などはホスト全体のまま。session で絞るのは agents と tmux_session だけ。
+	snap, err := e.scoped(ctx, c, a.Session)
 	if err != nil {
-		return Result{}, apperr.Wrap(apperr.Internal, err)
+		return Result{}, err
 	}
 	h := snap.Host
 	out := hostStatusJSON{

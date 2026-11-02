@@ -96,6 +96,16 @@ func rowName(i, n int) string {
 // NamePositions はペインの座標から位置の名前を付ける（FR-POS-1〜5・P-07）。キーは tmux ID。
 // 段・列の判定はウィンドウごと。固定名（pane_names）があれば自動名より優先する。
 func NamePositions(panes []tmux.PaneInfo, cfg *config.Config) map[string]string {
+	return namePositions(panes, cfg, false)
+}
+
+// NameLocalPositions は NamePositions と同じ規則で、セッションの接頭辞を付けない名前（セッション内の位置）を付ける。
+// セッションを絞った応答（panes_status など）とペイン引数の解決に使う。
+func NameLocalPositions(panes []tmux.PaneInfo, cfg *config.Config) map[string]string {
+	return namePositions(panes, cfg, true)
+}
+
+func namePositions(panes []tmux.PaneInfo, cfg *config.Config, local bool) map[string]string {
 	windows := map[windowKey][]tmux.PaneInfo{}
 	perSession := map[string]map[int]bool{}
 	for _, p := range panes {
@@ -110,7 +120,7 @@ func NamePositions(panes []tmux.PaneInfo, cfg *config.Config) map[string]string 
 	names := make(map[string]string, len(panes))
 	for k, ps := range windows {
 		prefix := ""
-		if k.session != def {
+		if k.session != def && !local {
 			prefix = k.session + ":"
 		}
 		if len(perSession[k.session]) > 1 {

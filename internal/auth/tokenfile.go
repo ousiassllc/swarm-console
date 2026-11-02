@@ -10,6 +10,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/store"
 )
 
@@ -25,6 +26,8 @@ type record struct {
 	Hash      string `toml:"hash"`
 	CreatedAt string `toml:"created_at"`
 	RevokedAt string `toml:"revoked_at,omitempty"`
+	// AllowedSessions は触れる tmux セッション。キーが無ければ（nil）config の sessions すべて。空配列は不正。
+	AllowedSessions []string `toml:"allowed_sessions,omitempty"`
 }
 
 type tokenFile struct {
@@ -63,12 +66,37 @@ func readRecords(path string) ([]record, error) {
 		case !hashPattern.MatchString(r.Hash):
 			return nil, fmt.Errorf("tokens.toml の %d 件目（%s）: hash の形式が不正です", i+1, r.Name)
 		}
+		if err := checkAllowedSessions(r.AllowedSessions); err != nil {
+			return nil, fmt.Errorf("tokens.toml の %d 件目（%s）: %w", i+1, r.Name, err)
+		}
 		if _, dup := seen[r.Name]; dup {
 			return nil, fmt.Errorf("tokens.toml の name が重複しています: %s", r.Name)
 		}
 		seen[r.Name] = struct{}{}
 	}
 	return f.Token, nil
+}
+
+// checkAllowedSessions は allowed_sessions の形を検査する。nil（キー無し＝全許可）は通す。
+// 空配列・空や使えない文字の名前・重複はエラー。config の sessions との包含は ValidateSessions が見る。
+func checkAllowedSessions(sessions []string) error {
+	if sessions == nil {
+		return nil
+	}
+	if len(sessions) == 0 {
+		return errors.New("allowed_sessions が空です（全許可にするならキーごと省いてください）")
+	}
+	seen := make(map[string]bool, len(sessions))
+	for _, s := range sessions {
+		if !config.ValidSessionName(s) {
+			return errors.New("allowed_sessions に使えない名前があります（空・\".\"・\":\"・制御文字は不可）")
+		}
+		if seen[s] {
+			return errors.New("allowed_sessions に重複があります")
+		}
+		seen[s] = true
+	}
+	return nil
 }
 
 // writeRecords は recs を一時ファイル → rename、権限 600 で書く。

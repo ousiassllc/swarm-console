@@ -37,10 +37,10 @@ type SnapshotRegistry struct {
 
 	// 以下は build（同時に 1 つしか走らない）だけが触る。
 	hist       map[string]*paneHist
-	known      map[string]seenPane // 最後に見えたペイン（vanished のメタ用）
-	absent     map[string]int      // 連続して見えなかった回数
-	prevPos    []posEntry          // 前回の ID・位置（位置順）。nil は比較対象なし
-	layoutWarn *layoutWarning
+	known      map[string]seenPane       // 最後に見えたペイン（vanished のメタ用）
+	absent     map[string]int            // 連続して見えなかった回数
+	prevPos    []posEntry                // 前回の ID・位置（位置順）。nil は比較対象なし
+	layoutWarn map[string]*layoutWarning // セッションごと
 	versionLog bool
 	built      bool      // 1 回でもスナップショットを作ったか
 	startedAt  time.Time // 起動時刻（最初のスナップショットの changed_at）
@@ -63,7 +63,7 @@ func NewRegistry(deps Deps) (*SnapshotRegistry, error) {
 	sort.Strings(names)
 	return &SnapshotRegistry{
 		deps: deps, clk: deps.Clock, startedAt: deps.Clock.Now(), log: deps.Logger, names: names,
-		hist: map[string]*paneHist{}, known: map[string]seenPane{}, absent: map[string]int{},
+		hist: map[string]*paneHist{}, known: map[string]seenPane{}, absent: map[string]int{}, layoutWarn: map[string]*layoutWarning{},
 	}, nil
 }
 

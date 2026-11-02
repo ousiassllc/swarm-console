@@ -48,7 +48,7 @@ func runSetup(ctx context.Context, args []string, stdout, stderr io.Writer, in, 
 		},
 		// token add と同じ処理（平文は標準出力へ 1 度だけ）
 		IssueToken: func(name string, scope auth.Scope) error {
-			return tokenAdd(*configPath, name, scope, stdout, stderr)
+			return tokenAdd(*configPath, name, scope, nil, stdout, stderr)
 		},
 	})
 	switch {

@@ -37,15 +37,6 @@ func (r *Registry) Current(context.Context) (*pane.Snapshot, error) { return r.S
 // Refresh は Current と同じ。
 func (r *Registry) Refresh(context.Context) (*pane.Snapshot, error) { return r.Snap, nil }
 
-// Resolve はスナップショットから探す。
-func (r *Registry) Resolve(_ context.Context, arg string) (pane.Ref, error) {
-	p, ok := r.Snap.Find(arg)
-	if !ok {
-		return pane.Ref{}, apperr.New(apperr.PaneNotFound, "pane", arg)
-	}
-	return pane.Ref{ID: p.ID, Pos: p.Pos}, nil
-}
-
 // Tail は Tails[ref.ID]（無ければ DefaultTail）を返し、引数を記録する。
 func (r *Registry) Tail(_ context.Context, ref pane.Ref, lines int, raw bool) (pane.Tail, error) {
 	r.mu.Lock()

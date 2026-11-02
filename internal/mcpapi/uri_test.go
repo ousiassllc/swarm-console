@@ -11,6 +11,7 @@ func TestParseURI(t *testing.T) {
 		{"swarm://pane/T1", "pane", "T1", true},
 		{"swarm://pane/%2512", "pane", "%12", true},
 		{"swarm://notes/work:B2", "notes", "work:B2", true},
+		{"swarm://notes/work%3AB2", "notes", "work:B2", true},
 		{"swarm://notes/w1.T2", "notes", "w1.T2", true},
 		{"swarm://pane/", "pane", "", false},
 		{"swarm://pane/%zz", "pane", "", false},

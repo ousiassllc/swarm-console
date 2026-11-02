@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 )
@@ -15,7 +16,13 @@ var manageMu sync.Mutex
 
 // Add は新しいトークンを発行して tokens.toml に追記し、平文を返す。
 // 平文は保存しない（返すだけ）。name は一意で、失効済みの名前も再利用できない。
-func Add(path, name string, scope Scope, now time.Time) (string, error) {
+// sessions があればそのセッションだけを許可する（allowed_sessions）。無ければキーを書かず、config の sessions すべてを許可する。
+func Add(path, name string, scope Scope, now time.Time, sessions ...string) (string, error) {
+	if len(sessions) > 0 {
+		if err := checkAllowedSessions(sessions); err != nil {
+			return "", err
+		}
+	}
 	if err := ValidateName(name); err != nil {
 		return "", err
 	}
@@ -40,10 +47,11 @@ func Add(path, name string, scope Scope, now time.Time) (string, error) {
 	plaintext := "sc_" + base64.RawURLEncoding.EncodeToString(raw[:])
 	sum := sha256.Sum256([]byte(plaintext))
 	recs = append(recs, record{
-		Name:      name,
-		Scope:     string(scope),
-		Hash:      "sha256:" + hex.EncodeToString(sum[:]),
-		CreatedAt: now.Format(time.RFC3339),
+		Name:            name,
+		Scope:           string(scope),
+		Hash:            "sha256:" + hex.EncodeToString(sum[:]),
+		CreatedAt:       now.Format(time.RFC3339),
+		AllowedSessions: slices.Clone(sessions),
 	})
 	if err := writeRecords(path, recs); err != nil {
 		return "", err

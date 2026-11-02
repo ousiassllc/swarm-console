@@ -21,6 +21,7 @@ type Event struct {
 	Method   string        // tools/call・prompts/get・resources/read など
 	Target   string        // ツール名・prompt 名・resource 名（report|pane|notes）。無ければ ""
 	Pane     string        // 引数・URI の pane（位置または ID）。無ければ ""
+	Session  string        // 引数の session（送られたまま）。無ければ ""
 	Code     string        // "ok" またはエラーコード
 	Duration time.Duration // 所要時間
 }

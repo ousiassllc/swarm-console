@@ -20,6 +20,8 @@ const (
 	UnknownTool          Code = "unknown_tool"
 	InvalidArgs          Code = "invalid_args"
 	PaneNotFound         Code = "pane_not_found"
+	SessionRequired      Code = "session_required"
+	SessionForbidden     Code = "session_forbidden"
 	UnsupportedAgent     Code = "unsupported_agent"
 	InvalidState         Code = "invalid_state"
 	NotAsking            Code = "not_asking"
@@ -48,6 +50,8 @@ var messages = map[Code]string{ //nolint:gosec // G101 の誤検知（unauthoriz
 	UnknownTool:          "この窓口にないツールです",
 	InvalidArgs:          "引数が正しくありません",
 	PaneNotFound:         "ペインが見つかりません",
+	SessionRequired:      "session を指定してください",
+	SessionForbidden:     "このセッションは許可されていません",
 	UnsupportedAgent:     "このペインのエージェントは操作に対応していません",
 	InvalidState:         "このペインの状態では操作できません",
 	NotAsking:            "質問カードが出ていません",

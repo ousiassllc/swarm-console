@@ -27,6 +27,9 @@ func AuditFunc(l *slog.Logger) func(context.Context, mcpapi.Event) {
 		if e.Pane != "" {
 			attrs = append(attrs, slog.String("pane", e.Pane))
 		}
+		if e.Session != "" {
+			attrs = append(attrs, slog.String("session", e.Session))
+		}
 		l.LogAttrs(ctx, slog.LevelInfo, "audit", attrs...)
 	}
 }

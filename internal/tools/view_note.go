@@ -25,21 +25,21 @@ func (e *env) noteGetTool() Tool {
 		Name:        "note_get",
 		Description: descNoteGet,
 		Scope:       ScopeReport,
-		Schema:      object([]string{"pane"}, props{"pane": paneProp()}),
+		Schema:      object([]string{"pane"}, props{"pane": paneProp(), "session": sessionProp()}),
 		Handler:     e.noteGet,
 	}
 }
 
-func (e *env) noteGet(ctx context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) noteGet(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
 	var a paneArgs
 	if err := decodeArgs(raw, &a); err != nil {
 		return Result{}, err
 	}
-	ref, err := resolvePane(ctx, e.Registry, a.Pane)
+	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
 		return Result{}, err
 	}
-	return marshalResult(e.noteOf(ref.ID, ref.Pos))
+	return marshalResult(e.noteOf(ref.ID, ref.Local))
 }
 
 // noteOf は note_get の本体（resource の swarm://notes/<位置> からも使う）。

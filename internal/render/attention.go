@@ -48,7 +48,7 @@ func attentionItems(panes []pane.PaneState, reportDir string, auth []host.Auth) 
 		func(p *pane.PaneState) string { return line0(p.ChangedAgo) })
 	add(kindReportWaiting,
 		func(p *pane.PaneState) bool { return p.State == agent.StateIdle && p.ReportExists },
-		func(p *pane.PaneState) string { return pane.ReportPath(reportDir, p.Pos) })
+		func(p *pane.PaneState) string { return pane.ReportPath(reportDir, p.ReportPos()) })
 	for _, want := range []struct{ status, kind string }{
 		{host.AuthExpired, kindAuthExpired}, {host.AuthExpiringSoon, kindAuthExpiring},
 	} {

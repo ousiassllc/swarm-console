@@ -21,6 +21,7 @@ func (b *builder) toolHandler(t tools.Tool) mcp.ToolHandler {
 			}
 		}()
 		c, _ := auth.FromContext(ctx)
+		ctx = tools.WithEndpoint(ctx, b.endpoint)
 		var args json.RawMessage
 		if req.Params != nil {
 			args = req.Params.Arguments
