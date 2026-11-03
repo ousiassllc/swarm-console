@@ -1,5 +1,11 @@
 package notes
 
+// origin の値（ER §2.2）。空は「どちらでもない」。
+const (
+	OriginUser  = "user"  // オーナーの指示
+	OriginAgent = "agent" // エージェントが自分の判断で始めた
+)
+
 // ReportTo は報告先（ER §2.3）。
 type ReportTo struct {
 	Kind      string `json:"kind"` // agent | email
@@ -27,6 +33,8 @@ type LogEntry struct {
 // Log は常に出す（空でも []）。
 type Note struct {
 	From        string     `json:"from,omitempty"`
+	Origin      string     `json:"origin,omitempty"`
+	StartedBy   string     `json:"started_by,omitempty"`
 	ReportTo    *ReportTo  `json:"report_to,omitempty"`
 	Repo        string     `json:"repo,omitempty"`
 	Items       []string   `json:"items,omitempty"`

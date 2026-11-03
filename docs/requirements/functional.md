@@ -171,7 +171,7 @@ stateDiagram-v2
 | FR-R5 | `host_status` | 負荷・CPU 数・メモリ・CPU 使用率・スワップ・ディスク（使用率つき）・tmux セッションの有無・エージェント種別ごとのペイン数・稼働時間・使用状況（`usage`）・omp の更新確認（`omp`）・新しい版の確認結果（`update`。FR-UPD-9）。足した値は FR-REP-10〜18。`session` を決めると、ペイン数と tmux セッションの有無だけそのセッションに絞る（FR-SESS-9） | — |
 | FR-R6 | `agent_auth_status` | エージェントごとのログイン状態（有効／期限切れ／48 時間以内に切れる／不明）と期限日時。鍵・トークンの中身は出さない | — |
 | FR-R7 | `note_get` | 1 ペインのメモを全部返す | — |
-| FR-R8 | `note_history` | 閉じたペインのメモを新しい順に返す。`repo`・`from`・`items` で絞り込み | — |
+| FR-R8 | `note_history` | 閉じたペインのメモを新しい順に返す。`repo`・`from`・`origin`・`started_by`・`items` で絞り込み | — |
 | FR-R9 | `report` | 全ペインの状況をサーバーが作った markdown で返す（§5） | — |
 | FR-R10 | `sessions_list` | `session` を選ぶための一覧。呼び出し元の許可セッションを `sessions` の順に返す（`id`・`allowed`・`operable`・`layout`・`panes`）。`all: true` なら許可外もスタブ（`id`・`allowed: false`・`operable: false`。`layout`・`panes` は出さない）で含める。`operable` は、許可内でスコープが `ops` かつ `/ops` 経由のときだけ `true`。許可で tmux に無いセッションは `layout` が段 0・列なし、`panes` が空 | — |
 
@@ -222,3 +222,4 @@ stateDiagram-v2
 | 1.16 | 2026-11-02 | FR-INS-6・7（functional-install.md）：unit は実ファイルで内容が同じときだけ触らず、無い・内容が違う・シンボリックリンク（内容が同じでも）のときは実ファイルとして書いて `daemon-reload` する（NFR-TEST-18 と一致。実装は変えない） | Issue #64 |
 | 1.17 | 2026-11-02 | FR-R4：最終報告ファイル名の規則を、位置の `:` だけでなく `/`・`\` も `_` にする（実装の `reportBase` と同じ）と直し、例 `a/b:T1` → `a_b_T1.md` を足した。コード・設定は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
 | 1.18 | 2026-11-02 | §2.1 セッションの許可と解決（FR-SESS-1〜14）を追加し、FR-POS-1・6・7 を改訂、FR-POS-9・FR-R10（`sessions_list`）・UC11・UC12 を追加、FR-R1・FR-O3・UC1・UC7 を改訂。functional-report.md：FR-REP-4 を改訂、FR-REP-19（`report` の `session`）・AC-7 を追加、FR-DIS-1 に `session`。functional-note.md：FR-NOTE-12・FR-SAFE-10 を追加、FR-SAFE-8 を改訂。non-functional.md は 1.12（NFR-SEC-3・12）。`session` 引数・トークンごとの許可セッション・セッション内の位置・`warnings` の絞り込み・resources の許可を定めた。`panes_status` の `session` 省略（全セッション）は FR-SESS-5 の規則に置き換わる | セッション分割運用（許可セッションの分離） |
+| 1.19 | 2026-11-03 | functional-note.md：FR-NOTE-2 にメモの項目 `origin`（`user`・`agent`）と `started_by` を追加、FR-NOTE-3 に要約への追加と markdown の `🤖 <started_by>発` の印・`note_history` の絞り込みを追記。functional-report.md：FR-REP-6 に印は言語によらず固定と追記、表の例を更新。FR-R8 に絞り込みの項目を追記。`from` の意味・絞り込みと `/report` の読み取り専用（FR-SAFE-6）は変えない | Issue #80 |

@@ -119,6 +119,12 @@ func matchHistory(e HistoryEntry, f HistoryFilter) bool {
 	if f.From != "" && e.From != f.From {
 		return false
 	}
+	if f.Origin != "" && e.Origin != f.Origin {
+		return false
+	}
+	if f.StartedBy != "" && e.StartedBy != f.StartedBy {
+		return false
+	}
 	for _, it := range f.Items {
 		if !slices.Contains(e.Items, it) {
 			return false
@@ -133,7 +139,7 @@ func (s *fileStore) Summaries() map[string]Summary {
 	defer s.mu.RUnlock()
 	out := make(map[string]Summary, len(s.data.Panes))
 	for id, n := range s.data.Panes {
-		sum := Summary{From: n.From, Repo: n.Repo, Items: cloneStrings(n.Items), Next: n.Next}
+		sum := Summary{From: n.From, Origin: n.Origin, StartedBy: n.StartedBy, Repo: n.Repo, Items: cloneStrings(n.Items), Next: n.Next}
 		if !sum.IsZero() {
 			out[id] = sum
 		}

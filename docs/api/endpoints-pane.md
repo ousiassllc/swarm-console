@@ -29,7 +29,7 @@
       "title": "agent: funid #982", "cwd": "/mnt/nvme/ousiassllc/funid-sweep-982",
       "elapsed": "42m", "activity": "Running go test ./...",
       "changed_ago": "20s",
-      "note": {"from": "agent-b", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる"}
+      "note": {"from": "agent-b", "origin": "agent", "started_by": "かな", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる"}
     }
   ],
   "warnings": []
@@ -37,7 +37,7 @@
 ```
 
 - `agent` は `omp`・`claude`・`codex`・`null`。`activity` はエージェントがいま何をしているかの 1 行（取れなければ `null`。120 字で切ったペインにだけ、`note` のあとに `"truncated": true` が付く。切っていなければキーごと出さない）。`report` の JSON の `panes[]` も同じ。
-- `note` はメモの要約（`from`・`repo`・`items`・`next` だけ）。メモがなければ `null`。
+- `note` はメモの要約（`from`・`origin`・`started_by`・`repo`・`items`・`next` だけ。空の項目は出さない）。`origin` は `user`・`agent`（FR-NOTE-2）。メモがなければ `null`。
 - `warnings[]` は `{"code": "layout_changed", "message": "..."}` の配列（コード：`layout_changed`・`tmux_unavailable`・`session_missing`・`pane_unreadable`）。
 - 応答は 1 つのセッションに絞る（§4.1）。`pos` はそのセッション内の位置（接頭辞なし。3 列×2 段なら `T1`〜`T3`・`B1`〜`B3`）、`layout` はそのセッションのペインから計算し、`host` は全体の負荷のまま。`warnings` はそのセッションの分と全体の警告（`tmux_unavailable`）だけ。
 

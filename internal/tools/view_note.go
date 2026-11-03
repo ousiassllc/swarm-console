@@ -52,10 +52,12 @@ func (e *env) noteOf(id, pos string) noteGetJSON {
 }
 
 type noteHistoryArgs struct {
-	Repo  *string  `json:"repo"`
-	From  *string  `json:"from"`
-	Items []string `json:"items"`
-	Limit *int     `json:"limit"`
+	Repo      *string  `json:"repo"`
+	From      *string  `json:"from"`
+	Origin    *string  `json:"origin"`
+	StartedBy *string  `json:"started_by"`
+	Items     []string `json:"items"`
+	Limit     *int     `json:"limit"`
 }
 
 type noteHistoryJSON struct {
@@ -69,10 +71,12 @@ func (e *env) noteHistoryTool() Tool {
 		Description: descNoteHistory,
 		Scope:       ScopeReport,
 		Schema: object(nil, props{
-			"repo":  strProp("リポジトリ（完全一致）"),
-			"from":  strProp("依頼元（完全一致）"),
-			"items": strArrayProp("Issue・PR。指定したものをすべて含む履歴だけ"),
-			"limit": intProp("件数（既定 20）", 1, historyMaxLimit),
+			"repo":       strProp("リポジトリ（完全一致）"),
+			"from":       strProp("依頼元（完全一致）"),
+			"origin":     strProp("始まったきっかけ（user か agent。完全一致）"),
+			"started_by": strProp("始めた人やエージェントの名前（完全一致）"),
+			"items":      strArrayProp("Issue・PR。指定したものをすべて含む履歴だけ"),
+			"limit":      intProp("件数（既定 20）", 1, historyMaxLimit),
 		}),
 		Handler: e.noteHistory,
 	}
@@ -91,7 +95,7 @@ func (e *env) noteHistory(_ context.Context, _ auth.Client, raw json.RawMessage)
 		}
 	}
 	entries, total := e.Notes.History(notes.HistoryFilter{
-		Repo: deref(a.Repo), From: deref(a.From), Items: a.Items, Limit: limit,
+		Repo: deref(a.Repo), From: deref(a.From), Origin: deref(a.Origin), StartedBy: deref(a.StartedBy), Items: a.Items, Limit: limit,
 	})
 	if entries == nil {
 		entries = []notes.HistoryEntry{}

@@ -11,6 +11,8 @@ import (
 // メモの項目の並び（ER §2.2）。locale.fields の添字と対応する。
 const (
 	fFrom = iota
+	fOrigin
+	fStartedBy
 	fReportTo
 	fRepo
 	fItems
@@ -105,6 +107,8 @@ func newNoteView(n *notes.Note, l locale) *noteView {
 		}
 	}
 	add(fFrom, n.From)
+	add(fOrigin, n.Origin)
+	add(fStartedBy, n.StartedBy)
 	if r := n.ReportTo; r != nil {
 		add(fReportTo, reportToText(r))
 	}

@@ -122,6 +122,8 @@ erDiagram
 erDiagram
     PANE_NOTE {
         string from "依頼元"
+        string origin "始まったきっかけ（user | agent）"
+        string started_by "始めた人・エージェントの名前"
         object report_to "報告先（REPORT_TO）"
         string repo "owner/name"
         array items "Issue・PR（#982 など）"
@@ -142,6 +144,8 @@ erDiagram
 | キー | 型 | 必須 | 上限 | 説明 |
 |------|-----|------|------|------|
 | `from` | string | 任意 | 2000 字 | 依頼元（例：`agent-b`、`agent-a`、`オーナー`） |
+| `origin` | string | 任意 | `user`・`agent` | 始まったきっかけ。`user`＝オーナーの指示、`agent`＝エージェントが自分の判断で始めた。どちらでもなければ空のまま。ほかの値（空文字を含む）は `invalid_args`。`from`（依頼元）とは別の項目で、`from` には混ぜない |
+| `started_by` | string | 任意 | 2000 字 | 始めた人・エージェントの名前（例：`かな`）。自由な文字列 |
 | `report_to` | object | 任意 | — | 報告先（§2.3） |
 | `repo` | string | 任意 | 2000 字 | リポジトリ（`ousiassllc/funid`） |
 | `items` | string[] | 任意 | 50 件・各 2000 字 | Issue・PR（`["#982"]`） |
@@ -158,7 +162,7 @@ erDiagram
 | `log` | NOTE_LOG[] | サーバー | 50 行 | `note_log` と `send_escape` の自動記録 |
 
 - キーの値が `null`／未設定は「空」。`note_set` で `null` を渡すと、その項目を消す（JSON から落とす）。
-- `from`・`repo`・`items`・`next` が `panes_status`・`report` に要約として出る。
+- `from`・`origin`・`started_by`・`repo`・`items`・`next` が `panes_status`・`report` に要約として出る。
 
 ### 2.3 REPORT_TO・APPROVAL・NOTE_LOG
 
@@ -201,6 +205,8 @@ erDiagram
         string closed_at "RFC 3339"
         string closed_by "pane_close | vanished | tmux_restart"
         string from "PANE_NOTE の項目を持ち越す"
+        string origin "同上"
+        string started_by "同上"
         string repo "同上"
         array items "同上"
         array log "NOTE_LOG（持ち越し）"
@@ -218,7 +224,7 @@ erDiagram
 | 秘密の拒否 | 文字列項目（キー名を除く全ての値、`log.text` も）が P-14 のパターンに当たれば書き込み全体を拒否（`secret_detected`、値は出さない）。部分的に書かない |
 | 型の検証 | 未知のキー・型違いは `invalid_args`。`updated_at`・`log` はクライアントから書けない |
 | ペインの消滅 | スナップショットで 2 回連続で存在しないペインのメモは `closed_by: "vanished"` で履歴へ移す。`tmux_server_start` が変わっていたら、現行メモを全部 `closed_by: "tmux_restart"` で履歴へ移す（ID の再利用による取り違え防止） |
-| 履歴の検索 | `note_history` は線形検索（500 件）。`repo` は完全一致、`from` は完全一致、`items` は指定要素をすべて含むもの。インデックスは持たない |
+| 履歴の検索 | `note_history` は線形検索（500 件）。`repo` は完全一致、`from` は完全一致、`origin` は完全一致、`started_by` は完全一致、`items` は指定要素をすべて含むもの。指定したものは AND で絞る。インデックスは持たない |
 
 ## 改訂履歴
 
@@ -237,3 +243,4 @@ erDiagram
 | 1.10 | 2026-11-02 | §5 config.toml の検証表：`agents.<name>` の `auth_file` は空文字不可（設定エラー）と追記した。実装は変えない | Issue #76 |
 | 1.11 | 2026-11-02 | §5 config.toml の検証表：`listen_addr` は tailnet の IP ならポート 48120 だけ、ループバックはどのポートでも可と直した（`CheckListenAddr` のポート検査。P-73） | Issue #72 |
 | 1.12 | 2026-11-02 | §3 tokens.toml に `allowed_sessions`（触れる tmux セッション。省略は `sessions` 全部）と検証・起動時の突き合わせを追加、§4 の `pos`（全体の位置とセッション内の位置）とセッションでの絞り込みを追記、§5 `sessions` に許可との関係と `default_session` は許可に使わない旨を追記、§7 最終報告ファイル名は全体の位置から付く（別セッションと衝突しない）と明記。全体 ER 図に `TOKEN`–`SESSION` を追加（FR-SESS） | セッション分割運用（許可セッションの分離） |
+| 1.13 | 2026-11-03 | §2.2 PANE_NOTE に `origin`（`user` \| `agent`。ほかの値は `invalid_args`）と `started_by`（自由な文字列）を追加、要約に出す項目を増やし、§2.4 履歴の検索に `origin`・`started_by`（完全一致）を追記。既存のメモは移行しない（新しい項目は空のまま） | Issue #80 |

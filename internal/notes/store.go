@@ -7,10 +7,12 @@ import (
 
 // HistoryFilter は note_history の絞り込み（API 仕様 §5.4）。空は絞り込みなし。
 type HistoryFilter struct {
-	Repo  string
-	From  string
-	Items []string // すべて含むもの
-	Limit int      // 既定 20、1〜100（範囲外は呼び出し側が invalid_args にする）
+	Repo      string
+	From      string
+	Origin    string   // 完全一致（from と同じ。値の検証はしない）
+	StartedBy string   // 完全一致
+	Items     []string // すべて含むもの
+	Limit     int      // 既定 20、1〜100（範囲外は呼び出し側が invalid_args にする）
 }
 
 // Store は notes.json の読み書き（ER §2、FR-NOTE）。実装は NewStore。

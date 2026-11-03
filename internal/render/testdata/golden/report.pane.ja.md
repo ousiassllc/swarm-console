@@ -13,10 +13,10 @@
 | T1 | omp | ⚪ 入力待ち | — | — | — | — | — |
 | T2 | claude | 🟡 質問待ち | 3m | — | — | (2) の Go での範囲をどうしますか？ | — |
 | B3 | omp | 🔴 止まってそう | — | — | — | Waiting | — |
-| B4 | omp | 🟢 作業中 | 42m | agent-b | ousiassllc/funid #982 | Running go test ./... | 完了したら #983 を入れる |
+| B4 | omp | 🟢 作業中 | 42m | agent-b 🤖 かな発 | ousiassllc/funid #982 | Running go test ./... | 完了したら #983 を入れる |
 | B1 | — | ⬜ 空き | — | — | — | — | — |
 | B2 | codex | ❔ 不明 | — | — | — | — | — |
-| work:B5 | omp | 🟢 作業中 | — | x\|y | o/r #1, #2 | a \| b c | — |
+| work:B5 | omp | 🟢 作業中 | — | x\|y 🤖 エージェント発 | o/r #1, #2 | a \| b c | — |
 
 ## 要対応
 
@@ -65,6 +65,8 @@
 ### メモ
 
 - 依頼元: agent-b
+- 始まったきっかけ: agent
+- 始めた人: かな
 - 報告先: agent / agent-b / priority
 - リポジトリ: ousiassllc/funid
 - Issue・PR: #982

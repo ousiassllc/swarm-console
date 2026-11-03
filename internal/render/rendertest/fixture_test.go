@@ -143,13 +143,13 @@ func fixedSnapshot() *pane.Snapshot {
 			{
 				ID: "%12", Pos: "B4", Agent: "omp", State: agent.StateWorking, Title: "agent: funid #982",
 				Cwd: "/mnt/nvme/ousiassllc/funid-sweep-982", Elapsed: "42m", Activity: "Running go test ./...", ChangedAgo: "20s",
-				Note: &notes.Summary{From: "agent-b", Repo: "ousiassllc/funid", Items: []string{"#982"}, Next: "完了したら #983 を入れる"},
+				Note: &notes.Summary{From: "agent-b", Origin: notes.OriginAgent, StartedBy: "かな", Repo: "ousiassllc/funid", Items: []string{"#982"}, Next: "完了したら #983 を入れる"},
 			},
 			{ID: "%9", Pos: "B1", State: agent.StateShell},
 			{ID: "%10", Pos: "B2", Agent: "codex", State: agent.StateUnknown},
 			{
 				ID: "%11", Pos: "work:B5", Agent: "omp", State: agent.StateWorking, Activity: "a | b\nc",
-				Note: &notes.Summary{From: "x|y", Repo: "o/r", Items: []string{"#1", "#2"}},
+				Note: &notes.Summary{From: "x|y", Origin: notes.OriginAgent, Repo: "o/r", Items: []string{"#1", "#2"}},
 			},
 		},
 		Warnings:    []pane.Warning{{Code: pane.WarnLayoutChanged, Message: "並びが変わりました: B3 が追加されました"}},
@@ -171,7 +171,7 @@ func calmSnapshot() *pane.Snapshot {
 func fixedDetail() *render.PaneDetail {
 	return &render.PaneDetail{
 		Note: &notes.Note{
-			From: "agent-b", ReportTo: &notes.ReportTo{Kind: "agent", Name: "agent-b", Priority: true},
+			From: "agent-b", Origin: notes.OriginAgent, StartedBy: "かな", ReportTo: &notes.ReportTo{Kind: "agent", Name: "agent-b", Priority: true},
 			Repo: "ousiassllc/funid", Items: []string{"#982"}, Worktree: "/mnt/nvme/ousiassllc/funid-sweep-982",
 			Branch: "sweep/issue-sweep-20261031-193532", Instruction: "/tmp/b4-funid-982.txt",
 			Approval: &notes.Approval{Text: "残りの1周のスイープをどんどんしていきたい", Via: "agent-b", At: "2026-10-31T19:35:00+09:00"},
