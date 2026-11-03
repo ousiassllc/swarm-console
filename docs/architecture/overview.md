@@ -76,7 +76,7 @@ DB は使わない（ER ドキュメントは永続ファイルのデータモ�
 |---------|------|------------------------------------|
 | エントリ | CLI（`serve`・`setup`・`token`・`version`）、設定読み込み、起動時検証 | `cmd/swarm-console` |
 | トランスポート | HTTP、窓口ごとのルーティング、認証、リクエスト上限、監査ログ | `internal/server`、`internal/auth` |
-| ツール | MCP のツール・prompts・resources の登録、引数検証、エラー整形 | `internal/tools`、`internal/mcpapi` |
+| ツール | MCP のツール・prompts・resources の登録、引数検証、エラー整形 | `internal/tools`（`toolkit`・`view`・`ops`）、`internal/mcpapi` |
 | ドメイン | ペイン台帳・位置解決・スナップショット・状態判定・メモ・指示組み立て・レンダリング・安全ポリシー | `internal/pane`、`internal/notes`、`internal/render`、`internal/safety` |
 | アダプタ | エージェントごとの画面解釈・キー操作 | `internal/agent`（`omp`・`claude`・`codex`） |
 | インフラ | tmux 実行、`/proc`・ホスト情報、ファイル入出力、時計 | `internal/tmux`、`internal/host`、`internal/store`、`internal/clock` |
@@ -238,3 +238,4 @@ flowchart TD
 | 1.20 | 2026-11-02 | §1・§4・§5.1・§6：ツール層が許可セッションを検査し `pane` を決めたセッションの中で解決する（認証後・ツールの中）、並びの変化の検知をセッションごとに。ツール数 17→18。deployment.md §8 の `sessions`・`default_session` の説明。decisions.md に P-76〜P-90（セッションごとの許可・`session` の省略規則・`sessions_list`・セッション内の位置・resources・dispatch prompt の `session`・監査ログ・既知の限界）を追加し、P-27 を改訂 | セッション分割運用（許可セッションの分離） |
 | 1.21 | 2026-11-03 | §1：ツール数 18→19（`file_get`）。§6：監査ログに `file_get` のパス・サイズ。decisions.md に P-91（`file_get` の許可リスト・秘密・上限）を追加。deployment.md §8 に `file_get_roots`・`file_get_max_bytes` | Issue #82 |
 | 1.22 | 2026-11-04 | decisions.md P-91：ペインの `cwd` が `/` やホームそのもの（実パス）のときは許可リストに入れず、明示した `file_get_roots`・`report_dir` はそのまま許可と追記。deployment.md §8 の `file_get_roots` の説明も同じ | Issue #82 |
+| 1.23 | 2026-11-04 | §3：ツール層のパッケージを `internal/tools`（`toolkit`・`view`・`ops`）に更新（Linterly のディレクトリ上限のための分割。振る舞いは変えない） | Issue #82（PR #84） |

@@ -12,7 +12,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 const codeOK = "ok"
@@ -30,10 +30,10 @@ func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 		var (
 			res mcp.Result
 			err error
-			au  *tools.Audit
+			au  *toolkit.Audit
 		)
 		if method == "tools/call" {
-			ctx, au = tools.WithAudit(ctx)
+			ctx, au = toolkit.WithAudit(ctx)
 		}
 		switch {
 		case method == "tools/call" && !b.hasTool(name):
@@ -86,7 +86,7 @@ func (b *builder) auditTarget(method, name string) string {
 
 // hasPrompt は name がこの窓口に登録された prompt か（/report は report のみ、/ops は report と dispatch）。
 func (b *builder) hasPrompt(name string) bool {
-	return name == "report" || (name == "dispatch" && b.endpoint == tools.EndpointOps)
+	return name == "report" || (name == "dispatch" && b.endpoint == toolkit.EndpointOps)
 }
 
 // describe は要求からツール名・prompt 名・resource 種別と、pane・session（短く切ったもの）を取り出す。
@@ -141,7 +141,7 @@ func codeOf(res mcp.Result, err error) string {
 			}
 			return "jsonrpc_" + strconv.FormatInt(je.Code, 10)
 		}
-		return tools.ErrorCode(err)
+		return toolkit.ErrorCode(err)
 	}
 	if r, ok := res.(*mcp.CallToolResult); ok && r.IsError {
 		if len(r.Content) > 0 {

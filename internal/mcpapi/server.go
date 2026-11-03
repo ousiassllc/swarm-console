@@ -12,6 +12,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 // Event は監査ログ 1 件分（NFR-SEC-12）。送った本文・メモの内容・トークン・file_get の中身（base64）は含めない。
@@ -39,10 +40,10 @@ type Options struct {
 }
 
 // NewReportServer は /report の MCP サーバー（見るツール 10・prompts は report のみ・resources は全部）。
-func NewReportServer(o Options) *mcp.Server { return newServer(tools.EndpointReport, o) }
+func NewReportServer(o Options) *mcp.Server { return newServer(toolkit.EndpointReport, o) }
 
 // NewOpsServer は /ops の MCP サーバー（見る 10 ＋ 操作 9 のツール・prompts は report と dispatch・resources は全部）。
-func NewOpsServer(o Options) *mcp.Server { return newServer(tools.EndpointOps, o) }
+func NewOpsServer(o Options) *mcp.Server { return newServer(toolkit.EndpointOps, o) }
 
 func newServer(endpoint string, o Options) *mcp.Server {
 	version := o.Version

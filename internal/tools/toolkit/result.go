@@ -1,4 +1,4 @@
-package tools
+package toolkit
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 )
 
-// marshalResult は v を HTML エスケープなしの 1 行 JSON にして Result にする（キー順は構造体の宣言順）。
-func marshalResult(v any) (Result, error) {
+// MarshalResult は v を HTML エスケープなしの 1 行 JSON にして Result にする（キー順は構造体の宣言順）。
+func MarshalResult(v any) (Result, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)

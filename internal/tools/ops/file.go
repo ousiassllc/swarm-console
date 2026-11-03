@@ -1,4 +1,4 @@
-package tools
+package ops
 
 import (
 	"bytes"
@@ -18,6 +18,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/safety"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 // 取得できる種類。拡張子（小文字）→ MIME。中身の先頭バイトも同じ MIME でなければ断る。
@@ -38,57 +39,57 @@ type fileGetJSON struct {
 	DataBase64 string `json:"data_base64"`
 }
 
-func (e *env) fileGetTool() Tool {
-	return Tool{
+func (e *env) fileGetTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "file_get",
 		Description: descFileGet,
-		Scope:       ScopeOps,
-		Schema: object([]string{"path"}, props{
-			"path": strProp("サーバー上のファイルの絶対パス（png・jpg・jpeg・webp・gif・mp4。ペインの cwd の下・レポート置き場・設定で足した根の下だけ）"),
+		Scope:       toolkit.ScopeOps,
+		Schema: toolkit.Object([]string{"path"}, toolkit.Props{
+			"path": toolkit.StrProp("サーバー上のファイルの絶対パス（png・jpg・jpeg・webp・gif・mp4。ペインの cwd の下・レポート置き場・設定で足した根の下だけ）"),
 		}),
 		Handler: e.fileGet,
 	}
 }
 
-func (e *env) fileGet(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) fileGet(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a fileGetArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
-	path, err := requireStr(a.Path, "path")
+	path, err := toolkit.RequireStr(a.Path, "path")
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
-	au := auditOf(ctx)
-	au.setPath(path)
+	au := toolkit.AuditOf(ctx)
+	au.SetPath(path)
 	return e.readMedia(ctx, c, au, path)
 }
 
 // readMedia は path の検証・読み取り・種類の確認をして file_get の結果にする。
 // 順序: 許可・秘密（CheckFileGet）→ 拡張子 → 通常ファイルか → サイズ → 読み取り → 先頭バイト。
-func (e *env) readMedia(ctx context.Context, c auth.Client, au *Audit, path string) (Result, error) {
+func (e *env) readMedia(ctx context.Context, c auth.Client, au *toolkit.Audit, path string) (toolkit.Result, error) {
 	roots, err := e.fileGetRoots(ctx, c)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	resolved, err := e.Safety.CheckFileGet(path, roots)
 	if err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
-	au.setPath(resolved)
+	au.SetPath(resolved)
 	want, ok := fileGetMIME[strings.ToLower(filepath.Ext(resolved))]
 	if !ok {
-		return Result{}, apperr.New(apperr.UnsupportedType, "reason", "extension")
+		return toolkit.Result{}, apperr.New(apperr.UnsupportedType, "reason", "extension")
 	}
 	data, err := e.readBounded(au, resolved)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	if sniffMIME(data) != want {
-		return Result{}, apperr.New(apperr.UnsupportedType, "reason", "content")
+		return toolkit.Result{}, apperr.New(apperr.UnsupportedType, "reason", "content")
 	}
 	sum := sha256.Sum256(data)
-	return marshalResult(fileGetJSON{
+	return toolkit.MarshalResult(fileGetJSON{
 		Path: resolved, MIME: want, Size: int64(len(data)),
 		SHA256: hex.EncodeToString(sum[:]), DataBase64: base64.StdEncoding.EncodeToString(data),
 	})
@@ -103,7 +104,7 @@ func (e *env) fileGetRoots(ctx context.Context, c auth.Client) ([]string, error)
 	}
 	roots := append([]string{e.Cfg.ReportDir}, e.Cfg.FileGetRoots...)
 	home, _ := os.UserHomeDir() // 取れなければ "" のままで、"/" だけを除く
-	allowed := e.allowed(c)
+	allowed := e.Allowed(c)
 	for i := range snap.Panes {
 		p := &snap.Panes[i]
 		if slices.Contains(allowed, p.Session) && filepath.IsAbs(p.Cwd) && !slices.Contains(roots, p.Cwd) &&
@@ -116,7 +117,7 @@ func (e *env) fileGetRoots(ctx context.Context, c auth.Client) ([]string, error)
 
 // readBounded は通常ファイルを上限以内で全部読む。stat で先に判定し、読み込みも上限＋1 バイトで切る
 // （stat のあとに大きくされても上限を超えて読まない）。通常ファイル以外（ディレクトリ・FIFO・デバイス）は unsupported_type。
-func (e *env) readBounded(au *Audit, resolved string) ([]byte, error) {
+func (e *env) readBounded(au *toolkit.Audit, resolved string) ([]byte, error) {
 	limit := e.Cfg.FileGetMaxBytes
 	if st, err := os.Lstat(resolved); err != nil {
 		return nil, openError(err)
@@ -139,7 +140,7 @@ func (e *env) readBounded(au *Audit, resolved string) ([]byte, error) {
 	if err := safety.CheckOpened(f, resolved); err != nil {
 		return nil, apperr.As(err)
 	}
-	au.setSize(st.Size())
+	au.SetSize(st.Size())
 	if st.Size() > limit {
 		return nil, apperr.New(apperr.TooLarge, "max", limit)
 	}
@@ -147,7 +148,7 @@ func (e *env) readBounded(au *Audit, resolved string) ([]byte, error) {
 	if err != nil {
 		return nil, apperr.Wrap(apperr.Internal, err)
 	}
-	au.setSize(int64(len(data)))
+	au.SetSize(int64(len(data)))
 	if int64(len(data)) > limit {
 		return nil, apperr.New(apperr.TooLarge, "max", limit)
 	}

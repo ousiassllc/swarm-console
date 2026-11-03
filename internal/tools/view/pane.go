@@ -1,4 +1,4 @@
-package tools
+package view
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 // 数量の上限（API 仕様 §7）。
@@ -37,47 +38,42 @@ type paneTailJSON struct {
 	Truncated bool   `json:"truncated"`
 }
 
-func (e *env) paneTailTool() Tool {
-	return Tool{
+func (e *env) paneTailTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "pane_tail",
 		Description: descPaneTail,
-		Scope:       ScopeReport,
-		Schema: object([]string{"pane"}, props{
-			"pane":    paneProp(),
-			"session": sessionProp(),
-			"lines":   intProp("最後の行数（既定 30）", 1, tailMaxLines),
-			"raw":     boolProp("true なら飾りも残す"),
+		Scope:       toolkit.ScopeReport,
+		Schema: toolkit.Object([]string{"pane"}, toolkit.Props{
+			"pane":    toolkit.PaneProp(),
+			"session": toolkit.SessionProp(),
+			"lines":   toolkit.IntProp("最後の行数（既定 30）", 1, tailMaxLines),
+			"raw":     toolkit.BoolProp("true なら飾りも残す"),
 		}),
 		Handler: e.paneTail,
 	}
 }
 
-func (e *env) paneTail(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) paneTail(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a paneTailArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
 	lines := tailDefaultLines
 	if a.Lines != nil {
 		lines = *a.Lines
 		if lines < 1 || lines > tailMaxLines {
-			return Result{}, invalidArg("lines")
+			return toolkit.Result{}, toolkit.InvalidArg("lines")
 		}
 	}
-	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
+	ref, err := e.ResolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	t, err := e.Registry.Tail(ctx, ref, lines, a.Raw != nil && *a.Raw)
 	if err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
-	return marshalResult(paneTailJSON{Pane: ref.Local, Lines: lines, Text: t.Text, Truncated: t.Truncated})
-}
-
-type paneArgs struct {
-	Session *string `json:"session"`
-	Pane    *string `json:"pane"`
+	return toolkit.MarshalResult(paneTailJSON{Pane: ref.Local, Lines: lines, Text: t.Text, Truncated: t.Truncated})
 }
 
 type optionJSON struct {
@@ -95,31 +91,31 @@ type askCardJSON struct {
 	Truncated    bool         `json:"truncated,omitempty"`
 }
 
-func (e *env) askCardTool() Tool {
-	return Tool{
+func (e *env) askCardTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "ask_card",
 		Description: descAskCard,
-		Scope:       ScopeReport,
-		Schema:      object([]string{"pane"}, props{"pane": paneProp(), "session": sessionProp()}),
+		Scope:       toolkit.ScopeReport,
+		Schema:      toolkit.Object([]string{"pane"}, toolkit.Props{"pane": toolkit.PaneProp(), "session": toolkit.SessionProp()}),
 		Handler:     e.askCard,
 	}
 }
 
-func (e *env) askCard(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
-	var a paneArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+func (e *env) askCard(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
+	var a toolkit.PaneArgs
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
-	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
+	ref, err := e.ResolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	card, err := e.Registry.Card(ctx, ref)
 	if err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
 	if card == nil {
-		return Result{Text: `{"asking":false}`}, nil
+		return toolkit.Result{Text: `{"asking":false}`}, nil
 	}
 	out := askCardJSON{
 		Asking: true, Question: card.Question, Options: make([]optionJSON, 0, len(card.Options)),
@@ -128,7 +124,7 @@ func (e *env) askCard(ctx context.Context, c auth.Client, raw json.RawMessage) (
 	for _, o := range card.Options {
 		out.Options = append(out.Options, optionJSON{N: o.N, Label: o.Label, Recommended: o.Recommended})
 	}
-	return marshalResult(out)
+	return toolkit.MarshalResult(out)
 }
 
 type reportReadJSON struct {
@@ -139,39 +135,39 @@ type reportReadJSON struct {
 	Truncated bool   `json:"truncated"`
 }
 
-func (e *env) reportReadTool() Tool {
-	return Tool{
+func (e *env) reportReadTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "report_read",
 		Description: descReportRead,
-		Scope:       ScopeReport,
-		Schema:      object([]string{"pane"}, props{"pane": paneProp(), "session": sessionProp()}),
+		Scope:       toolkit.ScopeReport,
+		Schema:      toolkit.Object([]string{"pane"}, toolkit.Props{"pane": toolkit.PaneProp(), "session": toolkit.SessionProp()}),
 		Handler:     e.reportRead,
 	}
 }
 
-func (e *env) reportRead(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
-	var a paneArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+func (e *env) reportRead(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
+	var a toolkit.PaneArgs
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
-	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
+	ref, err := e.ResolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	path := pane.ReportPath(e.Cfg.ReportDir, ref.Pos)
 	text, mtime, ok, err := readReportFile(path)
 	if err != nil {
-		return Result{}, apperr.Wrap(apperr.Internal, err)
+		return toolkit.Result{}, apperr.Wrap(apperr.Internal, err)
 	}
 	if !ok {
-		return Result{Text: `{"exists":false}`}, nil
+		return toolkit.Result{Text: `{"exists":false}`}, nil
 	}
 	out := reportReadJSON{Exists: true, Path: path, UpdatedAt: mtime.Format(time.RFC3339)}
 	if utf8.RuneCountInString(text) > reportReadMax {
 		text, out.Truncated = string([]rune(text)[:reportReadMax]), true
 	}
 	out.Text = text
-	return marshalResult(out)
+	return toolkit.MarshalResult(out)
 }
 
 // readReportFile は最終報告ファイルを読む。通常ファイルでなければ（無い・リンク・ディレクトリ）ok=false。

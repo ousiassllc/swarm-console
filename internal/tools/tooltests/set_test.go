@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
 
@@ -19,7 +20,7 @@ var opsTools = []string{
 	"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dispatch", "note_set", "note_log", "file_get",
 }
 
-func names(ts []tools.Tool) []string {
+func names(ts []toolkit.Tool) []string {
 	out := make([]string, len(ts))
 	for i, t := range ts {
 		out[i] = t.Name
@@ -29,20 +30,20 @@ func names(ts []tools.Tool) []string {
 
 func TestEndpointToolSets(t *testing.T) {
 	f := toolstest.New(t)
-	if got := names(f.Tools.ForEndpoint(tools.EndpointReport)); !slices.Equal(got, viewTools) {
+	if got := names(f.Tools.ForEndpoint(toolkit.EndpointReport)); !slices.Equal(got, viewTools) {
 		t.Errorf("/report のツール = %v, want %v", got, viewTools)
 	}
-	if got := names(f.Tools.ForEndpoint(tools.EndpointOps)); !slices.Equal(got, append(slices.Clone(viewTools), opsTools...)) {
+	if got := names(f.Tools.ForEndpoint(toolkit.EndpointOps)); !slices.Equal(got, append(slices.Clone(viewTools), opsTools...)) {
 		t.Errorf("/ops のツール = %v", got)
 	}
 	if got := f.Tools.ForEndpoint("/other"); got != nil {
 		t.Errorf("未知の窓口にツールが出ています: %v", names(got))
 	}
 	for _, n := range opsTools {
-		if _, ok := f.Tools.Lookup(tools.EndpointReport, n); ok {
+		if _, ok := f.Tools.Lookup(toolkit.EndpointReport, n); ok {
 			t.Errorf("/report から操作ツール %s を引けてしまいます", n)
 		}
-		if _, ok := f.Tools.Lookup(tools.EndpointOps, n); !ok {
+		if _, ok := f.Tools.Lookup(toolkit.EndpointOps, n); !ok {
 			t.Errorf("/ops から %s を引けません", n)
 		}
 	}
@@ -50,7 +51,7 @@ func TestEndpointToolSets(t *testing.T) {
 
 func TestToolDefinitions(t *testing.T) {
 	f := toolstest.New(t)
-	for _, tool := range f.Tools.ForEndpoint(tools.EndpointOps) {
+	for _, tool := range f.Tools.ForEndpoint(toolkit.EndpointOps) {
 		s, ok := tool.Schema.(map[string]any)
 		if !ok || s["type"] != "object" || s["additionalProperties"] != false {
 			t.Errorf("%s: スキーマが additionalProperties:false の object ではありません: %v", tool.Name, tool.Schema)
@@ -63,7 +64,7 @@ func TestToolDefinitions(t *testing.T) {
 		}
 	}
 	desc := func(name string) string {
-		tool, _ := f.Tools.Lookup(tools.EndpointOps, name)
+		tool, _ := f.Tools.Lookup(toolkit.EndpointOps, name)
 		return tool.Description
 	}
 	if !strings.Contains(desc("send_escape"), "オーナーの OK があるときだけ使う") {
@@ -97,7 +98,7 @@ func TestEveryToolRejectsUnknownKeys(t *testing.T) {
 
 func toolSet(f *toolstest.Fixture) map[string]bool {
 	m := map[string]bool{}
-	for _, tool := range f.Tools.ForEndpoint(tools.EndpointOps) {
+	for _, tool := range f.Tools.ForEndpoint(toolkit.EndpointOps) {
 		m[tool.Name] = true
 	}
 	return m

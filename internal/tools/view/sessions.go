@@ -1,4 +1,4 @@
-package tools
+package view
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 type sessionsListArgs struct {
@@ -33,32 +34,32 @@ type sessionStubJSON struct {
 	Operable bool   `json:"operable"`
 }
 
-func (e *env) sessionsListTool() Tool {
-	return Tool{
+func (e *env) sessionsListTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "sessions_list",
 		Description: descSessionsList,
-		Scope:       ScopeReport,
-		Schema:      object(nil, props{"all": boolProp("true なら許可されていないセッションも id だけで含める（layout・panes は出さない）。既定は false")}),
+		Scope:       toolkit.ScopeReport,
+		Schema:      toolkit.Object(nil, toolkit.Props{"all": toolkit.BoolProp("true なら許可されていないセッションも id だけで含める（layout・panes は出さない）。既定は false")}),
 		Handler:     e.sessionsList,
 	}
 }
 
-func (e *env) sessionsList(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) sessionsList(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a sessionsListArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
 	snap, err := e.Registry.Current(ctx)
 	if err != nil {
-		return Result{}, apperr.Wrap(apperr.Internal, err)
+		return toolkit.Result{}, apperr.Wrap(apperr.Internal, err)
 	}
 	all := a.All != nil && *a.All
 	allowed := make(map[string]bool)
-	for _, s := range e.allowed(c) {
+	for _, s := range e.Allowed(c) {
 		allowed[s] = true
 	}
 	// 操作できるのは、許可されたセッションを、/ops 経由で、ops スコープのトークンで呼ぶとき。
-	canOperate := c.Scope == auth.ScopeOps && endpointOf(ctx) == EndpointOps
+	canOperate := c.Scope == auth.ScopeOps && toolkit.EndpointOf(ctx) == toolkit.EndpointOps
 	out := make([]any, 0, len(e.Cfg.Sessions))
 	for _, id := range e.Cfg.Sessions {
 		switch {
@@ -68,7 +69,7 @@ func (e *env) sessionsList(ctx context.Context, c auth.Client, raw json.RawMessa
 			out = append(out, sessionStubJSON{ID: id})
 		}
 	}
-	return marshalResult(struct {
+	return toolkit.MarshalResult(struct {
 		Sessions []any `json:"sessions"`
 	}{out})
 }

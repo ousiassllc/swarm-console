@@ -1,4 +1,4 @@
-package tools
+package toolkit
 
 import "context"
 
@@ -18,19 +18,21 @@ func WithAudit(ctx context.Context) (context.Context, *Audit) {
 	return context.WithValue(ctx, auditKey{}, a), a
 }
 
-// auditOf は ctx の Audit。無ければ nil（nil への書き込みは何もしない）。
-func auditOf(ctx context.Context) *Audit {
+// AuditOf は ctx の Audit。無ければ nil（nil への書き込みは何もしない）。
+func AuditOf(ctx context.Context) *Audit {
 	a, _ := ctx.Value(auditKey{}).(*Audit)
 	return a
 }
 
-func (a *Audit) setPath(p string) {
+// SetPath は取得先の実パスを記録する。
+func (a *Audit) SetPath(p string) {
 	if a != nil {
 		a.Path = p
 	}
 }
 
-func (a *Audit) setSize(n int64) {
+// SetSize は取得したサイズを記録する。
+func (a *Audit) SetSize(n int64) {
 	if a != nil {
 		a.Size, a.HasSize = n, true
 	}

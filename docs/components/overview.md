@@ -56,7 +56,7 @@ graph TD
     PANE --> CFG
 ```
 
-- 依存は一方向。`internal/pane` はドメインの中心で、`tools`・`render` が使う。
+- 依存は一方向。`internal/pane` はドメインの中心で、`tools`（`view`・`ops`・`toolkit`）・`render` が使う。
 - `agent/*` は `internal/agent` の `Adapter` を実装し、`init()` で登録する（アダプタを足すには 1 パッケージ足すだけ。FR-AD-4）。
 - 時計（`clock`）・tmux 実行（`pane.Tmux`。実装は `tmux.Client`）・ファイル（`store`）は差し替えられるインターフェース越しに使う。
 
@@ -73,7 +73,10 @@ swarm-console/
 │   ├── auth/                 tokens.toml、Bearer 検証、スコープ、token CLI
 │   ├── session/              セッション ACL とセッション内のペイン解決（許可セッションの決定・`session` 引数の決め方・ペインの解決。状態を持たない純関数）
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
-│   ├── tools/                ツールごとのハンドラ（引数検証・エラー整形）
+│   ├── tools/                ツールの組み立て（`New`・`Registry`。resources 用の窓口）。Linterly のディレクトリ上限のため、ハンドラは下の 3 つに分ける
+│   │   ├── toolkit/          ハンドラの共有部品（`Tool`・`Result`・`Deps`・`Env`、引数の検証、JSON Schema の部品、エラー本文、監査用の `Audit`）
+│   │   ├── view/             読み取り系 10 ツールのハンドラと、resources が使う同じ本文の組み立て
+│   │   └── ops/              操作系 9 ツールのハンドラ（`file_get` は `ops/file.go`）
 │   ├── pane/                 ペイン台帳、位置解決、スナップショット、サンプラー、ロック、操作の実行
 │   │   └── ops/              操作の実行（`pane.Ops` の実装。Linterly のディレクトリ上限のため分離）
 │   ├── agent/                Adapter インターフェース、レジストリ、共通ヘルパー
@@ -112,8 +115,8 @@ swarm-console/
 | `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options{Path, Out, Home, Prompter, IssueToken}`。`Path` は `config.toml` のパス、`Prompter` は画面の差し替え、`IssueToken` は `token add` と同じ処理の注入で FR-SET-10）。tailnet 候補は `HostCandidates()`（`net.InterfaceAddrs` を直接呼ぶ）と `Candidates(addrs)`（引数のアドレスから選ぶ純関数。差し替えの接点） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
 | `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(Options) (*Server, error)`（`Options{ListenAddr, Auth, Report, Ops, Logger, ShutdownTimeout}`）、`Server.Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
 | `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、`allowed_sessions` の検証、定数時間照合、スコープ判定、`token add/revoke`（`add` は `--sessions`） | `Open(path, clk, logger)`（`logger` は再読み込み失敗の警告の出力先。nil なら出さない）、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope, AllowedSessions []string}`（`nil` は `sessions` 全部、値があれば明示のリスト）、`Add`・`Revoke` | NFR-SEC-3〜6, FR-SESS-1〜3 |
-| `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録。`tools/call` ごとに `tools.Audit` を ctx に載せ、`file_get` が埋めた取得先のパス・サイズを監査ログの `Event`（`Path`・`Size`・`HasSize`）に写す | `NewReportServer(Options)`、`NewOpsServer(Options)`（`Options{Tools, Version, Logger, Audit}`）、`NewHTTPHandler(s)` | FR-SAFE-6, NFR-SEC-12 |
-| `tools` | ツール 19 個のハンドラ。引数検証、窓口の権限確認、`session` の決定と `pane` の解決（`session` パッケージ経由）、エラーコードへの変換。`file_get`（`ops_file.go`）は許可リスト（ペインの `cwd`・`report_dir`・`file_get_roots`）の組み立て、有限読み取り、先頭バイトでの種類判定を持つ | `Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Registry`、`WithAudit(ctx)`・`Audit`（ツールが監査ログへ足す値） | API 仕様 §5 |
+| `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録。`tools/call` ごとに `toolkit.Audit` を ctx に載せ、`file_get` が埋めた取得先のパス・サイズを監査ログの `Event`（`Path`・`Size`・`HasSize`）に写す | `NewReportServer(Options)`、`NewOpsServer(Options)`（`Options{Tools, Version, Logger, Audit}`）、`NewHTTPHandler(s)` | FR-SAFE-6, NFR-SEC-12 |
+| `tools` | ツール 19 個のハンドラ。引数検証、窓口の権限確認、`session` の決定と `pane` の解決（`session` パッケージ経由）、エラーコードへの変換。`file_get`（`tools/ops/file.go`）は許可リスト（ペインの `cwd`・`report_dir`・`file_get_roots`）の組み立て、有限読み取り、先頭バイトでの種類判定を持つ | `New(toolkit.Deps)`、`Registry`。共有部品は `toolkit` パッケージ（`Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Deps`、`ErrorText`、`WithAudit(ctx)`・`Audit`（ツールが監査ログへ足す値））。ハンドラは `tools/view`（見る 10）と `tools/ops`（操作 9） | API 仕様 §5 |
 | `session` | 許可セッション（`auth.Client.AllowedSessions` と `config.sessions` の共通部分）の計算、`session` 引数の決め方（`invalid_args`・`session_forbidden`・`session_required`）、決めたセッションの中での `pane` の解決（別のセッションのペインに当たるときの `session_forbidden`・`invalid_args`）。`tools` と `mcpapi`（resources）が使う | `Allowed(granted, configured)`、`Pick(allowed, configured, arg)`、`Resolve(snap, allowed, in, arg)` | FR-SESS-4〜6・11 |
 | `pane` | スナップショットとサンプラー、位置の命名（全体の名前とセッション内の名前）、ペインロック（`pane/ops` の `Operator.Lock`）、`send_text`・`ask_pick` などの操作実行（ペイン引数の解決は `session` パッケージ） | `Registry`（`Current`・`Refresh`・`Tail`・`Card`）、`Snapshot`（`Find`・`ForSession(session)`）、`Ops` | FR-POS, FR-STATE, FR-O |
 | `agent` | アダプタの契約（下記 §4）とレジストリ。設定の上書きの適用。組み込みのエージェント名の一覧（`Builtin()`・`IsBuiltin(name)`。並びの定義はここ 1 か所） | `Adapter`、`Register(name, factory)`、`New(name, ov)`、`Names()`、`Builtin()`、`IsBuiltin(name)` | FR-AD |
@@ -233,7 +236,7 @@ type Tool struct {
 ```
 
 - `Registry.ForEndpoint(endpoint)` が窓口に応じたツール集合を返す。`/report` の MCP サーバーには `ScopeReport` のツールだけ登録する（API 仕様 §1.1）。
-- ハンドラは `*Error{Code, Message, Details}` を返し、`mcpapi` が `isError: true` の応答に変換する（API 仕様 §3）。メッセージ文は `internal/tools/errors.go` の表に集約する（クライアントで差が出ない）。
+- ハンドラは `*Error{Code, Message, Details}` を返し、`mcpapi` が `isError: true` の応答に変換する（API 仕様 §3）。メッセージ文は `internal/tools/toolkit/errors.go` の表に集約する（クライアントで差が出ない）。
 
 ## 6. テスト構成
 
@@ -287,3 +290,4 @@ type Tool struct {
 | 2.5 | 2026-11-02 | `auth.Client` に `AllowedSessions` を追加（`token add --sessions`）。新しいパッケージ `internal/session`（セッション ACL とセッション内のペイン解決）を追加。`tools` を 17 個から 18 個に（`sessions_list`）。§1 の依存図・§2 のツリー・§3 の表を更新 | セッション分割運用（許可セッションの分離） |
 | 2.6 | 2026-11-03 | `tools` を 18 個から 19 個に（`file_get`。`ops_file.go`）。`safety` に `CheckFileGet`・`IsSecretName`、`mcpapi` の監査 `Event` に `Path`・`Size`・`HasSize`、`tools` に `Audit`・`WithAudit` を追加。§3 の表を更新 | Issue #82 |
 | 2.7 | 2026-11-04 | `safety` に `IsBroadCWD`（ペインの `cwd` が `/`・ホームそのものか）を追加。`tools` の `file_get` の根の集め方で使う。§3 の表を更新 | Issue #82 |
+| 2.8 | 2026-11-04 | `internal/tools` を `toolkit`（共有部品）・`view`（読み取り系 10 ツール）・`ops`（操作系 9 ツール）に分け、`tools` は `New`・`Registry` だけにした（Linterly のディレクトリ上限のため。ファイルの移動と公開名の大文字化だけで、振る舞いは変えない）。`Tool`・`Deps`・`Audit`・`ErrorText`・`Endpoint*` は `toolkit` の名前になった。§2 のツリー・§3 の表を更新（§1 の依存図の `tools` は 3 つのサブパッケージをまとめた箱） | Issue #82（PR #84） |

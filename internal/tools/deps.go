@@ -4,39 +4,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/clock"
-	"github.com/ousiassllc/swarm-console/internal/config"
-	"github.com/ousiassllc/swarm-console/internal/host"
-	"github.com/ousiassllc/swarm-console/internal/notes"
-	"github.com/ousiassllc/swarm-console/internal/pane"
-	"github.com/ousiassllc/swarm-console/internal/render"
-	"github.com/ousiassllc/swarm-console/internal/safety"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
-// Deps はツールが使う依存。Registry・Ops・Notes・Host は差し替えられる（テストではフェイク）。
-type Deps struct {
-	Cfg       *config.Config
-	Registry  pane.Registry
-	Ops       pane.Ops
-	Notes     notes.Store
-	Safety    *safety.Policy
-	Host      host.Host
-	Profiles  *config.Profiles
-	Templates *render.Templates
-	Clock     clock.Clock // nil なら clock.Real
-	Logger    *slog.Logger
-}
-
-// env はハンドラが共有する、既定値を埋めた依存。
-type env struct {
-	Deps
-	detect notes.SecretDetector
-}
-
-// New はツール 19 個を組み立てる。必須の依存が無ければエラー。
-func New(d Deps) (*Registry, error) {
+// New はツール 17 個を組み立てる。必須の依存が無ければエラー。
+func New(d toolkit.Deps) (*Registry, error) {
 	switch {
 	case d.Cfg == nil:
 		return nil, errors.New("tools: Cfg が必要です")
@@ -61,9 +35,6 @@ func New(d Deps) (*Registry, error) {
 	if d.Logger == nil {
 		d.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
-	e := &env{Deps: d, detect: d.Safety.DetectSecret}
+	e := &toolkit.Env{Deps: d, Detect: d.Safety.DetectSecret}
 	return newRegistry(e), nil
 }
-
-// now は現在時刻。
-func (e *env) now() time.Time { return e.Clock.Now() }

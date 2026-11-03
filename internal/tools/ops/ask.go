@@ -1,4 +1,4 @@
-package tools
+package ops
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 type askPickArgs struct {
@@ -27,53 +28,53 @@ type askPickJSON struct {
 	CardClosed bool        `json:"card_closed"`
 }
 
-func (e *env) askPickTool() Tool {
-	return Tool{
+func (e *env) askPickTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "ask_pick",
 		Description: descAskPick,
-		Scope:       ScopeOps,
-		Schema: object([]string{"pane"}, props{
-			"pane":    paneProp(),
-			"session": sessionProp(),
+		Scope:       toolkit.ScopeOps,
+		Schema: toolkit.Object([]string{"pane"}, toolkit.Props{
+			"pane":    toolkit.PaneProp(),
+			"session": toolkit.SessionProp(),
 			"n":       map[string]any{"type": "integer", "minimum": 1, "description": "選ぶ番号（1 始まり）。text と同時に指定しない"},
-			"text":    strProp("「その他」に打つ文字（8000 字まで）。n と同時に指定しない"),
+			"text":    toolkit.StrProp("「その他」に打つ文字（8000 字まで）。n と同時に指定しない"),
 		}),
 		Handler: e.askPick,
 	}
 }
 
-func (e *env) askPick(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) askPick(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a askPickArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
 	if (a.N == nil) == (a.Text == nil) {
-		return Result{}, invalidArg("n")
+		return toolkit.Result{}, toolkit.InvalidArg("n")
 	}
 	n, text := 0, ""
 	if a.N != nil {
 		if n = *a.N; n < 1 {
-			return Result{}, invalidArg("n")
+			return toolkit.Result{}, toolkit.InvalidArg("n")
 		}
 	} else {
 		if text = *a.Text; text == "" {
-			return Result{}, invalidArg("text")
+			return toolkit.Result{}, toolkit.InvalidArg("text")
 		}
 		if err := e.Safety.CheckText(text); err != nil {
-			return Result{}, withField(err, "text")
+			return toolkit.Result{}, toolkit.WithField(err, "text")
 		}
 	}
-	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
+	ref, err := e.ResolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	res, err := e.Ops.PickAsk(ctx, ref, n, text)
 	if err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
 	out := askPickJSON{OK: res.OK, State: string(res.State), CardClosed: res.CardClosed}
 	if res.Picked != nil {
 		out.Picked = &pickedJSON{N: res.Picked.N, Label: res.Picked.Label}
 	}
-	return marshalResult(out)
+	return toolkit.MarshalResult(out)
 }

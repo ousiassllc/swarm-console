@@ -8,12 +8,12 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
-// toolHandler は tools.Tool を SDK のハンドラにする。ツールの失敗は isError: true の結果（API 仕様 §3.1）。
+// toolHandler は toolkit.Tool を SDK のハンドラにする。ツールの失敗は isError: true の結果（API 仕様 §3.1）。
 // 引数の検証はハンドラ側（未知キー・型・範囲はすべて invalid_args）。panic も internal にして落とさない。
-func (b *builder) toolHandler(t tools.Tool) mcp.ToolHandler {
+func (b *builder) toolHandler(t toolkit.Tool) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (res *mcp.CallToolResult, _ error) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -21,7 +21,7 @@ func (b *builder) toolHandler(t tools.Tool) mcp.ToolHandler {
 			}
 		}()
 		c, _ := auth.FromContext(ctx)
-		ctx = tools.WithEndpoint(ctx, b.endpoint)
+		ctx = toolkit.WithEndpoint(ctx, b.endpoint)
 		var args json.RawMessage
 		if req.Params != nil {
 			args = req.Params.Arguments
@@ -37,7 +37,7 @@ func (b *builder) toolHandler(t tools.Tool) mcp.ToolHandler {
 func errorResult(err error) *mcp.CallToolResult {
 	return &mcp.CallToolResult{
 		IsError: true,
-		Content: []mcp.Content{&mcp.TextContent{Text: tools.ErrorText(err)}},
+		Content: []mcp.Content{&mcp.TextContent{Text: toolkit.ErrorText(err)}},
 	}
 }
 

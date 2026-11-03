@@ -18,6 +18,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 	"github.com/ousiassllc/swarm-console/internal/safety"
 	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 // Fixture はテストで使う一式。セッション 0 のペインは次の 5 つ（位置: ID, 状態。上段 2・下段 3）。
@@ -32,7 +33,7 @@ type Fixture struct {
 	Clock    *clock.Fake
 	Root     string // allowed_roots・file_roots の根（一時ディレクトリ）
 	Tools    *tools.Registry
-	Deps     tools.Deps
+	Deps     toolkit.Deps
 	Logger   *slog.Logger
 }
 
@@ -67,7 +68,7 @@ func New(t *testing.T) *Fixture {
 		Cfg: cfg, Registry: &Registry{Snap: DefaultSnapshot(), DefaultTail: pane.Tail{Text: "line1\nline2"}},
 		Ops: &Ops{}, Notes: store, Host: &Host{St: DefaultHostStatus()}, Clock: clk, Root: root,
 	}
-	f.Deps = tools.Deps{
+	f.Deps = toolkit.Deps{
 		Cfg: cfg, Registry: f.Registry, Ops: f.Ops, Notes: store, Safety: safety.NewPolicy(cfg), Host: f.Host,
 		Profiles: DefaultProfiles(), Templates: tpl, Clock: clk, Logger: slog.New(slog.DiscardHandler),
 	}

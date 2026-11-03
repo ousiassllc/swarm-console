@@ -10,7 +10,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 func TestFileGetTooLarge(t *testing.T) {
@@ -105,7 +105,7 @@ func TestFileGetIgnoresCwdOfForbiddenSessions(t *testing.T) {
 	last := len(e.Registry.Snap.Panes) - 1
 	e.Registry.Snap.Panes[last].Cwd = e.outside
 	path := writeFile(t, filepath.Join(e.outside, "shot.png"), pngBytes)
-	tool, ok := e.Tools.Lookup(tools.EndpointOps, "file_get")
+	tool, ok := e.Tools.Lookup(toolkit.EndpointOps, "file_get")
 	if !ok {
 		t.Fatal("file_get がありません")
 	}
@@ -124,7 +124,7 @@ func TestFileGetIgnoresCwdOfForbiddenSessions(t *testing.T) {
 func TestFileGetRequiresAuthenticatedClientForPaneRoots(t *testing.T) {
 	e := newFileGetEnv(t)
 	path := writeFile(t, filepath.Join(e.work, "shot.png"), pngBytes)
-	tool, _ := e.Tools.Lookup(tools.EndpointOps, "file_get")
+	tool, _ := e.Tools.Lookup(toolkit.EndpointOps, "file_get")
 	_, err := tool.Handler(context.Background(), auth.Client{}, json.RawMessage(`{"path":`+quote(path)+`}`))
 	wantCode(t, err, apperr.PathForbidden)
 }

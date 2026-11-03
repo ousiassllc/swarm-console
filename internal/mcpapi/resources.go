@@ -11,7 +11,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 // resource の URI（API 仕様 §6.2）。
@@ -105,7 +105,7 @@ func resourceNotFound(err error) error {
 	case apperr.SessionRequired, apperr.InvalidArgs:
 		code = int64(jsonrpc.CodeInvalidParams)
 	}
-	return &jsonrpc.Error{Code: code, Message: e.Message(), Data: json.RawMessage(tools.ErrorText(e))}
+	return &jsonrpc.Error{Code: code, Message: e.Message(), Data: json.RawMessage(toolkit.ErrorText(e))}
 }
 
 // listResources は resources/list の応答。swarm://report と、現在のペインぶんの pane・notes の URI を位置順に並べる。

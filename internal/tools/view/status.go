@@ -1,4 +1,4 @@
-package tools
+package view
 
 import (
 	"context"
@@ -12,36 +12,37 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/render"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 type sessionArgs struct {
 	Session *string `json:"session"`
 }
 
-func (e *env) panesStatusTool() Tool {
-	return Tool{
+func (e *env) panesStatusTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "panes_status",
 		Description: descPanesStatus,
-		Scope:       ScopeReport,
-		Schema:      object(nil, props{"session": sessionProp()}),
+		Scope:       toolkit.ScopeReport,
+		Schema:      toolkit.Object(nil, toolkit.Props{"session": toolkit.SessionProp()}),
 		Handler:     e.panesStatus,
 	}
 }
 
-func (e *env) panesStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) panesStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a sessionArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
-	snap, err := e.scoped(ctx, c, a.Session)
+	snap, err := e.Scoped(ctx, c, a.Session)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	b, err := render.PanesStatusJSON(snap)
 	if err != nil {
-		return Result{}, apperr.Wrap(apperr.Internal, err)
+		return toolkit.Result{}, apperr.Wrap(apperr.Internal, err)
 	}
-	return Result{Text: string(b)}, nil
+	return toolkit.Result{Text: string(b)}, nil
 }
 
 type agentCounts struct {
@@ -67,25 +68,25 @@ type hostStatusJSON struct {
 	Update      render.UpdateJSON `json:"update"`
 }
 
-func (e *env) hostStatusTool() Tool {
-	return Tool{
+func (e *env) hostStatusTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "host_status",
 		Description: descHostStatus,
-		Scope:       ScopeReport,
-		Schema:      object(nil, props{"session": sessionProp()}),
+		Scope:       toolkit.ScopeReport,
+		Schema:      toolkit.Object(nil, toolkit.Props{"session": toolkit.SessionProp()}),
 		Handler:     e.hostStatus,
 	}
 }
 
-func (e *env) hostStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) hostStatus(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a sessionArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
 	// 負荷・メモリ・使用状況などはホスト全体のまま。session で絞るのは agents と tmux_session だけ。
-	snap, err := e.scoped(ctx, c, a.Session)
+	snap, err := e.Scoped(ctx, c, a.Session)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	h := snap.Host
 	out := hostStatusJSON{
@@ -97,7 +98,7 @@ func (e *env) hostStatus(ctx context.Context, c auth.Client, raw json.RawMessage
 	for i, l := range h.Load {
 		out.Load[i] = round1(l)
 	}
-	return marshalResult(out)
+	return toolkit.MarshalResult(out)
 }
 
 func countAgents(panes []pane.PaneState) agentCounts {
@@ -138,22 +139,22 @@ type authEntryJSON struct {
 	ExpiresAt *string `json:"expires_at"`
 }
 
-func (e *env) agentAuthStatusTool() Tool {
-	return Tool{
+func (e *env) agentAuthStatusTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "agent_auth_status",
 		Description: descAgentAuthStatus,
-		Scope:       ScopeReport,
-		Schema:      object(nil, props{}),
+		Scope:       toolkit.ScopeReport,
+		Schema:      toolkit.Object(nil, toolkit.Props{}),
 		Handler:     e.agentAuthStatus,
 	}
 }
 
-func (e *env) agentAuthStatus(_ context.Context, _ auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) agentAuthStatus(_ context.Context, _ auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a struct{}
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
-	now := e.now()
+	now := e.Now()
 	names := agent.Builtin()
 	entries := make([]authEntryJSON, 0, len(names))
 	for _, name := range names {
@@ -169,7 +170,7 @@ func (e *env) agentAuthStatus(_ context.Context, _ auth.Client, raw json.RawMess
 		}
 		entries = append(entries, ent)
 	}
-	return marshalResult(struct {
+	return toolkit.MarshalResult(struct {
 		Agents []authEntryJSON `json:"agents"`
 	}{entries})
 }

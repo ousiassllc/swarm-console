@@ -1,4 +1,4 @@
-package tools
+package view
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/render"
 	"github.com/ousiassllc/swarm-console/internal/session"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 // detailTailLines は pane 指定の詳しい版に出す画面の行数（機能要件 §5.3）。
@@ -24,52 +25,52 @@ type reportArgs struct {
 	Lang    *string `json:"lang"`
 }
 
-func (e *env) reportTool() Tool {
-	return Tool{
+func (e *env) reportTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "report",
 		Description: descReport,
-		Scope:       ScopeReport,
-		Schema: object(nil, props{
-			"session": sessionProp(),
-			"format":  enumProp("出力形式。markdown（既定）か json", render.FormatMarkdown, render.FormatJSON),
-			"pane":    strProp("指定すると 1 ペインの詳しい版。" + panePropDesc),
-			"lang":    enumProp("言語。省略は設定の既定", render.LangJA, render.LangEN),
+		Scope:       toolkit.ScopeReport,
+		Schema: toolkit.Object(nil, toolkit.Props{
+			"session": toolkit.SessionProp(),
+			"format":  toolkit.EnumProp("出力形式。markdown（既定）か json", render.FormatMarkdown, render.FormatJSON),
+			"pane":    toolkit.StrProp("指定すると 1 ペインの詳しい版。" + toolkit.PanePropDesc),
+			"lang":    toolkit.EnumProp("言語。省略は設定の既定", render.LangJA, render.LangEN),
 		}),
 		Handler: e.report,
 	}
 }
 
-func (e *env) report(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) report(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a reportArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
 	in := render.ReportInput{Lang: deref(a.Lang), Format: deref(a.Format)}
 	if err := checkReportArgs(in); err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
-	allowed := e.allowed(c)
+	allowed := e.Allowed(c)
 	s, err := session.Pick(allowed, e.Cfg.Sessions, a.Session)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	full, err := e.Registry.Current(ctx)
 	if err != nil {
-		return Result{}, apperr.Wrap(apperr.Internal, err)
+		return toolkit.Result{}, apperr.Wrap(apperr.Internal, err)
 	}
 	var ref *pane.Ref
 	if a.Pane != nil && *a.Pane != "" {
 		r, err := session.Resolve(full, allowed, s, *a.Pane)
 		if err != nil {
-			return Result{}, err
+			return toolkit.Result{}, err
 		}
 		ref = &r
 	}
 	text, err := e.renderReport(ctx, in, full.ForSession(s), ref)
 	if err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
-	return Result{Text: text}, nil
+	return toolkit.Result{Text: text}, nil
 }
 
 // checkReportArgs は format・lang を、画面を読みに行く前に確かめる。空は既定値。
@@ -77,12 +78,12 @@ func checkReportArgs(in render.ReportInput) error {
 	switch in.Format {
 	case "", render.FormatMarkdown, render.FormatJSON:
 	default:
-		return invalidArg("format")
+		return toolkit.InvalidArg("format")
 	}
 	switch in.Lang {
 	case "", render.LangJA, render.LangEN:
 	default:
-		return invalidArg("lang")
+		return toolkit.InvalidArg("lang")
 	}
 	return nil
 }

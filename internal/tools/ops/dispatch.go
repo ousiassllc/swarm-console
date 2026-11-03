@@ -1,4 +1,4 @@
-package tools
+package ops
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/render"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 type dispatchArgs struct {
@@ -35,22 +36,22 @@ type dispatchJSON struct {
 	NoteSaved bool   `json:"note_saved"`
 }
 
-func (e *env) dispatchTool() Tool {
-	return Tool{
+func (e *env) dispatchTool() toolkit.Tool {
+	return toolkit.Tool{
 		Name:        "dispatch",
 		Description: descDispatch,
-		Scope:       ScopeOps,
-		Schema: object([]string{"pane", "agent", "task", "profile"}, props{
-			"pane":        strProp("shell または idle のペイン。" + panePropDesc),
-			"session":     sessionProp(),
-			"agent":       enumProp("エージェント", agent.Builtin()...),
-			"cwd":         strProp("作業フォルダの絶対パス（shell のとき必須。idle では無視）"),
-			"title":       strProp("タイトル（shell のとき必須。80 字まで、制御文字なし）"),
-			"command":     strProp("1 行目のスラッシュコマンド（改行・制御文字不可）"),
-			"task":        strProp("やることの本文"),
-			"profile":     strProp("profiles.toml のプロファイル名"),
-			"extra_rules": strArrayProp("追加の条件（各 1 行）"),
-			"note":        objectProp("一緒に保存するメモ（note_set の set と同じ項目）"),
+		Scope:       toolkit.ScopeOps,
+		Schema: toolkit.Object([]string{"pane", "agent", "task", "profile"}, toolkit.Props{
+			"pane":        toolkit.StrProp("shell または idle のペイン。" + toolkit.PanePropDesc),
+			"session":     toolkit.SessionProp(),
+			"agent":       toolkit.EnumProp("エージェント", agent.Builtin()...),
+			"cwd":         toolkit.StrProp("作業フォルダの絶対パス（shell のとき必須。idle では無視）"),
+			"title":       toolkit.StrProp("タイトル（shell のとき必須。80 字まで、制御文字なし）"),
+			"command":     toolkit.StrProp("1 行目のスラッシュコマンド（改行・制御文字不可）"),
+			"task":        toolkit.StrProp("やることの本文"),
+			"profile":     toolkit.StrProp("profiles.toml のプロファイル名"),
+			"extra_rules": toolkit.StrArrayProp("追加の条件（各 1 行）"),
+			"note":        toolkit.ObjectProp("一緒に保存するメモ（note_set の set と同じ項目）"),
 		}),
 		Handler: e.dispatch,
 	}
@@ -58,34 +59,34 @@ func (e *env) dispatchTool() Tool {
 
 // dispatch は API 仕様 §5.6。何かを送る前に引数・指示文・メモ・cwd をすべて検証し、
 // 1 つでも落ちたら何も送らず何も保存しない。メモは送信後（受理の成否によらず）に保存する（P-23）。
-func (e *env) dispatch(ctx context.Context, c auth.Client, raw json.RawMessage) (Result, error) {
+func (e *env) dispatch(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
 	var a dispatchArgs
-	if err := decodeArgs(raw, &a); err != nil {
-		return Result{}, err
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
 	}
 	in, err := e.checkDispatchArgs(&a)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
-	ref, err := e.resolvePane(ctx, c, a.Session, a.Pane)
+	ref, err := e.ResolvePane(ctx, c, a.Session, a.Pane)
 	if err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	in.Pos = ref.Pos
 	text, err := render.Dispatch(in)
 	if err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
 	if err := e.Safety.CheckText(text); err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
 	args := pane.DispatchArgs{Agent: *a.Agent, Text: text}
 	if args.Cwd, args.Title, err = e.dispatchTarget(ctx, ref, &a); err != nil {
-		return Result{}, err
+		return toolkit.Result{}, err
 	}
 	res, err := e.Ops.Dispatch(ctx, ref, args)
 	if err != nil {
-		return Result{}, apperr.As(err)
+		return toolkit.Result{}, apperr.As(err)
 	}
 	out := dispatchJSON{OK: res.OK, State: string(res.State), Accepted: res.Accepted, Started: res.Started}
 	// 送信が行われたのは、指示文を実際に貼ったとき（Ops が事実で埋める）。
@@ -93,7 +94,7 @@ func (e *env) dispatch(ctx context.Context, c auth.Client, raw json.RawMessage) 
 	if res.Sent {
 		out.Sent, out.NoteSaved = text, e.saveNote(ctx, ref.ID, a.Note)
 	}
-	return marshalResult(out)
+	return toolkit.MarshalResult(out)
 }
 
 // checkDispatchArgs は、ペインを読む前にできる引数の検証（型・必須・プロファイル・1 行の項目・メモ）を行い、
@@ -102,35 +103,35 @@ func (e *env) checkDispatchArgs(a *dispatchArgs) (render.DispatchInput, error) {
 	in := render.DispatchInput{
 		Profiles: *e.Profiles, ReportDir: e.Cfg.ReportDir, ExtraRules: a.ExtraRules,
 	}
-	if _, err := requireStr(a.Pane, "pane"); err != nil {
+	if _, err := toolkit.RequireStr(a.Pane, "pane"); err != nil {
 		return in, err
 	}
 	if _, err := checkAgent(a.Agent); err != nil {
 		return in, err
 	}
 	var err error
-	if in.Task, err = requireStr(a.Task, "task"); err != nil {
+	if in.Task, err = toolkit.RequireStr(a.Task, "task"); err != nil {
 		return in, err
 	}
-	if in.Profile, err = requireStr(a.Profile, "profile"); err != nil {
+	if in.Profile, err = toolkit.RequireStr(a.Profile, "profile"); err != nil {
 		return in, err
 	}
 	if _, ok := e.Profiles.Profiles[in.Profile]; !ok {
-		return in, invalidArg("profile")
+		return in, toolkit.InvalidArg("profile")
 	}
 	if a.Command != nil {
 		if err := e.Safety.CheckLine(*a.Command, config.MaxTextRunes); err != nil {
-			return in, withField(err, "command")
+			return in, toolkit.WithField(err, "command")
 		}
 		in.Command = *a.Command
 	}
 	for _, r := range a.ExtraRules {
 		if err := e.Safety.CheckLine(r, config.MaxTextRunes); err != nil {
-			return in, withField(err, "extra_rules")
+			return in, toolkit.WithField(err, "extra_rules")
 		}
 	}
 	if a.Note != nil {
-		if err := notes.Check(a.Note, e.detect); err != nil {
+		if err := notes.Check(a.Note, e.Detect); err != nil {
 			return in, apperr.As(err)
 		}
 	}
@@ -157,7 +158,7 @@ func (e *env) saveNote(ctx context.Context, id string, note map[string]json.RawM
 		return false
 	}
 	if _, err := e.Notes.Set(ctx, id, note); err != nil {
-		e.Logger.Warn("dispatch 後のメモの保存に失敗しました", "pane", id, "code", ErrorCode(err))
+		e.Logger.Warn("dispatch 後のメモの保存に失敗しました", "pane", id, "code", toolkit.ErrorCode(err))
 		return false
 	}
 	return true
