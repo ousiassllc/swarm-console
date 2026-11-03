@@ -131,7 +131,7 @@ MCP（Streamable HTTP）の URL とトークンをクライアントに設定し
 - 定期レポートのように見るだけでよいクライアントは、`report` のトークンで `/report` につなぎます。`report` のトークンで `/ops` を呼ぶと 403（`forbidden_scope`）です
 - `POST` のみ受け付けます（ステートレス運用）。トークンなし・不一致は 401 です
 - tailnet の外からはつながりません。ユーザースペースの tailscale を使うクライアントは、SOCKS5 経由で呼びます
-- `file_get`（`/ops` だけ）は、ompが撮ったスクショ・動画をサーバーから取るためのツールです。`path` を 1 つ渡すと、png・jpg・jpeg・webp・gif・mp4 の中身を base64 で返します（`mime`・`size`・`sha256` つき）。取れるのは、触れるセッションのペインの cwd の下・レポート置き場・`config.toml` の `file_get_roots` の下だけで、`..`・シンボリックリンクでの外し抜け・秘密のファイル（`.env`・`*.pem`・`*.key`・`id_*`・設定ファイル）・中身が画像／動画でないもの・上限（`file_get_max_bytes`、既定 20 MiB）超えは断ります（[API 仕様 §5.2](docs/api/endpoints-pane.md#file_getops-のみ)）
+- `file_get`（`/ops` だけ）は、ompが撮ったスクショ・動画をサーバーから取るためのツールです。`path` を 1 つ渡すと、png・jpg・jpeg・webp・gif・mp4 の中身を base64 で返します（`mime`・`size`・`sha256` つき）。取れるのは、触れるセッションのペインの cwd の下・レポート置き場・`config.toml` の `file_get_roots` の下だけ（ペインの cwd が `/` やホームそのものなら、その cwd は許可に入れません。取りたい場所は `file_get_roots` に書きます）で、`..`・シンボリックリンクでの外し抜け・秘密のファイル（`.env`・`*.pem`・`*.key`・`id_*`・設定ファイル）・中身が画像／動画でないもの・上限（`file_get_max_bytes`、既定 20 MiB）超えは断ります（[API 仕様 §5.2](docs/api/endpoints-pane.md#file_getops-のみ)）
 
 curl での呼び出し例（トークンは環境変数 `SWARM_CONSOLE_TOKEN` から読み、ログに出さない）：
 

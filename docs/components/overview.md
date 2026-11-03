@@ -119,7 +119,7 @@ swarm-console/
 | `agent` | アダプタの契約（下記 §4）とレジストリ。設定の上書きの適用。組み込みのエージェント名の一覧（`Builtin()`・`IsBuiltin(name)`。並びの定義はここ 1 か所） | `Adapter`、`Register(name, factory)`、`New(name, ov)`、`Names()`、`Builtin()`、`IsBuiltin(name)` | FR-AD |
 | `notes` | `notes.json` の読み書き、`note_set` のマージ・検証、履歴、孤児化 | `Store`、`Get/Set/Log/Archive/History` | FR-NOTE |
 | `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(ReportInput)`、`Dispatch(DispatchInput)` | FR-REP, FR-DIS |
-| `safety` | `cwd`・`file`・`file_get` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン、秘密のファイル名（`IsSecretName`） | `NewPolicy(cfg)`、`Policy`（`CheckCWD`・`CheckFile`・`CheckFileGet`・`CheckText`・`DetectSecret`）、`DetectSecret(s)`、`IsSecretName(name)` | FR-SAFE, NFR-SEC |
+| `safety` | `cwd`・`file`・`file_get` の許可判定（シンボリックリンク解決）、貼り付けテキストの検証、秘密パターン、秘密のファイル名（`IsSecretName`）、`file_get` の根にしない広すぎる `cwd`（`IsBroadCWD`） | `NewPolicy(cfg)`、`Policy`（`CheckCWD`・`CheckFile`・`CheckFileGet`・`CheckText`・`DetectSecret`）、`DetectSecret(s)`、`IsSecretName(name)`、`IsBroadCWD(cwd, home)` | FR-SAFE, NFR-SEC |
 | `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`（失敗時・中断時は自分が作った一意名のバッファだけ `delete-buffer -b`）・`select-pane -T`・`display -p` の実行と出力の解析 | `Client`（`New(socket, opts...)`。`pane.Tmux` を実装する） | NFR-SEC-7, NFR-ENV-2 |
 | `host` | `/proc`（負荷・メモリ・スワップ・CPU の差・稼働時間・プロセス木）、`statfs`（空きと使用率）、認証ファイルの期限 | `Host`（インターフェース）、`Reader`（実装。`NewReader(clk)`）。`Status(ctx, diskMounts)`、`ProcTree(pid)`、`AuthStatus(agent, authFile, now)`、`SampleCPU()` | FR-R5, FR-R6, FR-AD-5, FR-REP-13 |
 | `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Checker.Check(ctx) Result`（`New(Options)`）、`Runner`（`NewRunner(RunnerOptions)`、`Start(ctx)`、`Snapshot() Snapshot`）。HTTP クライアントと `clock` を差し替え可能 | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
@@ -286,3 +286,4 @@ type Tool struct {
 | 2.4 | 2026-11-02 | §tmux の許可サブコマンドと `Paste` の流れに `delete-buffer -b <一意名>`（失敗時・中断時の後始末）を追加 | Issue #57 |
 | 2.5 | 2026-11-02 | `auth.Client` に `AllowedSessions` を追加（`token add --sessions`）。新しいパッケージ `internal/session`（セッション ACL とセッション内のペイン解決）を追加。`tools` を 17 個から 18 個に（`sessions_list`）。§1 の依存図・§2 のツリー・§3 の表を更新 | セッション分割運用（許可セッションの分離） |
 | 2.6 | 2026-11-03 | `tools` を 18 個から 19 個に（`file_get`。`ops_file.go`）。`safety` に `CheckFileGet`・`IsSecretName`、`mcpapi` の監査 `Event` に `Path`・`Size`・`HasSize`、`tools` に `Audit`・`WithAudit` を追加。§3 の表を更新 | Issue #82 |
+| 2.7 | 2026-11-04 | `safety` に `IsBroadCWD`（ペインの `cwd` が `/`・ホームそのものか）を追加。`tools` の `file_get` の根の集め方で使う。§3 の表を更新 | Issue #82 |

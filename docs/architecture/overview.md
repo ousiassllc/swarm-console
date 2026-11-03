@@ -237,3 +237,4 @@ flowchart TD
 | 1.19 | 2026-11-02 | §tmux の許可サブコマンドに `delete-buffer` を追加（`Paste` の失敗時・中断時の後始末だけ）。decisions.md に P-71〜P-75 を追加（Issue #57・#70・#72・#71・#40 の方針） | Issue #57・#70・#72・#71・#40 |
 | 1.20 | 2026-11-02 | §1・§4・§5.1・§6：ツール層が許可セッションを検査し `pane` を決めたセッションの中で解決する（認証後・ツールの中）、並びの変化の検知をセッションごとに。ツール数 17→18。deployment.md §8 の `sessions`・`default_session` の説明。decisions.md に P-76〜P-90（セッションごとの許可・`session` の省略規則・`sessions_list`・セッション内の位置・resources・dispatch prompt の `session`・監査ログ・既知の限界）を追加し、P-27 を改訂 | セッション分割運用（許可セッションの分離） |
 | 1.21 | 2026-11-03 | §1：ツール数 18→19（`file_get`）。§6：監査ログに `file_get` のパス・サイズ。decisions.md に P-91（`file_get` の許可リスト・秘密・上限）を追加。deployment.md §8 に `file_get_roots`・`file_get_max_bytes` | Issue #82 |
+| 1.22 | 2026-11-04 | decisions.md P-91：ペインの `cwd` が `/` やホームそのもの（実パス）のときは許可リストに入れず、明示した `file_get_roots`・`report_dir` はそのまま許可と追記。deployment.md §8 の `file_get_roots` の説明も同じ | Issue #82 |

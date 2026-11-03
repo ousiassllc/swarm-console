@@ -114,7 +114,7 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | `text_too_long` | 8000 字超 | `send_text`・`dispatch` |
 | `forbidden_path` | 許可外のフォルダ／ファイル | `pane_start`・`dispatch`・`send_text` |
 | `file_unreadable` | `file` が読めない・UTF-8 でない | `send_text` |
-| `path_forbidden` | `file_get` の `path` が取得を許可されていない（相対パス・`..` を含む・許可リストの外・秘密のファイル・`denied_paths`）。`details.reason` は `not_absolute`・`dotdot`・`outside_roots`・`secret`・`denied`・`unreadable`。許可リストの外は存在の有無によらずこのコード | `file_get` |
+| `path_forbidden` | `file_get` の `path` が取得を許可されていない（相対パス・`..` を含む・許可リストの外・秘密のファイル・`denied_paths`。ペインの `cwd` が `/` やホームそのものなら、その `cwd` の下は許可リストの外）。`details.reason` は `not_absolute`・`dotdot`・`outside_roots`・`secret`・`denied`・`unreadable`。許可リストの外は存在の有無によらずこのコード | `file_get` |
 | `unsupported_type` | `file_get` で取れる種類ではない。`details.reason` は `extension`（拡張子が png・jpg・jpeg・webp・gif・mp4 以外）・`content`（先頭バイトが拡張子の形式と合わない）・`not_regular`（ディレクトリ・FIFO・デバイスなど通常ファイルでない） | `file_get` |
 | `too_large` | `file_get` のファイルが `file_get_max_bytes`（既定 20 MiB）を超える。`details.max` は上限（バイト） | `file_get` |
 | `secret_detected` | 秘密に見える文字列（`details.field` に項目名だけ） | `note_set`・`note_log`・`dispatch` |
@@ -179,3 +179,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.12 | 2026-11-02 | §1：tailnet の IP の `listen_addr` は 48120 以外のポートを起動拒否（ループバックは任意のポート）。endpoints-pane.md：`panes_status`・`report`（json）の各ペインは、`activity` を 120 字で切ったときだけ `"truncated": true` を付ける（実装を仕様に合わせた） | Issue #72・#70 |
 | 1.13 | 2026-11-02 | トークンごとの許可セッションと `session` 引数（§4.1）、エラー `session_required`・`session_forbidden`（§3.2）、`sessions_list` の追加（ツール数 /report 9→10、/ops 17→18）。`panes_status` の `session` 省略は全セッションではなく §4.1 の規則に変更（許可セッションが 2 つ以上のトークンには破壊的変更）。endpoints-pane.md・endpoints-state.md・endpoints-report.md も同じ | セッション分割運用（許可セッションの分離） |
 | 1.14 | 2026-11-03 | `file_get`（`/ops` のみ。許可リスト内の画像・動画を base64 で返す）を追加（ツール数 /ops 18→19、/report は 10 のまま）。エラー `path_forbidden`・`unsupported_type`・`too_large`（§3.2。`not_found` は `file_get` の存在しないパスにも使う）。endpoints-pane.md §5.2・endpoints-report.md §7 も同じ | Issue #82 |
+| 1.15 | 2026-11-04 | `file_get` の許可リスト：ペインの `cwd` が `/` やホームそのもの（実パス）のときは、その `cwd` を根に入れない。明示した `file_get_roots`・`report_dir` はそのまま許可。外した `cwd` の下は `path_forbidden`（endpoints-pane.md §5.2、§3.2） | Issue #82 |

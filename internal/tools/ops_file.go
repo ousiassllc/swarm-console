@@ -95,16 +95,19 @@ func (e *env) readMedia(ctx context.Context, c auth.Client, au *Audit, path stri
 }
 
 // fileGetRoots は file_get が読んでよい根。c が触れるセッションのペインの cwd・レポート置き場・設定の file_get_roots。
+// ペインの cwd が / やホームそのもの（実パスで判定）のときは根に入れない。明示の根（レポート置き場・file_get_roots）はそのまま。
 func (e *env) fileGetRoots(ctx context.Context, c auth.Client) ([]string, error) {
 	snap, err := e.Registry.Current(ctx)
 	if err != nil {
 		return nil, apperr.Wrap(apperr.Internal, err)
 	}
 	roots := append([]string{e.Cfg.ReportDir}, e.Cfg.FileGetRoots...)
+	home, _ := os.UserHomeDir() // 取れなければ "" のままで、"/" だけを除く
 	allowed := e.allowed(c)
 	for i := range snap.Panes {
 		p := &snap.Panes[i]
-		if slices.Contains(allowed, p.Session) && filepath.IsAbs(p.Cwd) && !slices.Contains(roots, p.Cwd) {
+		if slices.Contains(allowed, p.Session) && filepath.IsAbs(p.Cwd) && !slices.Contains(roots, p.Cwd) &&
+			!safety.IsBroadCWD(p.Cwd, home) {
 			roots = append(roots, p.Cwd)
 		}
 	}

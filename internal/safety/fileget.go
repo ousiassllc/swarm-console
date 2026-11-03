@@ -19,6 +19,29 @@ func IsSecretName(name string) bool {
 		strings.HasSuffix(n, ".pem") || strings.HasSuffix(n, ".key")
 }
 
+// IsBroadCWD は、ペインの cwd を file_get の根にしてはいけないか。
+// cwd の実パス（シンボリックリンク解決後）が "/" かホームディレクトリ（home。実パスと解決前の値の両方）と完全に一致するか、
+// cwd を実パスにできないとき true。ホームの下の作業フォルダやホームの親は false。home が空なら "/" だけを除く。
+// 設定の file_get_roots やレポート置き場に明示した根には使わない（明示はそのまま許可）。
+func IsBroadCWD(cwd, home string) bool {
+	resolved, err := filepath.EvalSymlinks(cwd)
+	if err != nil {
+		return true
+	}
+	resolved = filepath.Clean(resolved)
+	if resolved == string(filepath.Separator) {
+		return true
+	}
+	if home == "" {
+		return false
+	}
+	if resolved == filepath.Clean(home) {
+		return true
+	}
+	h, err := filepath.EvalSymlinks(home)
+	return err == nil && resolved == filepath.Clean(h)
+}
+
 // CheckFileGet は file_get の path を検証し、シンボリックリンク解決後の絶対パスを返す。roots は取得を許す根。
 //   - 空・制御文字 → invalid_args
 //   - 相対パス・".." を含む・roots の外・denied_paths の一致・配下・秘密のファイル名（解決前・解決後の両方）・

@@ -77,7 +77,7 @@ erDiagram
 | `update_auto` | bool。省略は `true`。`false` なら自己更新だけ止まる（確認と `host_status` は続く）。`update_check = false` のときは無視される（確認も更新もしない。FR-UPD-19） |
 | `usage_check` | bool。省略は `true`。`false` なら `serve` は `omp usage --json` を実行せず、使用状況は `disabled`（FR-REP-12） |
 | `usage_interval` | 期間。省略は `5m`、`1m` 以上。使用状況の取得の間隔。前の実行が終わるまで次を始めない |
-| `file_get_roots` | 絶対パスの配列。省略は空（追加の根なし）。`file_get` の許可リストは、触れるセッションのペインの `cwd`・`report_dir` と、このキーの根の和（P-91）。`file_roots` とは別（`send_text` の `file` には効かない） |
+| `file_get_roots` | 絶対パスの配列。省略は空（追加の根なし）。`file_get` の許可リストは、触れるセッションのペインの `cwd`・`report_dir` と、このキーの根の和（P-91）。ペインの `cwd` が `/` やホームそのもの（実パスで一致）のときは、その `cwd` だけを和から除く。このキーと `report_dir` に書いたものは `/` やホームでもそのまま許可する。`file_roots` とは別（`send_text` の `file` には効かない） |
 | `file_get_max_bytes` | 整数（バイト）。省略は `20971520`（20 MiB）。1 以上 `104857600`（100 MiB）以下。範囲外・整数でない値は起動拒否。`file_get` が返す 1 ファイルの上限（超えたら `too_large`） |
 | `agents.<name>` | `<name>` は `omp`・`claude`・`codex` だけ。書かれたキーだけ組み込みの既定を上書きする。正規表現（`working_re`・`ask_re`・`idle_re`・`status_line_re`・`border_re`・`process_match` の各要素）は起動時にコンパイルできること。`command`・`exit_command` は空文字不可で、改行・制御文字を含まない 1 行。`auth_file` は空文字不可（設定エラー）で、絶対パス（`~` 展開） |
 | 未知のキー | 起動拒否（打ち間違いを検知する） |
