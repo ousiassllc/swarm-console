@@ -17,6 +17,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/safety"
 )
 
 // 取得できる種類。拡張子（小文字）→ MIME。中身の先頭バイトも同じ MIME でなければ断る。
@@ -131,6 +132,9 @@ func (e *env) readBounded(au *Audit, resolved string) ([]byte, error) {
 	}
 	if !st.Mode().IsRegular() {
 		return nil, apperr.New(apperr.UnsupportedType, "reason", "not_regular")
+	}
+	if err := safety.CheckOpened(f, resolved); err != nil {
+		return nil, apperr.As(err)
 	}
 	au.setSize(st.Size())
 	if st.Size() > limit {
