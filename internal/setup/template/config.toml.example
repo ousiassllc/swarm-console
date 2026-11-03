@@ -75,6 +75,14 @@
 # ファイルを読んでよい根。既定は "/tmp/" と allowed_roots。
 # file_roots = ["/tmp/", "/mnt/nvme/", "~/projects/"]
 
+# file_get（画像・動画の取得）が読んでよい根の追加分。絶対パス（先頭の ~/ は展開）。既定は空。
+# ペインの cwd の下とレポート置き場は、書かなくても常に読める。
+# 秘密に見えるファイル（.env・*.pem・*.key・id_*・設定ファイル）は、ここに書いた根の下でも読めない。
+# file_get_roots = []
+
+# file_get が返す 1 ファイルの上限（バイト。1〜104857600）。超えたら too_large。既定 20 MiB（20971520）
+# file_get_max_bytes = 20971520
+
 # host_status が見るマウント。既定 ["/", "/mnt/nvme"]
 # disk_mounts = ["/", "/mnt/nvme"]
 

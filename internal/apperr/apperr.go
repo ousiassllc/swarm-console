@@ -33,6 +33,9 @@ const (
 	TextTooLong          Code = "text_too_long"
 	ForbiddenPath        Code = "forbidden_path"
 	FileUnreadable       Code = "file_unreadable"
+	PathForbidden        Code = "path_forbidden"
+	UnsupportedType      Code = "unsupported_type"
+	TooLarge             Code = "too_large"
 	SecretDetected       Code = "secret_detected"
 	BusyTimeout          Code = "busy_timeout"
 	ExitTimeout          Code = "exit_timeout"
@@ -63,6 +66,9 @@ var messages = map[Code]string{ //nolint:gosec // G101 の誤検知（unauthoriz
 	TextTooLong:          "文字数が上限（8000 字）を超えています",
 	ForbiddenPath:        "許可されていないパスです",
 	FileUnreadable:       "ファイルを読めません",
+	PathForbidden:        "取得を許可していないパスです",
+	UnsupportedType:      "取得できる画像・動画ではありません",
+	TooLarge:             "ファイルが上限サイズを超えています",
 	SecretDetected:       "秘密に見える文字列が含まれているため拒否しました",
 	BusyTimeout:          "同じペインの前の操作が終わりませんでした",
 	ExitTimeout:          "エージェントが時間内に終了せず、shell に戻りませんでした（cd ~ 以降は送っていません）",

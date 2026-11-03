@@ -52,7 +52,7 @@ func expandList(key string, in []string, home string, resolve bool) ([]string, e
 	return out, nil
 }
 
-// buildPaths は allowed_roots・denied_paths・file_roots・disk_mounts・report_dir を既定値つきで決める。
+// buildPaths は allowed_roots・denied_paths・file_roots・file_get_roots・file_get_max_bytes・disk_mounts・report_dir を既定値つきで決める。
 // denied_paths の既定は ["~/dotfiles"]。config.toml に書いたら既定と入れ替える（足さない。P-29）。
 func buildPaths(r *rawConfig, c *Config, home string) error {
 	var err error
@@ -71,6 +71,13 @@ func buildPaths(r *rawConfig, c *Config, home string) error {
 		files = append([]string{"/tmp/"}, c.AllowedRoots...)
 	}
 	if c.FileRoots, err = expandList("file_roots", files, home, true); err != nil {
+		return err
+	}
+	if c.FileGetRoots, err = expandList("file_get_roots", r.FileGetRoots, home, true); err != nil {
+		return err
+	}
+	c.FileGetRoots = dedupe(c.FileGetRoots)
+	if c.FileGetMaxBytes, err = checkFileGetMaxBytes(r.FileGetMaxBytes); err != nil {
 		return err
 	}
 	denied := r.DeniedPaths
@@ -106,4 +113,15 @@ func dedupe(in []string) []string {
 		}
 	}
 	return out
+}
+
+// checkFileGetMaxBytes は file_get_max_bytes（省略は既定の 20 MiB）を検査する。1 以上 MaxFileGetMaxBytes 以下。
+func checkFileGetMaxBytes(p *int64) (int64, error) {
+	if p == nil {
+		return DefaultFileGetMaxBytes, nil
+	}
+	if *p < 1 || *p > MaxFileGetMaxBytes {
+		return 0, fmt.Errorf("file_get_max_bytes は 1 以上 %d 以下のバイト数にしてください", MaxFileGetMaxBytes)
+	}
+	return *p, nil
 }

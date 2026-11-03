@@ -226,7 +226,7 @@ func TestSessionPropOnPaneTools(t *testing.T) {
 		}
 	}
 	slices.Sort(without)
-	if want := []string{"agent_auth_status", "note_history", "sessions_list"}; !slices.Equal(without, want) {
+	if want := []string{"agent_auth_status", "file_get", "note_history", "sessions_list"}; !slices.Equal(without, want) {
 		t.Errorf("session 引数が無いツール = %v, want %v", without, want)
 	}
 	if len(withSession) != 15 {

@@ -2,8 +2,12 @@ package server_test
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -19,6 +23,8 @@ type auditLine struct {
 	Tool     string `json:"tool"`
 	Pane     string `json:"pane"`
 	Session  string `json:"session"`
+	Path     string `json:"path"`
+	Size     *int64 `json:"size"`
 	Code     string `json:"code"`
 	Status   int    `json:"status"`
 }
@@ -99,5 +105,88 @@ func TestAuditLogDoesNotEchoPath(t *testing.T) {
 	_, _ = e.post(t, http.MethodPost, "/PATH-MARKER-xyz", "", "{}")
 	if strings.Contains(e.logs.String(), "PATH-MARKER") {
 		t.Errorf("ログにパスが出ています:\n%s", e.logs.String())
+	}
+}
+
+// file_get の監査ログは 誰が・どのパス（実パス）・サイズ・結果コード。ファイルの中身（base64・秘密の本文）は残さない。
+func TestAuditLogRecordsFileGetPathAndSizeButNeverContent(t *testing.T) {
+	e := newEnv(t)
+	png := append([]byte("\x89PNG\r\n\x1a\n"), []byte("AUDIT-PNG-BODY-MARKER")...)
+	secret := []byte("SECRET-FILE-BODY-MARKER-4242")
+	dir := e.f.Cfg.ReportDir
+	write := func(name string, data []byte) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	okPath := write("shot.png", png)
+	envPath := write(".env", secret)
+	bigPath := write("big.png", append(append([]byte{}, png...), make([]byte, 100)...))
+	e.f.Cfg.FileGetMaxBytes = int64(len(png)) + 50
+
+	cs := e.connect(t, "/ops", "boss")
+	if text, isErr := callText(t, cs, "file_get", map[string]any{"path": okPath}); isErr || !strings.Contains(text, `"size":`) {
+		t.Fatalf("file_get = %v %s", isErr, text)
+	}
+	if text, isErr := callText(t, cs, "file_get", map[string]any{"path": envPath}); !isErr || !strings.Contains(text, `"code":"path_forbidden"`) {
+		t.Fatalf(".env = %v %s", isErr, text)
+	}
+	if text, isErr := callText(t, cs, "file_get", map[string]any{"path": bigPath}); !isErr || !strings.Contains(text, `"code":"too_large"`) {
+		t.Fatalf("big = %v %s", isErr, text)
+	}
+
+	lines := auditLines(t, e)
+	byPath := func(p string) *auditLine {
+		return findAudit(lines, func(l auditLine) bool { return l.Tool == "file_get" && l.Path == p })
+	}
+	if l := byPath(okPath); l == nil || l.Client != "boss" || l.Endpoint != "/ops" || l.Code != "ok" || l.Size == nil || *l.Size != int64(len(png)) {
+		t.Errorf("成功の記録 = %+v", l)
+	}
+	if l := byPath(envPath); l == nil || l.Client != "boss" || l.Code != "path_forbidden" || l.Size != nil {
+		t.Errorf("拒否の記録 = %+v", l)
+	}
+	if l := byPath(bigPath); l == nil || l.Code != "too_large" || l.Size == nil || *l.Size != int64(len(png))+100 {
+		t.Errorf("too_large の記録 = %+v", l)
+	}
+	logs := e.logs.String()
+	for _, leak := range []string{
+		"AUDIT-PNG-BODY-MARKER", "SECRET-FILE-BODY-MARKER", "data_base64",
+		base64.StdEncoding.EncodeToString(png), base64.StdEncoding.EncodeToString(secret), e.tokens["boss"],
+	} {
+		if strings.Contains(logs, leak) {
+			t.Errorf("監査ログに中身が残っています: %q", leak)
+		}
+	}
+}
+
+// file_get は /ops だけ。/report の tools/list に出ず、tools/call は unknown_tool（何も読まない）。report スコープのトークンは /ops に入れない。
+func TestFileGetIsOpsOnly(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.f.Cfg.ReportDir, "shot.png")
+	if err := os.WriteFile(path, append([]byte("\x89PNG\r\n\x1a\n"), 'x'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, token := range []string{"viewer", "boss"} { // /report は、どちらのトークンでも出ない
+		cs := e.connect(t, "/report", token)
+		if slices.Contains(toolNames(t, cs), "file_get") {
+			t.Errorf("%s: /report の tools/list に file_get が出ています", token)
+		}
+		text, isErr := callText(t, cs, "file_get", map[string]any{"path": path})
+		if !isErr || text != `{"error":{"code":"unknown_tool","message":"この窓口にないツールです"}}` {
+			t.Errorf("%s: /report の file_get = %v %s", token, isErr, text)
+		}
+	}
+	if !slices.Contains(toolNames(t, e.connect(t, "/ops", "boss")), "file_get") {
+		t.Error("/ops の tools/list に file_get がありません")
+	}
+	resp, body := e.post(t, http.MethodPost, "/ops", e.tokens["viewer"],
+		`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"file_get","arguments":{"path":"`+path+`"}}}`)
+	if resp.StatusCode != 403 || body != body403 {
+		t.Errorf("report トークンで /ops の file_get: %d %s", resp.StatusCode, body)
+	}
+	if l := findAudit(auditLines(t, e), func(l auditLine) bool { return l.Tool == "unknown" && l.Endpoint == "/report" }); l == nil || l.Path != "" {
+		t.Errorf("unknown_tool の記録 = %+v", l)
 	}
 }

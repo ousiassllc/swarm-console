@@ -35,7 +35,7 @@ type env struct {
 	detect notes.SecretDetector
 }
 
-// New はツール 18 個を組み立てる。必須の依存が無ければエラー。
+// New はツール 19 個を組み立てる。必須の依存が無ければエラー。
 func New(d Deps) (*Registry, error) {
 	switch {
 	case d.Cfg == nil:
