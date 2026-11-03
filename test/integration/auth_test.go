@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -99,7 +100,7 @@ func TestHTTPMethodAndBodyLimits(t *testing.T) {
 	}
 }
 
-// AC-2: /report の tools/list は見るツール 10 だけで、操作を含まない。/ops は 18。tools/call で操作を呼んでも何も実行しない。
+// AC-2: /report の tools/list は見るツール 10 だけで、操作を含まない。/ops は 19。tools/call で操作を呼んでも何も実行しない。
 func TestToolListsAndScopes(t *testing.T) {
 	h := harness.Start(t, harness.Options{})
 	ctx := context.Background()
@@ -116,7 +117,7 @@ func TestToolListsAndScopes(t *testing.T) {
 		return out
 	}
 	viewTools := []string{"agent_auth_status", "ask_card", "host_status", "note_get", "note_history", "pane_tail", "panes_status", "report", "report_read", "sessions_list"}
-	opsTools := []string{"ask_pick", "dispatch", "note_log", "note_set", "pane_close", "pane_start", "send_escape", "send_text"}
+	opsTools := []string{"ask_pick", "dispatch", "note_log", "note_set", "pane_close", "pane_start", "send_escape", "send_text", "file_get"}
 	reportClients := []*harness.Client{h.Report(), h.ReportB(), h.Connect("/report", harness.OpsA)}
 	for _, c := range reportClients {
 		if got := names(c); !slices.Equal(got, viewTools) {
@@ -126,7 +127,7 @@ func TestToolListsAndScopes(t *testing.T) {
 	all := append(slices.Clone(viewTools), opsTools...)
 	slices.Sort(all)
 	for _, c := range []*harness.Client{h.Ops(), h.OpsB()} {
-		if got := names(c); !slices.Equal(got, all) || len(got) != 18 {
+		if got := names(c); !slices.Equal(got, all) || len(got) != 19 {
 			t.Errorf("/ops（%s）の tools/list = %v", c.Name, got)
 		}
 	}
@@ -139,6 +140,7 @@ func TestToolListsAndScopes(t *testing.T) {
 		"pane_close": {"pane": id}, "note_set": {"pane": id, "set": map[string]any{"from": "x"}}, "note_log": {"pane": id, "text": "x"},
 		"pane_start": {"pane": id, "agent": "omp", "cwd": h.Work, "title": "t"},
 		"dispatch":   {"pane": id, "agent": "omp", "task": "t", "profile": "fix"},
+		"file_get":   {"path": filepath.Join(h.Work, "shot.png")},
 	}
 	for _, tool := range opsTools {
 		var first string

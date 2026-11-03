@@ -16,15 +16,23 @@ type Policy struct {
 	allowedRoots []string
 	deniedPaths  []string
 	fileRoots    []string
+	// secretPaths は file_get が名前によらず断る、swarm-console 自身の設定・データのファイル（tokens・profiles・notes）。
+	secretPaths []string
 }
 
-// NewPolicy は cfg の allowed_roots・denied_paths・file_roots を写して Policy を作る。
+// NewPolicy は cfg の allowed_roots・denied_paths・file_roots と、tokens などの場所を写して Policy を作る。
 func NewPolicy(cfg *config.Config) *Policy {
-	return &Policy{
+	p := &Policy{
 		allowedRoots: append([]string(nil), cfg.AllowedRoots...),
 		deniedPaths:  append([]string(nil), cfg.DeniedPaths...),
 		fileRoots:    append([]string(nil), cfg.FileRoots...),
 	}
+	for _, s := range []string{cfg.TokensPath, cfg.ProfilesPath, cfg.NotesPath} {
+		if s != "" {
+			p.secretPaths = append(p.secretPaths, s)
+		}
+	}
+	return p
 }
 
 // DetectSecret は Policy 越しに使うための DetectSecret（パッケージ関数）への委譲。

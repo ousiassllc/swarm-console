@@ -52,6 +52,8 @@ func TestLoadDefaults(t *testing.T) {
 		TitlePrefix:      "agent: ",
 		DeniedPaths:      []string{filepath.Join(home, "dotfiles")},
 		DiskMounts:       []string{"/", "/mnt/nvme"},
+		FileGetRoots:     []string{}, // file_get は追加の根なし・20 MiB が既定
+		FileGetMaxBytes:  20 << 20,
 		ReportDir:        "/tmp/swarm-console/reports",
 		ConfigDir:        conf,
 		TokensPath:       filepath.Join(conf, "tokens.toml"),

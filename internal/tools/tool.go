@@ -1,4 +1,4 @@
-// Package tools は MCP ツール 18 個のハンドラ（引数検証・pane の解決・エラーコードへの変換）を持つ。
+// Package tools は MCP ツール 19 個のハンドラ（引数検証・pane の解決・エラーコードへの変換）を持つ。
 // MCP の型には依存せず、mcpapi が Tool を SDK のサーバーへ登録する（コンポーネント設計 §5.3）。
 package tools
 

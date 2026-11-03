@@ -17,6 +17,9 @@ import (
 
 const codeOK = "ok"
 
+// maxAuditPath は監査ログに残す file_get のパスの最大字数（クライアントが付けた文字列をそのまま残さない）。
+const maxAuditPath = 512
+
 // middleware は要求ごとに、窓口に出ていないツールの拒否・resources/list の動的な列挙・監査ログの記録を行う。
 func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
@@ -27,7 +30,11 @@ func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 		var (
 			res mcp.Result
 			err error
+			au  *tools.Audit
 		)
+		if method == "tools/call" {
+			ctx, au = tools.WithAudit(ctx)
+		}
 		switch {
 		case method == "tools/call" && !b.hasTool(name):
 			res = unknownToolResult()
@@ -40,6 +47,9 @@ func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 		}
 		if b.o.Audit != nil {
 			ev.Client, _ = auth.FromContext(ctx)
+			if au != nil {
+				ev.Path, ev.Size, ev.HasSize = clip(au.Path, maxAuditPath), au.Size, au.HasSize
+			}
 			ev.Code, ev.Duration = codeOf(res, err), time.Since(start)
 			b.o.Audit(ctx, ev)
 		}

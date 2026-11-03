@@ -42,6 +42,11 @@ type Config struct {
 	DiskMounts   []string
 	ReportDir    string
 
+	// FileGetRoots は file_get が読んでよい根の追加分（既定は空。常に許すペインの cwd・ReportDir に足す）。
+	// FileGetMaxBytes は file_get が返す 1 ファイルの上限（バイト。既定 DefaultFileGetMaxBytes）。
+	FileGetRoots    []string
+	FileGetMaxBytes int64
+
 	// PaneNames は固定名。キーは "<セッション>:<ウィンドウ>.<ペイン番号>"、値は名前。
 	PaneNames map[string]string
 	// Agents は [agents.<name>] の上書き。キーは omp・claude・codex。

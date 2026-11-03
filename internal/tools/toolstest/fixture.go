@@ -49,7 +49,7 @@ func New(t *testing.T) *Fixture {
 	cfg := &config.Config{
 		Sessions: []string{"0"}, DefaultSession: "0", DefaultLang: "ja",
 		AllowedRoots: []string{root}, FileRoots: []string{root}, ReportDir: filepath.Join(root, "reports"),
-		TitlePrefix: "agent: ",
+		TitlePrefix: "agent: ", FileGetMaxBytes: config.DefaultFileGetMaxBytes,
 	}
 	if err := os.MkdirAll(cfg.ReportDir, 0o700); err != nil {
 		t.Fatal(err)
