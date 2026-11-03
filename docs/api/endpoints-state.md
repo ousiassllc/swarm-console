@@ -104,7 +104,7 @@
 | `session` | string | 任意 |
 
 ```json
-{"pane": "B4", "id": "%12", "note": {"from": "agent-b", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる", "log": [], "updated_at": "2026-10-31T21:50:12+09:00"}}
+{"pane": "B4", "id": "%12", "note": {"from": "agent-b", "origin": "agent", "started_by": "かな", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる", "log": [], "updated_at": "2026-10-31T21:50:12+09:00"}}
 ```
 
 メモがなければ `"note": null`。`pane` は対象のセッション内の位置（接頭辞なし）。
@@ -139,11 +139,13 @@
 |------|-----|------|------|
 | `repo` | string | 任意 | 完全一致 |
 | `from` | string | 任意 | 完全一致 |
+| `origin` | string | 任意 | 完全一致（`user`・`agent`。ほかの値を渡すと 0 件になるだけで、エラーにはしない） |
+| `started_by` | string | 任意 | 完全一致 |
 | `items` | string[] | 任意 | 指定したものをすべて含む |
 | `limit` | int | 任意 | 既定 20、1〜100 |
 
 ```json
-{"entries": [{"pane_id": "%4", "pos": "B1", "agent": "omp", "title": "agent: funid #981", "closed_at": "2026-10-31T18:40:00+09:00", "closed_by": "pane_close", "from": "agent-a", "repo": "ousiassllc/funid", "items": ["#981"], "log": []}], "total": 1}
+{"entries": [{"pane_id": "%4", "pos": "B1", "agent": "omp", "title": "agent: funid #981", "closed_at": "2026-10-31T18:40:00+09:00", "closed_by": "pane_close", "from": "agent-a", "origin": "agent", "started_by": "かな", "repo": "ousiassllc/funid", "items": ["#981"], "log": []}], "total": 1}
 ```
 
-新しい順。`total` は絞り込み後の件数（`limit` 前）。`session` は取らない（`repo`・`from`・`items` だけで絞り、ペインのセッションでは絞らない。既知の限界。P-89）。
+新しい順。`total` は絞り込み後の件数（`limit` 前）。指定した絞り込みは AND。履歴には `from` と `origin`・`started_by` が両方残る（`from` は依頼元、`origin`・`started_by` は誰が始めたか。ER §2.2）。`session` は取らない（`repo`・`from`・`origin`・`started_by`・`items` だけで絞り、ペインのセッションでは絞らない。既知の限界。P-89）。

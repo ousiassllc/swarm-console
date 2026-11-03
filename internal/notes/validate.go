@@ -45,6 +45,8 @@ func stringField(key string) (func(*Note) *string, int) {
 	switch key {
 	case "from":
 		return func(n *Note) *string { return &n.From }, limit
+	case "started_by":
+		return func(n *Note) *string { return &n.StartedBy }, limit
 	case "repo":
 		return func(n *Note) *string { return &n.Repo }, limit
 	case "worktree":
@@ -111,6 +113,8 @@ func parseChange(key string, raw json.RawMessage) (change, error) {
 		return parseArray(key, raw, af)
 	}
 	switch key {
+	case "origin":
+		return parseOrigin(raw)
 	case "report_to":
 		return parseReportTo(raw)
 	case "approval":
@@ -131,6 +135,25 @@ func parseString(key string, raw json.RawMessage, f func(*Note) *string, limit i
 		return change{}, invalid(key, reasonLong)
 	}
 	return change{key: key, apply: func(n *Note) { *f(n) = s }, strs: []string{s}}, nil
+}
+
+// parseOrigin は origin（user | agent）を検証する。null と空文字は消す（ほかの文字列項目と同じ。FR-NOTE-4）。ほかの値は invalid_args。
+func parseOrigin(raw json.RawMessage) (change, error) {
+	const key = "origin"
+	if isNull(raw) {
+		return change{key: key, apply: func(n *Note) { n.Origin = "" }}, nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return change{}, invalid(key, reasonType)
+	}
+	if s == "" {
+		return change{key: key, apply: func(n *Note) { n.Origin = "" }}, nil
+	}
+	if s != OriginUser && s != OriginAgent {
+		return change{}, invalid(key, reasonBad)
+	}
+	return change{key: key, apply: func(n *Note) { n.Origin = s }, strs: []string{s}}, nil
 }
 
 func parseArray(key string, raw json.RawMessage, f func(*Note) *[]string) (change, error) {

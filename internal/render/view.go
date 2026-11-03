@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 )
 
@@ -47,11 +48,28 @@ func newRow(p *pane.PaneState, l locale) rowView {
 		From: emptyCell, Repo: emptyCell, Next: emptyCell,
 	}
 	if n := p.Note; n != nil {
-		r.From = cell(n.From)
+		r.From = fromCell(n)
 		r.Repo = cell(strings.TrimSpace(n.Repo + " " + strings.Join(n.Items, ", ")))
 		r.Next = cell(n.Next)
 	}
 	return r
+}
+
+// fromCell は依頼元のセル。origin が agent のときは、依頼元の横に「🤖 <started_by>発」を添える
+// （started_by が空なら「🤖 エージェント発」）。user と空は何も添えない。依頼元が空なら印だけを出す。
+func fromCell(n *notes.Summary) string {
+	if n.Origin != notes.OriginAgent {
+		return cell(n.From)
+	}
+	who := strings.TrimSpace(flatten(n.StartedBy))
+	if who == "" {
+		who = "エージェント"
+	}
+	mark := cell("🤖 " + who + "発")
+	if strings.TrimSpace(flatten(n.From)) == "" {
+		return mark
+	}
+	return cell(n.From) + " " + mark
 }
 
 // newView は markdown 用の view を作る。target が非 nil なら詳細版（in.Detail を使う）。

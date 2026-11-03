@@ -11,8 +11,8 @@
 | ID | 要件 |
 |----|------|
 | FR-NOTE-1 | 項目はすべて任意。分からないものは空のままでよい |
-| FR-NOTE-2 | 項目：依頼元 `from`、報告先 `report_to`、リポジトリ `repo`、Issue・PR `items`、作業フォルダ `worktree`、ブランチ `branch`、指示ファイル `instruction`、OK の原文 `approval`、守ること `rules`、いまの状況 `status`、次にやること `next`、再開 ID `resume_id`、自由メモ `memo` |
-| FR-NOTE-3 | `panes_status` と `report` には `from`・`repo`・`items`・`next` だけを要約として出す |
+| FR-NOTE-2 | 項目：依頼元 `from`、始まったきっかけ `origin`、始めた人 `started_by`、報告先 `report_to`、リポジトリ `repo`、Issue・PR `items`、作業フォルダ `worktree`、ブランチ `branch`、指示ファイル `instruction`、OK の原文 `approval`、守ること `rules`、いまの状況 `status`、次にやること `next`、再開 ID `resume_id`、自由メモ `memo`。`origin` は `user`（オーナーの指示）か `agent`（エージェントが自分の判断で始めた）のどちらかで、どちらでもなければ空のまま（FR-NOTE-1）。それ以外の値は `invalid_args`。`started_by` は始めた人・エージェントの名前（自由な文字列。例：`かな`）。`from` は依頼元（どのボットからの依頼か）のままで、「かな発」などの印は `from` に混ぜず `origin`・`started_by` に書く。`dispatch`・`note_set`・`note_get` で読み書きでき、`null` で消す決まり（FR-NOTE-4）・秘密の検査（FR-NOTE-8）はほかの項目と同じ。既存のメモは移行しない（新しい項目は空のまま） |
+| FR-NOTE-3 | `panes_status` と `report`（markdown・json）には `from`・`origin`・`started_by`・`repo`・`items`・`next` だけを要約として出す。markdown の表では、`origin` が `agent` のとき依頼元のセルに `🤖 <started_by>発` を添える（`started_by` が空なら `🤖 エージェント発`）。`user` と空のときは何も添えない。詳細（`report` の `pane` 指定）のメモには `origin`・`started_by` も項目として出る。`note_history` は `from` に加えて `origin`・`started_by` でも絞り込める（それぞれ完全一致、AND）。`/report` からの書き込みは今までどおりできない（FR-SAFE-6） |
 | FR-NOTE-4 | `note_set` は渡した項目だけ書き換え、他の項目は残す。`null` を渡すとその項目を消す |
 | FR-NOTE-5 | `note_log` は出来事を時刻つきで 1 行足す（例：「Ask で B を選んだ」「agent-b へ報告した」）。直近 50 行を残す |
 | FR-NOTE-6 | `pane_close` はそのペインのメモを履歴に移し、現行メモを消す |

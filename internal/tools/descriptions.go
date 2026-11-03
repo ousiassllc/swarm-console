@@ -20,7 +20,7 @@ const (
 	descAgentAuthStatus = "エージェント（omp・claude・codex）ごとのログイン状態（valid・expired・expiring_soon・unknown）と期限日時を返す。" +
 		"鍵・トークンの中身は返さない。"
 	descNoteGet     = "1 ペインのメモを全項目返す。メモがなければ note は null。"
-	descNoteHistory = "閉じたペインのメモを新しい順に返す。repo・from・items（指定したものをすべて含む）で絞り込める。"
+	descNoteHistory = "閉じたペインのメモを新しい順に返す。repo・from・origin・started_by・items（指定したものをすべて含む）で絞り込める。"
 
 	descAskPick = "質問中のペインのカードに答える。n で選択肢の番号を選ぶか、text で「その他」に文字を入れる（どちらか一方）。" +
 		"カーソルが合わなければ Enter を送らずに中止する。"

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/ousiassllc/swarm-console/internal/notes"
 )
 
 func TestCell(t *testing.T) {
@@ -62,5 +64,34 @@ func TestBlockIndentsContinuation(t *testing.T) {
 	}
 	if block("  ") != "—" {
 		t.Fatal("空は —")
+	}
+}
+
+// 依頼元のセル：origin が agent のときだけ「🤖 <started_by>発」を添える。user・空は何も足さない（FR-NOTE-3）。
+func TestFromCell(t *testing.T) {
+	cases := []struct {
+		name string
+		in   notes.Summary
+		want string
+	}{
+		{"from だけ", notes.Summary{From: "ゆな（buddy-ai）"}, "ゆな（buddy-ai）"},
+		{"user は印なし", notes.Summary{From: "ゆな", Origin: notes.OriginUser, StartedBy: "かな"}, "ゆな"},
+		{"origin 空は印なし", notes.Summary{From: "ゆな", StartedBy: "かな"}, "ゆな"},
+		{"agent と名前", notes.Summary{From: "ゆな（buddy-ai）", Origin: notes.OriginAgent, StartedBy: "かな"}, "ゆな（buddy-ai） 🤖 かな発"},
+		{"agent で名前なし", notes.Summary{From: "ゆな", Origin: notes.OriginAgent}, "ゆな 🤖 エージェント発"},
+		{"agent で名前が空白", notes.Summary{From: "ゆな", Origin: notes.OriginAgent, StartedBy: " \n "}, "ゆな 🤖 エージェント発"},
+		{"agent で from 空", notes.Summary{Origin: notes.OriginAgent, StartedBy: "かな"}, "🤖 かな発"},
+		{"何もない", notes.Summary{}, "—"},
+		{"パイプはエスケープ", notes.Summary{From: "x|y", Origin: notes.OriginAgent, StartedBy: "a|b"}, `x\|y 🤖 a\|b発`},
+	}
+	for _, c := range cases {
+		if got := fromCell(&c.in); got != c.want {
+			t.Errorf("%s: got %q want %q", c.name, got, c.want)
+		}
+	}
+	// 依頼元が長くても印は切れない
+	got := fromCell(&notes.Summary{From: strings.Repeat("あ", 200), Origin: notes.OriginAgent, StartedBy: "かな"})
+	if !strings.HasSuffix(got, " 🤖 かな発") || utf8.RuneCountInString(got) > maxCellRune+len([]rune(" 🤖 かな発")) {
+		t.Errorf("長い from: %q", got)
 	}
 }

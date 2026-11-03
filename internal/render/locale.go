@@ -35,7 +35,7 @@ var locales = map[string]locale{
 		noChange: "変化なし ", reportReady: "最終報告あり（`report_read` で読む）",
 		yes: "可", no: "不可", exists: "あり", missing: "なし", updated: "更新 ",
 		fields: [fieldCount]string{
-			"依頼元", "報告先", "リポジトリ", "Issue・PR", "作業フォルダ", "ブランチ", "指示ファイル",
+			"依頼元", "始まったきっかけ", "始めた人", "報告先", "リポジトリ", "Issue・PR", "作業フォルダ", "ブランチ", "指示ファイル",
 			"OK の原文", "守ること", "いまの状況", "次にやること", "再開 ID", "メモ", "更新",
 		},
 	},
@@ -53,7 +53,7 @@ var locales = map[string]locale{
 		noChange: "no change ", reportReady: "final report available (read with `report_read`)",
 		yes: "allowed", no: "not allowed", exists: "exists", missing: "none", updated: "updated ",
 		fields: [fieldCount]string{
-			"From", "Report to", "Repo", "Issues / PRs", "Worktree", "Branch", "Instruction file",
+			"From", "Origin", "Started by", "Report to", "Repo", "Issues / PRs", "Worktree", "Branch", "Instruction file",
 			"Approval", "Rules", "Status", "Next", "Resume ID", "Memo", "Updated",
 		},
 	},
