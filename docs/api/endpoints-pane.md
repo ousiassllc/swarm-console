@@ -1,6 +1,6 @@
 # API 仕様：ペインを見る・操作するツール
 
-[API 仕様](endpoints.md) の続き。§5 ツールのうち、§5.1 見る（`panes_status`・`pane_tail`・`ask_card`・`report_read`）と §5.2 操作する（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`）を定める。
+[API 仕様](endpoints.md) の続き。§5 ツールのうち、§5.1 見る（`panes_status`・`pane_tail`・`ask_card`・`report_read`）と §5.2 操作する（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`file_get`）を定める。
 
 改訂履歴は [API 仕様（本書）](endpoints.md#改訂履歴) にまとめてある。
 
@@ -166,5 +166,48 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 終了コマンド → `cd ~` → `clear` → タイトル消し、を 1 つずつ「文字列 → 1 秒 → Enter → 1 秒」で送る（`shell` のペインは終了コマンドを飛ばす）。終了コマンドのあとは、ペインの状態が `shell` に戻るまで、スナップショットを 500 ms ごとに取り直して待ってから `cd ~` 以降を送る（終了が遅れる `omp` に `cd ~` が入力されないようにする）。`shell` に戻ったかは `panes_status` と同じ状態の判定（前面コマンド・プロセス木 `/proc`、取れなければ画面で補う）で見る。`/proc` が読めないときは、前面コマンドが shell なら戻ったとみなし、終了後も画面に残ったエージェントの表示では判定しない（正常に終了したのに `exit_timeout` にならない）。待つ上限は `accept_timeout`（既定 10 秒）。上限までに戻らなければ、`cd ~`・`clear`・タイトル消しは送らず、エラー `exit_timeout`（`details.pane`・`details.state`）だけを返す。結果の JSON（`ok`・`state`・`steps`・`note_archived`）は返らない。メモは履歴へ移さず、最終報告ファイルも `archive/` へ移さない。終了コマンドはすでに送ってあるので、呼び出し側は `pane_close` を呼び直してよい（そのときペインが `shell` なら終了コマンドは飛ばす）。`shell` に戻ったあとは、最後に画面が `~` のプロンプトだけになったかを確かめ、なっていなければ `ok: false`。確かめられたとき（`ok: true`）だけ、ペインのメモを履歴へ移し（`note_archived: true`）、最終報告ファイルを `archive/` へ移す。`idle`・`shell` 以外は `invalid_state`。
 
 「`~` のプロンプトだけ」には、fish・starship のように枠で囲んだ複数行のプロンプトも含む。含むのは次を全部満たすものだけ：3 行以内、先頭行が `╭┌╔┏` で始まり `~` を含む、末尾行が `╰└╚┗` で始まりプロンプトの記号（`$ # % > ❯ ➜ »`）で終わる、間の行は無いか縦線（`│├┃║`）だけ。枠の中に出力が残っていれば片付いていない。右端まで閉じた箱（行末が `╮╯` など）もプロンプトとみなさない。
+
+#### `file_get`（`/ops` のみ）
+
+ompが撮ったスクショ・動画をサーバーから取るツール（scp 不要）。ペインには何も送らない（読むだけ）。`/report` には出さない（`ops` スコープのトークンでも `/report` では `unknown_tool`）。
+
+| 引数 | 型 | 必須 | 説明 |
+|------|-----|------|------|
+| `path` | string | 必須 | サーバー上のファイルの絶対パス 1 つ。`session` は取らない |
+
+```json
+{"path": "/mnt/nvme/ousiassllc/funid/shot.png", "mime": "image/png", "size": 183204, "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", "data_base64": "iVBORw0KGgo..."}
+```
+
+キー順は `path`・`mime`・`size`・`sha256`・`data_base64`。`path` は実パス（シンボリックリンクを解決したもの）、`size` はバイト数、`sha256` は元のバイト列の SHA-256（小文字の hex。サーバー上のファイルをそのままハッシュした値と一致する）、`data_base64` は標準の base64（パディングあり）。`mime` は拡張子ではなく中身（先頭バイト）から決める。
+
+**許可リスト**（取れるのは、この下の実パスだけ。P-91）
+
+- 呼び出し元のトークンが触れるセッション（[§4.1](endpoints.md#41-session-引数と許可セッション)）のペインの、現在の `cwd` の下
+- レポート置き場 `report_dir`（既定 `/tmp/swarm-console/reports`）の下
+- `config.toml` の `file_get_roots` に足した根の下（既定は空）
+
+判定は `filepath.EvalSymlinks` で実パスにしたうえで、同じく実パスにした根の配下かどうかで行う（根自体がシンボリックリンクでもよい。`/a/b` と `/a/bc` は別。文字列の接頭辞では比べない）。`denied_paths` の一致・配下も断る。
+
+**判定の順序と結果**（上から最初に当たったもの）
+
+| 条件 | エラー（`details.reason`） |
+|------|---------------------------|
+| `path` が空・制御文字を含む・引数の型が違う | `invalid_args` |
+| 相対パス | `path_forbidden`（`not_absolute`） |
+| `..` の成分を含む（結果が許可リストの中に戻るものも断る） | `path_forbidden`（`dotdot`） |
+| ファイル名が秘密のもの：`.env`・`.env.*`・`*.pem`・`*.key`・`id_*`・`config.toml`・`tokens.toml`・`profiles.toml`（大文字小文字は区別しない。入力の名前・実パスの名前の両方で見る。例 `id_rsa.png`、無害な名前のリンクで実体が `secret.key`） | `path_forbidden`（`secret`） |
+| 実パスが許可リストの外 | `path_forbidden`（`outside_roots`）。存在しなくても同じ（外のパスの存在を漏らさない） |
+| 実パスが `denied_paths` の一致・配下 | `path_forbidden`（`denied`） |
+| 実パスが tokens.toml・profiles.toml・notes.json の実パスと一致（名前が普通でも） | `path_forbidden`（`secret`） |
+| 許可リストの中だが存在しない | `not_found` |
+| 実パスの拡張子（小文字）が `png`・`jpg`・`jpeg`・`webp`・`gif`・`mp4` 以外 | `unsupported_type`（`extension`） |
+| 通常ファイルでない（ディレクトリ・FIFO・デバイス。FIFO で固まらないよう非ブロッキングで開く） | `unsupported_type`（`not_regular`） |
+| サイズが上限（`file_get_max_bytes`、既定 20 MiB = 20971520 バイト）を超える。ちょうど上限は通る | `too_large`（`details.max`） |
+| 先頭バイトが拡張子の形式と合わない（PNG：`\x89PNG\r\n\x1a\n`、JPEG：`FF D8 FF`、WebP：`RIFF????WEBP`、GIF：`GIF87a`・`GIF89a`、MP4：4 バイト目から `ftyp`。`.jpg`・`.jpeg` は JPEG） | `unsupported_type`（`content`） |
+
+サイズは読む前に `stat` で判定し、読み込みも上限＋1 バイトで打ち切る（確認のあとに大きくされても上限を超えて読まない。そのときも `too_large`）。シンボリックリンクは解決した実パスを `O_NOFOLLOW` で開く（確認後の差し替えを拒否）。
+
+**監査ログ**：成功・拒否のどちらも 1 行に、`client`（トークン名）・`tool: file_get`・`path`（解決できたときは実パス、断った場合は入力のまま。512 字で切る）・`size`（バイト。ファイルを開けたときだけ。上限超えは実際のサイズ）・`code`（`ok` またはエラーコード）を残す。`data_base64`・ファイルの中身は残さない（NFR-SEC-12）。
 
 #### `dispatch` → §5.6

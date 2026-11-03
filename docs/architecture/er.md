@@ -246,3 +246,4 @@ erDiagram
 | 1.11 | 2026-11-02 | §5 config.toml の検証表：`listen_addr` は tailnet の IP ならポート 48120 だけ、ループバックはどのポートでも可と直した（`CheckListenAddr` のポート検査。P-73） | Issue #72 |
 | 1.12 | 2026-11-02 | §3 tokens.toml に `allowed_sessions`（触れる tmux セッション。省略は `sessions` 全部）と検証・起動時の突き合わせを追加、§4 の `pos`（全体の位置とセッション内の位置）とセッションでの絞り込みを追記、§5 `sessions` に許可との関係と `default_session` は許可に使わない旨を追記、§7 最終報告ファイル名は全体の位置から付く（別セッションと衝突しない）と明記。全体 ER 図に `TOKEN`–`SESSION` を追加（FR-SESS） | セッション分割運用（許可セッションの分離） |
 | 1.13 | 2026-11-03 | §2.2 PANE_NOTE に `origin`（`user` \| `agent`。ほかの値は `invalid_args`）と `started_by`（自由な文字列）を追加、要約に出す項目を増やし、§2.4 履歴の検索に `origin`・`started_by`（完全一致）を追記。既存のメモは移行しない（新しい項目は空のまま） | Issue #80 |
+| 1.14 | 2026-11-03 | §5 config.toml に `file_get_roots`（既定は空）・`file_get_max_bytes`（既定 20 MiB、1〜100 MiB）を追加し、`denied_paths` は `file_get` の `path` にも効くと追記（P-91）。`setup` が触らない手書き専用のキーにも加えた。既存の config はそのまま動く | Issue #82 |
