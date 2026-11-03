@@ -144,7 +144,7 @@ erDiagram
 | キー | 型 | 必須 | 上限 | 説明 |
 |------|-----|------|------|------|
 | `from` | string | 任意 | 2000 字 | 依頼元（例：`agent-b`、`agent-a`、`オーナー`） |
-| `origin` | string | 任意 | `user`・`agent` | 始まったきっかけ。`user`＝オーナーの指示、`agent`＝エージェントが自分の判断で始めた。どちらでもなければ空のまま。ほかの値（空文字を含む）は `invalid_args`。`from`（依頼元）とは別の項目で、`from` には混ぜない |
+| `origin` | string | 任意 | `user`・`agent` | 始まったきっかけ。`user`＝オーナーの指示、`agent`＝エージェントが自分の判断で始めた。どちらでもなければ空のまま（`null` と空文字は消す）。ほかの値は `invalid_args`。`from`（依頼元）とは別の項目で、`from` には混ぜない |
 | `started_by` | string | 任意 | 2000 字 | 始めた人・エージェントの名前（例：`かな`）。自由な文字列 |
 | `report_to` | object | 任意 | — | 報告先（§2.3） |
 | `repo` | string | 任意 | 2000 字 | リポジトリ（`ousiassllc/funid`） |

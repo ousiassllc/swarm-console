@@ -137,7 +137,7 @@ func parseString(key string, raw json.RawMessage, f func(*Note) *string, limit i
 	return change{key: key, apply: func(n *Note) { *f(n) = s }, strs: []string{s}}, nil
 }
 
-// parseOrigin は origin（user | agent）を検証する。null で消す。ほかの値（空文字を含む）は invalid_args。
+// parseOrigin は origin（user | agent）を検証する。null と空文字は消す（ほかの文字列項目と同じ。FR-NOTE-4）。ほかの値は invalid_args。
 func parseOrigin(raw json.RawMessage) (change, error) {
 	const key = "origin"
 	if isNull(raw) {
@@ -146,6 +146,9 @@ func parseOrigin(raw json.RawMessage) (change, error) {
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
 		return change{}, invalid(key, reasonType)
+	}
+	if s == "" {
+		return change{key: key, apply: func(n *Note) { n.Origin = "" }}, nil
 	}
 	if s != OriginUser && s != OriginAgent {
 		return change{}, invalid(key, reasonBad)

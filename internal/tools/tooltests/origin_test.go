@@ -27,7 +27,6 @@ func TestNoteSetGetOriginStartedBy(t *testing.T) {
 	}
 	for _, args := range []string{
 		`{"pane":"T1","set":{"origin":"owner"}}`,
-		`{"pane":"T1","set":{"origin":""}}`,
 		`{"pane":"T1","set":{"origin":1}}`,
 	} {
 		_, err := call(t, f, "note_set", args)

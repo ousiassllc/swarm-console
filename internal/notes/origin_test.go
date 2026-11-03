@@ -52,6 +52,20 @@ func TestOriginJSONOrder(t *testing.T) {
 	}
 }
 
+// 空文字は null と同じく origin を消す（ほかの文字列項目と同じ）。
+func TestOriginEmptyStringClears(t *testing.T) {
+	e := newEnv(t)
+	e.set("%1", map[string]any{"origin": "agent", "started_by": "かな"})
+	n := e.set("%1", map[string]any{"origin": ""})
+	if n.Origin != "" || n.StartedBy != "かな" {
+		t.Fatalf("%+v", n)
+	}
+	raw, _ := os.ReadFile(e.path)
+	if strings.Contains(string(raw), `"origin"`) {
+		t.Fatalf("消した origin が JSON に残っている:\n%s", raw)
+	}
+}
+
 func TestOriginRejectsOtherValues(t *testing.T) {
 	e := newEnv(t)
 	e.set("%1", map[string]any{"origin": "user"})
@@ -63,7 +77,6 @@ func TestOriginRejectsOtherValues(t *testing.T) {
 	}{
 		{"他の値", map[string]any{"origin": "owner"}, "origin"},
 		{"大文字", map[string]any{"origin": "Agent"}, "origin"},
-		{"空文字", map[string]any{"origin": ""}, "origin"},
 		{"型違い", map[string]any{"origin": true}, "origin"},
 		{"started_by 型違い", map[string]any{"started_by": 1}, "started_by"},
 		{"started_by 長すぎ", map[string]any{"started_by": strings.Repeat("あ", 2001)}, "started_by"},
