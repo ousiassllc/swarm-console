@@ -199,7 +199,7 @@ ompが撮ったスクショ・動画をサーバーから取るツール（scp �
 | 相対パス | `path_forbidden`（`not_absolute`） |
 | `..` の成分を含む（結果が許可リストの中に戻るものも断る） | `path_forbidden`（`dotdot`） |
 | ファイル名が秘密のもの：`.env`・`.env.*`・`*.pem`・`*.key`・`id_*`・`config.toml`・`tokens.toml`・`profiles.toml`（大文字小文字は区別しない。入力の名前・実パスの名前の両方で見る。例 `id_rsa.png`、無害な名前のリンクで実体が `secret.key`） | `path_forbidden`（`secret`） |
-| 実パスが許可リストの外 | `path_forbidden`（`outside_roots`）。存在しなくても同じ（外のパスの存在を漏らさない） |
+| 実パスが許可リストの外 | `path_forbidden`（`outside_roots`）。存在しなくても同じ（外のパスの存在を漏らさない）。宛先が存在しないシンボリックリンクは宛先をたどって判定する（宛先が外なら存在しなくても `outside_roots`、中なら次の `not_found`）。たどりきれないリンク（循環・たどる回数の上限 40 回超え）も `outside_roots` |
 | 実パスが `denied_paths` の一致・配下 | `path_forbidden`（`denied`） |
 | 実パスが tokens.toml・profiles.toml・notes.json の実パスと一致（名前が普通でも） | `path_forbidden`（`secret`） |
 | 許可リストの中だが存在しない | `not_found` |
@@ -208,8 +208,8 @@ ompが撮ったスクショ・動画をサーバーから取るツール（scp �
 | サイズが上限（`file_get_max_bytes`、既定 20 MiB = 20971520 バイト）を超える。ちょうど上限は通る | `too_large`（`details.max`） |
 | 先頭バイトが拡張子の形式と合わない（PNG：`\x89PNG\r\n\x1a\n`、JPEG：`FF D8 FF`、WebP：`RIFF????WEBP`、GIF：`GIF87a`・`GIF89a`、MP4：4 バイト目から `ftyp`。`.jpg`・`.jpeg` は JPEG） | `unsupported_type`（`content`） |
 
-サイズは読む前に `stat` で判定し、読み込みも上限＋1 バイトで打ち切る（確認のあとに大きくされても上限を超えて読まない。そのときも `too_large`）。シンボリックリンクは解決した実パスを `O_NOFOLLOW` で開く（最後の成分の差し替えを拒否）。開いたあとに `/proc/self/fd/<fd>` の実パスを読み、確認した実パスと違えば（確認後に途中のディレクトリがリンクへ差し替えられた場合）`path_forbidden`（`unreadable`）で断り、中身は読まない。
+サイズは読む前に `stat` で判定する。読むときは、先に先頭 12 バイトだけ読んで拡張子の形式と比べ、合わなければ残りを読まずに `unsupported_type`（`content`）にする（拡張子だけ画像の大きなファイルを全部は読まない）。合えば、`stat` のサイズ＋1 バイトのバッファ 1 つへ残りを読む（読み込みを倍々に確保し直さない）。確認のあとに大きくされたときは、上限＋1 バイトまでだけ読み足して `too_large` にする（上限を超えて読まない）。同時に呼ばれる `file_get` の数は制限しない（1 回の最大はメモリ上でファイル本体・base64・JSON 本文の約 3 倍。上限は `file_get_max_bytes`）。シンボリックリンクは解決した実パスを `O_NOFOLLOW` で開く（最後の成分の差し替えを拒否）。開いたあとに `/proc/self/fd/<fd>` の実パスを読み、確認した実パスと違えば（確認後に途中のディレクトリがリンクへ差し替えられた場合）`path_forbidden`（`unreadable`）で断り、中身は読まない。**Linux の `/proc/self/fd` が必須**：読めない環境（`/proc` が無い・マウントされていない・Linux 以外）では、確かめられないので許さず、`internal`（`path_forbidden` ではない）を返す。つまり `file_get` はそのような環境では常に失敗し、確認を飛ばして読むことはない（NFR-SEC-17）。
 
-**監査ログ**：成功・拒否のどちらも 1 行に、`client`（トークン名）・`tool: file_get`・`path`（解決できたときは実パス、断った場合は入力のまま。512 字で切る）・`size`（バイト。ファイルを開けたときだけ。上限超えは実際のサイズ）・`code`（`ok` またはエラーコード）を残す。`data_base64`・ファイルの中身は残さない（NFR-SEC-12）。
+**監査ログ**：成功・拒否のどちらも 1 行に、`client`（トークン名）・`tool: file_get`・`path`（解決できたときは実パス、断った場合は入力のまま。512 字で切る）・`size`（バイト。ファイルを開けたときだけ。`stat` で上限超えと分かったときは実際のサイズ、種類違いのときは `stat` のサイズ、成功のときは読んだ長さ。確認のあとに大きくされて上限を超えたときは実際のサイズが分からないので記録しない）・`code`（`ok` またはエラーコード）を残す。`data_base64`・ファイルの中身は残さない（NFR-SEC-12）。
 
 #### `dispatch` → §5.6

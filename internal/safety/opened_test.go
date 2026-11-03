@@ -53,3 +53,20 @@ func TestCheckOpenedRejectsSwappedDirectory(t *testing.T) {
 		t.Fatalf("差し替え後 = %v, want path_forbidden", err)
 	}
 }
+
+// /proc/self/fd を読めないとき（閉じた fd など）は確かめられないので、素通しにせず internal で断る
+// （仕様書の endpoints-pane.md §file_get・NFR-SEC-17。Linux の /proc が必須）。
+func TestCheckOpenedFailsWhenProcUnreadable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "a.png")
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path) //nolint:gosec // テストの一時ファイル
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close() // 閉じた File の Fd() は無効な値になり、/proc/self/fd/<fd> を読めない
+	if err := CheckOpened(f, path); err == nil || apperr.As(err).Code != apperr.Internal {
+		t.Fatalf("読めないとき = %v, want internal", err)
+	}
+}

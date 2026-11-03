@@ -81,12 +81,9 @@ func (e *env) readMedia(ctx context.Context, c auth.Client, au *toolkit.Audit, p
 	if !ok {
 		return toolkit.Result{}, apperr.New(apperr.UnsupportedType, "reason", "extension")
 	}
-	data, err := e.readBounded(au, resolved)
+	data, err := e.readBounded(au, resolved, want)
 	if err != nil {
 		return toolkit.Result{}, err
-	}
-	if sniffMIME(data) != want {
-		return toolkit.Result{}, apperr.New(apperr.UnsupportedType, "reason", "content")
 	}
 	sum := sha256.Sum256(data)
 	return toolkit.MarshalResult(fileGetJSON{
@@ -115,14 +112,25 @@ func (e *env) fileGetRoots(ctx context.Context, c auth.Client) ([]string, error)
 	return roots, nil
 }
 
-// readBounded は通常ファイルを上限以内で全部読む。stat で先に判定し、読み込みも上限＋1 バイトで切る
-// （stat のあとに大きくされても上限を超えて読まない）。通常ファイル以外（ディレクトリ・FIFO・デバイス）は unsupported_type。
-func (e *env) readBounded(au *toolkit.Audit, resolved string) ([]byte, error) {
+// sniffLen は sniffMIME が見る先頭バイト数。
+const sniffLen = 12
+
+// readBounded は通常ファイルを上限以内で全部読む。stat で先に判定し、先頭 12 バイトが want の形式でなければ
+// 残りを読まずに unsupported_type（content）にする。残りは stat のサイズ＋1 バイトの 1 つのバッファへ読む
+// （stat のあとに大きくされたときは、上限＋1 バイトまでだけ読み足す）。
+// 通常ファイル以外（ディレクトリ・FIFO・デバイス）は unsupported_type。
+// 監査ログのサイズは、stat で上限超えのときは stat のサイズ、読み終えたときは読んだ長さ。stat のあとに大きくされて
+// 上限を超えたときは、実際のサイズが分からないので記録しない。
+func (e *env) readBounded(au *toolkit.Audit, resolved, want string) ([]byte, error) {
 	limit := e.Cfg.FileGetMaxBytes
 	if st, err := os.Lstat(resolved); err != nil {
 		return nil, openError(err)
 	} else if !st.Mode().IsRegular() {
 		return nil, apperr.New(apperr.UnsupportedType, "reason", "not_regular")
+	}
+	hooks := e.FileGet
+	if hooks != nil && hooks.BeforeOpen != nil {
+		hooks.BeforeOpen(resolved)
 	}
 	// O_NONBLOCK: 検証後に FIFO へ差し替えられても open で固まらない。O_NOFOLLOW: 検証後のリンク差し替えを拒否。
 	f, err := os.OpenFile(resolved, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0) //nolint:gosec // CheckFileGet 済みの実パス
@@ -140,18 +148,39 @@ func (e *env) readBounded(au *toolkit.Audit, resolved string) ([]byte, error) {
 	if err := safety.CheckOpened(f, resolved); err != nil {
 		return nil, apperr.As(err)
 	}
-	au.SetSize(st.Size())
 	if st.Size() > limit {
+		au.SetSize(st.Size())
 		return nil, apperr.New(apperr.TooLarge, "max", limit)
 	}
-	data, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil {
+	var r io.Reader = f
+	if hooks != nil && hooks.WrapReader != nil {
+		r = hooks.WrapReader(r)
+	}
+	buf := make([]byte, st.Size()+1)
+	n, err := io.ReadFull(r, buf[:min(sniffLen, len(buf))])
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
 		return nil, apperr.Wrap(apperr.Internal, err)
 	}
-	au.SetSize(int64(len(data)))
+	if sniffMIME(buf[:n]) != want {
+		au.SetSize(st.Size())
+		return nil, apperr.New(apperr.UnsupportedType, "reason", "content")
+	}
+	m, err := io.ReadFull(r, buf[n:])
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+		return nil, apperr.Wrap(apperr.Internal, err)
+	}
+	data := buf[:n+m]
+	if len(data) == len(buf) { // stat のあとに大きくされた。上限＋1 バイトまで読み足す
+		more, err := io.ReadAll(io.LimitReader(r, limit+1-int64(len(data))))
+		if err != nil {
+			return nil, apperr.Wrap(apperr.Internal, err)
+		}
+		data = append(data, more...)
+	}
 	if int64(len(data)) > limit {
 		return nil, apperr.New(apperr.TooLarge, "max", limit)
 	}
+	au.SetSize(int64(len(data)))
 	return data, nil
 }
 

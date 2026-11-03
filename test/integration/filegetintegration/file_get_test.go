@@ -1,4 +1,4 @@
-package integration
+package filegetintegration
 
 import (
 	"crypto/sha256"
@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/test/integration/harness"
@@ -43,16 +44,22 @@ func TestFileGet(t *testing.T) {
 		t.Errorf("data_base64 が元の中身と一致しません: %v", err)
 	}
 
-	for path, code := range map[string]string{
-		outside:                                 "path_forbidden",
-		filepath.Join(h.Reports, ".env"):        "path_forbidden",
-		filepath.Join(h.Reports, "..", "x.png"): "path_forbidden",
-		filepath.Join(h.Reports, "text.png"):    "unsupported_type",
-		filepath.Join(h.Reports, "big.png"):     "too_large",
-		filepath.Join(h.Reports, "none.png"):    "not_found",
+	// ".." は filepath.Join が消してしまうので、文字列のまま渡す。
+	dotdot := h.Reports + "/../x.png"
+	for path, want := range map[string]struct{ code, reason string }{
+		outside:                              {"path_forbidden", "outside_roots"},
+		filepath.Join(h.Reports, ".env"):     {"path_forbidden", "secret"},
+		dotdot:                               {"path_forbidden", "dotdot"},
+		filepath.Join(h.Reports, "text.png"): {"unsupported_type", "content"},
+		filepath.Join(h.Reports, "big.png"):  {"too_large", ""},
+		filepath.Join(h.Reports, "none.png"): {"not_found", ""},
 	} {
-		if r := h.Ops().Call("file_get", map[string]any{"path": path}); r.Code(t) != code {
-			t.Errorf("%s: %s, want %s", path, r.Text, code)
+		r := h.Ops().Call("file_get", map[string]any{"path": path})
+		if r.Code(t) != want.code {
+			t.Errorf("%s: %s, want %s", path, r.Text, want.code)
+		}
+		if want.reason != "" && !strings.Contains(r.Text, `"reason":"`+want.reason+`"`) {
+			t.Errorf("%s: %s, want details.reason %s", path, r.Text, want.reason)
 		}
 	}
 	if r := h.Report().Call("file_get", map[string]any{"path": inReports}); r.Code(t) != "unknown_tool" {

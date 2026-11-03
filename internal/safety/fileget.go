@@ -1,6 +1,7 @@
 package safety
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -47,8 +48,10 @@ func IsBroadCWD(cwd, home string) bool {
 //   - 相対パス・".." を含む・roots の外・denied_paths の一致・配下・秘密のファイル名（解決前・解決後の両方）・
 //     tokens・profiles・notes の実パスと一致 → path_forbidden
 //   - roots の下だが存在しない → not_found（roots の外は存在の有無によらず path_forbidden で、存在を漏らさない）
+//   - 解決しきれないシンボリックリンク（循環・深さの上限超え）→ path_forbidden（outside_roots。外のリンクとの区別を付けない）
 //
 // 存在しないパスは、存在する一番深い祖先を解決してから判定する（途中のリンクで外へ抜ける未作成のパスを not_found にしない）。
+// 宛先が存在しないリンク（ぶら下がったリンク）は、宛先をたどって同じ判定をする（宛先が外なら outside_roots、中なら not_found）。
 func (p *Policy) CheckFileGet(path string, roots []string) (string, error) {
 	if path == "" || strings.IndexFunc(path, unicode.IsControl) >= 0 {
 		return "", apperr.New(apperr.InvalidArgs, "field", "path")
@@ -62,8 +65,8 @@ func (p *Policy) CheckFileGet(path string, roots []string) (string, error) {
 	if IsSecretName(filepath.Base(path)) {
 		return "", pathForbidden("secret")
 	}
-	resolved, exists := resolveLoose(path)
-	if !underAny(resolved, roots) {
+	resolved, exists, ok := resolveLoose(path)
+	if !ok || !underAny(resolved, roots) {
 		return "", pathForbidden("outside_roots")
 	}
 	if underAny(resolved, p.deniedPaths) {
@@ -101,20 +104,50 @@ func hasDotDot(path string) bool {
 	return false
 }
 
+// maxSymlinkDepth はぶら下がったリンクをたどる回数の上限（循環の検出。OS の上限と同じ 40）。
+const maxSymlinkDepth = 40
+
 // resolveLoose は path のシンボリックリンクを解決する。存在しなければ、存在する一番深い祖先を解決して残りをつなぐ（exists=false）。
-func resolveLoose(path string) (resolved string, exists bool) {
-	if r, err := filepath.EvalSymlinks(path); err == nil {
-		return filepath.Clean(r), true
+// 宛先が存在しないリンクに当たったら、その宛先をたどって解決しなおす。循環・上限超えは ok=false。
+func resolveLoose(path string) (resolved string, exists, ok bool) {
+	return resolveLooseDepth(path, 0)
+}
+
+func resolveLooseDepth(path string, depth int) (resolved string, exists, ok bool) {
+	if depth > maxSymlinkDepth {
+		return "", false, false
 	}
-	rest, cur := filepath.Base(path), filepath.Dir(path)
+	cur, rest := path, ""
 	for {
 		if r, err := filepath.EvalSymlinks(cur); err == nil {
-			return filepath.Join(r, rest), false
+			return filepath.Join(r, rest), rest == "", true
+		}
+		if target, isLink := linkTarget(cur); isLink {
+			return resolveLooseDepth(filepath.Join(target, rest), depth+1)
 		}
 		parent := filepath.Dir(cur)
 		if parent == cur {
-			return filepath.Clean(path), false
+			return filepath.Clean(path), false, true
 		}
 		rest, cur = filepath.Join(filepath.Base(cur), rest), parent
 	}
+}
+
+// linkTarget は p がシンボリックリンクなら、その宛先（絶対パス。相対なら p の親の実パスからの位置）を返す。
+func linkTarget(p string) (string, bool) {
+	if fi, err := os.Lstat(p); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		return "", false
+	}
+	t, err := os.Readlink(p)
+	if err != nil {
+		return "", false
+	}
+	if filepath.IsAbs(t) {
+		return t, true
+	}
+	dir, err := filepath.EvalSymlinks(filepath.Dir(p))
+	if err != nil {
+		return "", false
+	}
+	return filepath.Join(dir, t), true
 }
