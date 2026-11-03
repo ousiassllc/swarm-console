@@ -104,7 +104,7 @@
 | `session` | string | 任意 |
 
 ```json
-{"pane": "B4", "id": "%12", "note": {"from": "agent-b", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる", "log": [], "updated_at": "2026-10-31T21:50:12+09:00"}}
+{"pane": "B4", "id": "%12", "note": {"from": "agent-b", "origin": "agent", "started_by": "かな", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる", "log": [], "updated_at": "2026-10-31T21:50:12+09:00"}}
 ```
 
 メモがなければ `"note": null`。`pane` は対象のセッション内の位置（接頭辞なし）。

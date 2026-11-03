@@ -80,6 +80,8 @@ erDiagram
   "panes": {
     "%12": {
       "from": "agent-b",
+      "origin": "agent",
+      "started_by": "かな",
       "report_to": {"kind": "agent", "name": "agent-b", "priority": true},
       "repo": "ousiassllc/funid",
       "items": ["#982"],
