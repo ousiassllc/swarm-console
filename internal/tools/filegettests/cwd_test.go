@@ -99,3 +99,49 @@ func TestFileGetPaneCwdBroadKeepsExplicitRoots(t *testing.T) {
 		}
 	})
 }
+
+// HOME が取れない（空）ときは、/ だけを外す。ほかの cwd（ホーム相当の場所の下を含む）は根になる。
+func TestFileGetPaneCwdWithoutHome(t *testing.T) {
+	t.Run("cwd が / は外れる", func(t *testing.T) {
+		t.Setenv("HOME", "")
+		e := newFileGetEnv(t)
+		e.Registry.Snap.Panes[0].Cwd = "/"
+		pic := writeFile(t, filepath.Join(e.outside, "shot.png"), pngBytes)
+		_, err := fileGet(t, e.Fixture, pic)
+		wantReason(t, wantCode(t, err, apperr.PathForbidden), "outside_roots")
+	})
+	t.Run("ホーム相当の下の cwd は通る", func(t *testing.T) {
+		t.Setenv("HOME", "")
+		e := newFileGetEnv(t)
+		cwd := filepath.Join(realTempDir(t), "home-like", "projects", "x")
+		writeFile(t, filepath.Join(cwd, "keep.txt"), []byte("x"))
+		e.Registry.Snap.Panes[0].Cwd = cwd
+		pic := writeFile(t, filepath.Join(cwd, "shot.png"), pngBytes)
+		if _, err := fileGet(t, e.Fixture, pic); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+// 実パスにできない（存在しない）cwd は根に入れない。その下の画像は存在しても、cwd からは取れない。
+func TestFileGetPaneCwdMissingIsNotRoot(t *testing.T) {
+	e, _ := cwdHomeEnv(t)
+	missing := filepath.Join(e.work, "gone")
+	e.Registry.Snap.Panes[0].Cwd = missing
+	// work（根でない）の下に置いた画像。cwd が存在しないので、根は 1 つも増えない。
+	pic := writeFile(t, filepath.Join(e.work, "shot.png"), pngBytes)
+	_, err := fileGet(t, e.Fixture, pic)
+	wantReason(t, wantCode(t, err, apperr.PathForbidden), "outside_roots")
+	// 存在しない cwd の下のパスは not_found ではなく outside_roots（根に入っていない）。
+	_, err = fileGet(t, e.Fixture, filepath.Join(missing, "shot.png"))
+	wantReason(t, wantCode(t, err, apperr.PathForbidden), "outside_roots")
+}
+
+// ホームに末尾スラッシュを付けた cwd もホームそのものとして外す（/ も同様）。
+func TestFileGetPaneCwdHomeWithTrailingSlashIsNotRoot(t *testing.T) {
+	e, home := cwdHomeEnv(t)
+	e.Registry.Snap.Panes[0].Cwd = home + "/"
+	pic := writeFile(t, filepath.Join(home, "pics", "shot.png"), pngBytes)
+	_, err := fileGet(t, e.Fixture, pic)
+	wantReason(t, wantCode(t, err, apperr.PathForbidden), "outside_roots")
+}

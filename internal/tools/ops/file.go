@@ -156,15 +156,17 @@ func (e *env) readBounded(au *toolkit.Audit, resolved, want string) ([]byte, err
 	if hooks != nil && hooks.WrapReader != nil {
 		r = hooks.WrapReader(r)
 	}
-	buf := make([]byte, st.Size()+1)
-	n, err := io.ReadFull(r, buf[:min(sniffLen, len(buf))])
+	var head [sniffLen]byte // 形式が合うと分かるまで、大きなバッファは確保しない
+	n, err := io.ReadFull(r, head[:])
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
 		return nil, apperr.Wrap(apperr.Internal, err)
 	}
-	if sniffMIME(buf[:n]) != want {
+	if sniffMIME(head[:n]) != want {
 		au.SetSize(st.Size())
 		return nil, apperr.New(apperr.UnsupportedType, "reason", "content")
 	}
+	buf := make([]byte, max(st.Size()+1, int64(n)))
+	copy(buf, head[:n])
 	m, err := io.ReadFull(r, buf[n:])
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
 		return nil, apperr.Wrap(apperr.Internal, err)

@@ -1,4 +1,4 @@
-// Package tools は MCP ツール 17 個のハンドラ（引数検証・pane の解決・エラーコードへの変換）を組み立てる。
+// Package tools は MCP ツール 19 個のハンドラ（引数検証・pane の解決・エラーコードへの変換）を組み立てる。
 // ハンドラは view（見る）と ops（操作）に、共有の部品は toolkit にある。
 // MCP の型には依存せず、mcpapi が toolkit.Tool を SDK のサーバーへ登録する（コンポーネント設計 §5.3）。
 package tools
