@@ -228,7 +228,7 @@ func TestHostStatusSessionScope(t *testing.T) {
 	f := twoSessions(t)
 	k := mustAs(t, f, kana, "host_status", `{}`)
 	n := mustAs(t, f, natsumi, "host_status", `{}`)
-	for _, key := range []string{"load", "cpus", "mem_total_gb", "mem_free_gb", "cpu", "swap", "disk", "uptime", "usage", "omp", "update"} {
+	for _, key := range []string{"load", "cpus", "mem_total_gb", "mem_free_gb", "mem", "cpu", "swap", "disk", "uptime", "usage", "omp", "update"} {
 		if !reflect.DeepEqual(k[key], n[key]) {
 			t.Errorf("%s がトークンで違います: %v / %v", key, k[key], n[key])
 		}

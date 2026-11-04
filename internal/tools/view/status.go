@@ -51,12 +51,13 @@ type agentCounts struct {
 	Codex  int `json:"codex"`
 }
 
-// hostStatusJSON は API 仕様 §5.3。cpu・swap・disk・usage・omp・update は report の JSON と同じ形・同じ値（FR-REP-17）。
+// hostStatusJSON は API 仕様 §5.3。mem・cpu・swap・disk・usage・omp・update は report の JSON と同じ形・同じ値（FR-REP-17）。
 type hostStatusJSON struct {
 	Load        [3]float64        `json:"load"`
 	CPUs        int               `json:"cpus"`
 	MemTotalGB  float64           `json:"mem_total_gb"`
 	MemFreeGB   float64           `json:"mem_free_gb"`
+	Mem         render.MemJSON    `json:"mem"`
 	CPU         render.CPUJSON    `json:"cpu"`
 	Swap        render.SwapJSON   `json:"swap"`
 	Disk        []render.DiskJSON `json:"disk"`
@@ -91,7 +92,7 @@ func (e *env) hostStatus(ctx context.Context, c auth.Client, raw json.RawMessage
 	h := snap.Host
 	out := hostStatusJSON{
 		CPUs: h.CPUs, MemTotalGB: round1(h.MemTotalGB), MemFreeGB: round1(h.MemFreeGB),
-		CPU: render.NewCPUJSON(snap), Swap: render.NewSwapJSON(snap), Disk: render.NewDiskJSON(snap),
+		Mem: render.NewMemJSON(snap), CPU: render.NewCPUJSON(snap), Swap: render.NewSwapJSON(snap), Disk: render.NewDiskJSON(snap),
 		TmuxSession: snap.TmuxSession, Agents: countAgents(snap.Panes), Uptime: formatUptime(h.Uptime),
 		Usage: render.NewUsageJSON(snap), Omp: render.NewOmpJSON(snap), Update: render.NewUpdateJSON(snap),
 	}

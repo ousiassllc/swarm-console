@@ -180,3 +180,72 @@ func TestParseUsageKeepsEveryReportedAccount(t *testing.T) {
 		t.Fatalf("不正な枠の名前は出さない: %+v", u.Cursor)
 	}
 }
+
+// accountsWithoutUsage のアカウントは without_usage、メールが空のアカウントは no_email、ふつうのアカウントは空。
+// 両方に当てはまるときは without_usage が勝つ（decisions.md P-94）。Cursor も同じ。
+func TestParseUsageReason(t *testing.T) {
+	u, err := ParseUsage([]byte(`{"reports":[
+	 {"provider":"anthropic","metadata":{"email":"user@ok.example"},"limits":[]},
+	 {"provider":"anthropic","metadata":{},"limits":[]},
+	 {"provider":"openai-codex","metadata":{"email":"user@cx.example"},"limits":[]},
+	 {"provider":"cursor","metadata":{},"limits":[]}],
+	 "accountsWithoutUsage":[
+	  {"provider":"anthropic","metadata":{"email":"user@lost.example"}},
+	  {"provider":"anthropic","metadata":{"email":"user@ok.example"}},
+	  {"provider":"openai-codex","metadata":{}},
+	  {"provider":"cursor","metadata":{"email":"user@cur.example"}}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, a := range u.Claude {
+		got["claude/"+a.Name] = a.Reason
+	}
+	for _, a := range u.Codex {
+		got["codex/"+a.Name] = a.Reason
+	}
+	for _, c := range u.Cursor {
+		got["cursor/"+c.Name] = c.Reason
+	}
+	want := map[string]string{
+		"claude/ok":        "",                  // ふつう（accountsWithoutUsage に同じものがあっても reports 側が勝つ）
+		"claude/account-1": AccountNoEmail,      // メールが空
+		"claude/lost":      AccountWithoutUsage, // accountsWithoutUsage から来た
+		"codex/cx":         "",
+		"codex/account-1":  AccountWithoutUsage, // メールが空かつ accountsWithoutUsage → without_usage が勝つ
+		"cursor/account-1": AccountNoEmail,
+		"cursor/cur":       AccountWithoutUsage,
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) { // fmt は map をキー順に出す
+		t.Fatalf("reason\n got %v\nwant %v", got, want)
+	}
+}
+
+// 録った出力の通常のアカウントは reason が空。理由の文字列（値）にメールなどは入らない。
+func TestParseUsageReasonValuesAreFixed(t *testing.T) {
+	for _, name := range []string{"usage_ok.json", "usage_without.json"} {
+		u, err := ParseUsage(readFixture(t, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var reasons []string
+		for _, a := range append(append([]Account{}, u.Claude...), u.Codex...) {
+			reasons = append(reasons, a.Reason)
+		}
+		for _, c := range u.Cursor {
+			reasons = append(reasons, c.Reason)
+		}
+		for _, r := range reasons {
+			if r != "" && r != AccountWithoutUsage && r != AccountNoEmail {
+				t.Errorf("%s: 決まった値以外: %q", name, r)
+			}
+		}
+	}
+	u, err := ParseUsage(readFixture(t, "usage_without.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Claude[0].Reason != "" || u.Claude[1].Reason != AccountWithoutUsage {
+		t.Errorf("usage_without.json: acct-a は空・acct-b は without_usage: %+v", u.Claude)
+	}
+}

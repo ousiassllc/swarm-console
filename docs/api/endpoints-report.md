@@ -16,7 +16,7 @@
 | `lang` | string | 任意 | `ja`（既定、`default_lang` で変更）・`en` |
 
 - `markdown`：`content[0].text` に機能要件 §5.3 の markdown 本文を入れる（他のキーは足さない）。ツールの説明に「返った markdown に手を加えずそのまま表示する」と書く。
-- `json`：`panes_status` と同じ構造に、要対応の一覧と、足した値（使用状況・CPU・スワップ・ディスク・更新確認・ログイン期限）を入れる。言語に依存しない。値は全部スナップショットに入った値（FR-REP-10）。
+- `json`：`panes_status` と同じ構造に、要対応の一覧と、足した値（使用状況・メモリ・CPU・スワップ・ディスク・更新確認・ログイン期限）を入れる。言語に依存しない。値は全部スナップショットに入った値（FR-REP-10）。
 - `session`：`panes`・`layout`・`attention` のペインの項目・`warnings` を、決まったセッションだけに絞る（`pos` はセッション内の位置。`report_waiting` の `detail` のパスのファイル名は全体の位置から付く。§4.1）。`host`・`usage`・`omp`・`update`・`auth` と、ログインの要対応（`auth_expired`・`auth_expiring`）は絞らず全体の値を入れる。markdown も同じ（ペインの表・要対応のペインの項目・警告だけがそのセッション。見出し・使用状況は全体）。`pane` と一緒に指定したときは、`pane` をそのセッションの中で解決する（§4.1）。許可セッションが 2 つ以上のトークンが `session` を省略すると `session_required`。
 
 ```json
@@ -24,6 +24,7 @@
   "at": "2026-10-31T22:10:05+09:00",
   "host": {
     "load1": 98.2, "mem_free_gb": 41.3,
+    "mem": {"available": true, "total_gb": 128.0, "used_gb": 86.7, "used_percent": 68},
     "cpu": {"available": true, "used_percent": 42},
     "swap": {"available": true, "total_gb": 8.0, "used_gb": 0.4, "used_percent": 5},
     "disk": [
@@ -43,18 +44,21 @@
   "usage": {
     "status": "ok", "reason": null, "fetched_at": "2026-10-31T22:09:30+09:00",
     "claude": [
-      {"account": "acct-a",
+      {"account": "acct-a", "reason": null,
        "five_hour": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null},
-       "seven_day": {"available": true, "used": 48, "unit": "percent", "status": "ok", "resets_at": "2026-11-01T07:00:00+09:00"}}
+       "seven_day": {"available": true, "used": 48, "unit": "percent", "status": "ok", "resets_at": "2026-11-01T07:00:00+09:00"}},
+      {"account": "acct-b", "reason": "without_usage",
+       "five_hour": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null},
+       "seven_day": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null}}
     ],
     "cursor": [
-      {"account": "acct-a", "window": "monthly",
+      {"account": "acct-a", "reason": null, "window": "monthly",
        "models": {"available": true, "used": 0.0, "unit": "percent", "status": "ok", "resets_at": "2026-12-01T09:00:00+09:00"}},
-      {"account": "acct-b", "window": "weekly",
+      {"account": "acct-b", "reason": null, "window": "weekly",
        "models": {"available": true, "used": 0.0, "unit": "usd", "status": "ok", "resets_at": "2026-11-02T09:00:00+09:00"}}
     ],
     "codex": [
-      {"account": "acct-a",
+      {"account": "acct-a", "reason": null,
        "five_hour": {"available": true, "used": 0.0, "unit": "percent", "status": "ok", "resets_at": "2026-11-02T03:09:00+09:00"},
        "seven_day": {"available": true, "used": 2.0, "unit": "percent", "status": "ok", "resets_at": "2026-11-04T09:00:00+09:00"}}
     ]
@@ -74,10 +78,11 @@
 
 #### 足した値の形
 
-`host.cpu`・`host.swap`・`host.disk[]`・`usage`・`omp`・`update` は `report` の JSON と `host_status` で共通（`host_status` では `host.` を付けず、`cpu`・`swap`・`disk` として直下に返す。FR-REP-17）。`auth`・`attention[]` は `report` の JSON だけで、`host_status` は返さない（ログイン期限は `agent_auth_status`）。
+`host.mem`・`host.cpu`・`host.swap`・`host.disk[]`・`usage`・`omp`・`update` は `report` の JSON と `host_status` で共通（`host_status` では `host.` を付けず、`mem`・`cpu`・`swap`・`disk` として直下に返す。FR-REP-17）。`auth`・`attention[]` は `report` の JSON だけで、`host_status` は返さない（ログイン期限は `agent_auth_status`）。
 
 | キー | 形 | 取れないとき |
 |------|-----|-------------|
+| `host.mem` | `{available, total_gb, used_gb, used_percent}`（GB は小数 1 位、率は整数）。`used_gb` は `MemTotal − MemAvailable`、`used_percent` は `100 × used ÷ total` の整数。`host.mem_free_gb`（`MemAvailable`）は互換のため今までどおり返す（`used_gb + mem_free_gb ≒ total_gb`）。取り方は [report-values.md §3](../architecture/report-values.md#3-サーバー負荷issue-23) | `available: false`・数値は `null`（`/proc/meminfo` を読めず、スナップショットの `host` がゼロ値のままのとき・`MemTotal` が 0 以下のとき。`mem_free_gb` は `0`） |
 | `host.cpu` | `{available, used_percent}`（整数 0〜100） | `{"available": false, "used_percent": null}`（起動後の最初のサンプルなど。取り方は [report-values.md §3](../architecture/report-values.md#3-サーバー負荷issue-23)） |
 | `host.swap` | `{available, total_gb, used_gb, used_percent}`（GB は小数 1 位、率は整数）。スワップ無しは `total_gb: 0`・`used_percent: 0` | `available: false`・数値は `null` |
 | `host.disk[]` | 既存の `mount`・`free_gb` に `available`・`total_gb`・`used_percent`（整数）を足す。要素は `disk_mounts` の順 | そのマウントを残し `available: false`・数値は `null` |
@@ -98,10 +103,11 @@
 | `status` | `ok`（最後の取得が成功）・`stale`（最後の取得が失敗、前の成功分を残す）・`unavailable`（成功が一度も無い。アカウントは空）・`pending`（起動後まだ取得していない。アカウントは空）・`disabled`（`usage_check = false`。アカウントは空） |
 | `reason` | `stale`・`unavailable` のとき `not_found`・`timeout`・`exec`・`parse`。それ以外は `null` |
 | `fetched_at` | 最後に成功した取得の時刻（RFC 3339）。成功が無ければ `null` |
-| `claude[]` | `account`・`five_hour`・`seven_day`。`omp` が返した Claude のアカウントを全部出す（`account` の昇順） |
-| `cursor[]` | `account`・`window`（`monthly`・`weekly` など。枠が無ければ `null`）・`models` |
-| `codex[]` | `account`・`five_hour`・`seven_day` |
+| `claude[]` | `account`・`reason`・`five_hour`・`seven_day`。`omp` が返した Claude のアカウントを全部出す（`account` の昇順） |
+| `cursor[]` | `account`・`reason`・`window`（`monthly`・`weekly` など。枠が無ければ `null`）・`models` |
+| `codex[]` | `account`・`reason`・`five_hour`・`seven_day` |
 | 枠（`five_hour` など） | `available`・`used`（小数 1 位）・`unit`（`percent`・`usd`）・`status`（`ok`・`exhausted`・`unknown`）・`resets_at`（RFC 3339。無ければ `null`）。取れない枠は `available: false` で残り、ほかは `null` |
+| `reason`（アカウントごと） | そのアカウントの値が取れない・名前が作れない理由。文字列の決まった値だけ：`without_usage`（`omp` の `accountsWithoutUsage` から来たアカウント。2 枠とも取得できず）・`no_email`（メールが空で、名前を `account-N` にしたアカウント）。どちらでもなければ `null`。両方に当てはまるときは `without_usage`。メール・`accountId`・`orgId`・`omp` の出力の文面は入れない（FR-REP-18）。読み手は知らない値を「取得できません」と扱う（値は将来足すことがある）。markdown には出さない。`host_status.usage` も同じ |
 
 `omp` のキー：`status`（`up_to_date`・`update_available`・`unknown`・`pending`・`disabled`）、`current`・`latest`（`X.Y.Z` の形に合うものだけ。無ければ `null`）、`reason`（`unknown` のとき `not_found`・`timeout`・`exec`・`parse`、ほかは `null`）、`checked_at`（最後に確認した時刻。まだなら `null`）。
 
