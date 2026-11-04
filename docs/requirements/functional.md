@@ -189,6 +189,7 @@ stateDiagram-v2
 | FR-O6 | `dispatch` | 指示を中身と条件に分けて受け取り、決まった形の指示文に組み立てて送る（§7）。送った指示文の全文を返す | `shell`（→ `pane_start` してから）・`idle` | `invalid_state`（`working`・`asking` ほか）|
 | FR-O7 | `note_set` | 渡した項目だけ書き換える。`null` でその項目を消す | — | `secret_detected`・`invalid_args` |
 | FR-O8 | `note_log` | 出来事を時刻つきで 1 行足す。直近 50 行を残す | — | `secret_detected`・`invalid_args` |
+| FR-O9 | `file_get` | サーバー上の画像・動画（png・jpg・jpeg・webp・gif・mp4）を 1 つ、`path`・`mime`・`size`・`sha256`・`data_base64` で返す（ompが撮ったスクショ・動画を scp なしで取る。ペインには何も送らない）。取れるのは、触れるセッションのペインの `cwd` の下・`report_dir` の下・`file_get_roots` の下の実パスだけ（ペインの `cwd` が `/` かホームそのものなら、その `cwd` は許可に入れない。`file_get_roots`・`report_dir` に明示したものはそのまま許可）。秘密に見えるファイル（`.env`・`*.pem`・`*.key`・`id_*`・`config.toml`・`tokens.toml` ほか）、中身が拡張子の形式と合わないもの、上限（`file_get_max_bytes` 既定 20 MiB）超えは断る。P-91。API 仕様 §5.2 | —（ペインの状態は見ない） | `path_forbidden`・`not_found`・`unsupported_type`・`too_large`・`invalid_args` |
 
 共通要件：
 
@@ -223,3 +224,5 @@ stateDiagram-v2
 | 1.17 | 2026-11-02 | FR-R4：最終報告ファイル名の規則を、位置の `:` だけでなく `/`・`\` も `_` にする（実装の `reportBase` と同じ）と直し、例 `a/b:T1` → `a_b_T1.md` を足した。コード・設定は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
 | 1.18 | 2026-11-02 | §2.1 セッションの許可と解決（FR-SESS-1〜14）を追加し、FR-POS-1・6・7 を改訂、FR-POS-9・FR-R10（`sessions_list`）・UC11・UC12 を追加、FR-R1・FR-O3・UC1・UC7 を改訂。functional-report.md：FR-REP-4 を改訂、FR-REP-19（`report` の `session`）・AC-7 を追加、FR-DIS-1 に `session`。functional-note.md：FR-NOTE-12・FR-SAFE-10 を追加、FR-SAFE-8 を改訂。non-functional.md は 1.12（NFR-SEC-3・12）。`session` 引数・トークンごとの許可セッション・セッション内の位置・`warnings` の絞り込み・resources の許可を定めた。`panes_status` の `session` 省略（全セッション）は FR-SESS-5 の規則に置き換わる | セッション分割運用（許可セッションの分離） |
 | 1.19 | 2026-11-03 | functional-note.md：FR-NOTE-2 にメモの項目 `origin`（`user`・`agent`）と `started_by` を追加、FR-NOTE-3 に要約への追加と markdown の `🤖 <started_by>発` の印・`note_history` の絞り込みを追記。functional-report.md：FR-REP-6 に印は言語によらず固定と追記、表の例を更新。FR-R8 に絞り込みの項目を追記。`from` の意味・絞り込みと `/report` の読み取り専用（FR-SAFE-6）は変えない | Issue #80 |
+| 1.20 | 2026-11-03 | §4.2 に FR-O9 `file_get`（`/ops` のみ。許可リスト内の画像・動画を base64 で返す。P-91）を追加。FR-SAFE-6（`/report` に出さない）は変えない | Issue #82 |
+| 1.21 | 2026-11-04 | FR-O9・functional-note.md FR-SAFE-11：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れない（明示した `file_get_roots`・`report_dir` はそのまま許可。P-91） | Issue #82 |

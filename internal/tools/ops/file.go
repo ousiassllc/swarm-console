@@ -1,0 +1,215 @@
+package ops
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"syscall"
+
+	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/safety"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
+)
+
+// 取得できる種類。拡張子（小文字）→ MIME。中身の先頭バイトも同じ MIME でなければ断る。
+var fileGetMIME = map[string]string{
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+	".webp": "image/webp", ".gif": "image/gif", ".mp4": "video/mp4",
+}
+
+type fileGetArgs struct {
+	Path *string `json:"path"`
+}
+
+type fileGetJSON struct {
+	Path       string `json:"path"`
+	MIME       string `json:"mime"`
+	Size       int64  `json:"size"`
+	SHA256     string `json:"sha256"`
+	DataBase64 string `json:"data_base64"`
+}
+
+func (e *env) fileGetTool() toolkit.Tool {
+	return toolkit.Tool{
+		Name:        "file_get",
+		Description: descFileGet,
+		Scope:       toolkit.ScopeOps,
+		Schema: toolkit.Object([]string{"path"}, toolkit.Props{
+			"path": toolkit.StrProp("サーバー上のファイルの絶対パス（png・jpg・jpeg・webp・gif・mp4。ペインの cwd の下・レポート置き場・設定で足した根の下だけ）"),
+		}),
+		Handler: e.fileGet,
+	}
+}
+
+func (e *env) fileGet(ctx context.Context, c auth.Client, raw json.RawMessage) (toolkit.Result, error) {
+	var a fileGetArgs
+	if err := toolkit.DecodeArgs(raw, &a); err != nil {
+		return toolkit.Result{}, err
+	}
+	path, err := toolkit.RequireStr(a.Path, "path")
+	if err != nil {
+		return toolkit.Result{}, err
+	}
+	au := toolkit.AuditOf(ctx)
+	au.SetPath(path)
+	return e.readMedia(ctx, c, au, path)
+}
+
+// readMedia は path の検証・読み取り・種類の確認をして file_get の結果にする。
+// 順序: 許可・秘密（CheckFileGet）→ 拡張子 → 通常ファイルか → サイズ → 読み取り → 先頭バイト。
+func (e *env) readMedia(ctx context.Context, c auth.Client, au *toolkit.Audit, path string) (toolkit.Result, error) {
+	roots, err := e.fileGetRoots(ctx, c)
+	if err != nil {
+		return toolkit.Result{}, err
+	}
+	resolved, err := e.Safety.CheckFileGet(path, roots)
+	if err != nil {
+		return toolkit.Result{}, apperr.As(err)
+	}
+	au.SetPath(resolved)
+	want, ok := fileGetMIME[strings.ToLower(filepath.Ext(resolved))]
+	if !ok {
+		return toolkit.Result{}, apperr.New(apperr.UnsupportedType, "reason", "extension")
+	}
+	data, err := e.readBounded(au, resolved, want)
+	if err != nil {
+		return toolkit.Result{}, err
+	}
+	sum := sha256.Sum256(data)
+	return toolkit.MarshalResult(fileGetJSON{
+		Path: resolved, MIME: want, Size: int64(len(data)),
+		SHA256: hex.EncodeToString(sum[:]), DataBase64: base64.StdEncoding.EncodeToString(data),
+	})
+}
+
+// fileGetRoots は file_get が読んでよい根。c が触れるセッションのペインの cwd・レポート置き場・設定の file_get_roots。
+// ペインの cwd が / やホームそのもの（実パスで判定）のときは根に入れない。明示の根（レポート置き場・file_get_roots）はそのまま。
+func (e *env) fileGetRoots(ctx context.Context, c auth.Client) ([]string, error) {
+	snap, err := e.Registry.Current(ctx)
+	if err != nil {
+		return nil, apperr.Wrap(apperr.Internal, err)
+	}
+	roots := append([]string{e.Cfg.ReportDir}, e.Cfg.FileGetRoots...)
+	home, _ := os.UserHomeDir() // 取れなければ "" のままで、"/" だけを除く
+	allowed := e.Allowed(c)
+	for i := range snap.Panes {
+		p := &snap.Panes[i]
+		if slices.Contains(allowed, p.Session) && filepath.IsAbs(p.Cwd) && !slices.Contains(roots, p.Cwd) &&
+			!safety.IsBroadCWD(p.Cwd, home) {
+			roots = append(roots, p.Cwd)
+		}
+	}
+	return roots, nil
+}
+
+// sniffLen は sniffMIME が見る先頭バイト数。
+const sniffLen = 12
+
+// readBounded は通常ファイルを上限以内で全部読む。stat で先に判定し、先頭 12 バイトが want の形式でなければ
+// 残りを読まずに unsupported_type（content）にする。残りは stat のサイズ＋1 バイトの 1 つのバッファへ読む
+// （stat のあとに大きくされたときは、上限＋1 バイトまでだけ読み足す）。
+// 通常ファイル以外（ディレクトリ・FIFO・デバイス）は unsupported_type。
+// 監査ログのサイズは、stat で上限超えのときは stat のサイズ、読み終えたときは読んだ長さ。stat のあとに大きくされて
+// 上限を超えたときは、実際のサイズが分からないので記録しない。
+func (e *env) readBounded(au *toolkit.Audit, resolved, want string) ([]byte, error) {
+	limit := e.Cfg.FileGetMaxBytes
+	if st, err := os.Lstat(resolved); err != nil {
+		return nil, openError(err)
+	} else if !st.Mode().IsRegular() {
+		return nil, apperr.New(apperr.UnsupportedType, "reason", "not_regular")
+	}
+	hooks := e.FileGet
+	if hooks != nil && hooks.BeforeOpen != nil {
+		hooks.BeforeOpen(resolved)
+	}
+	// O_NONBLOCK: 検証後に FIFO へ差し替えられても open で固まらない。O_NOFOLLOW: 検証後のリンク差し替えを拒否。
+	f, err := os.OpenFile(resolved, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0) //nolint:gosec // CheckFileGet 済みの実パス
+	if err != nil {
+		return nil, openError(err)
+	}
+	defer func() { _ = f.Close() }()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, apperr.Wrap(apperr.Internal, err)
+	}
+	if !st.Mode().IsRegular() {
+		return nil, apperr.New(apperr.UnsupportedType, "reason", "not_regular")
+	}
+	if err := safety.CheckOpened(f, resolved); err != nil {
+		return nil, apperr.As(err)
+	}
+	if st.Size() > limit {
+		au.SetSize(st.Size())
+		return nil, apperr.New(apperr.TooLarge, "max", limit)
+	}
+	var r io.Reader = f
+	if hooks != nil && hooks.WrapReader != nil {
+		r = hooks.WrapReader(r)
+	}
+	var head [sniffLen]byte // 形式が合うと分かるまで、大きなバッファは確保しない
+	n, err := io.ReadFull(r, head[:])
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+		return nil, apperr.Wrap(apperr.Internal, err)
+	}
+	if sniffMIME(head[:n]) != want {
+		au.SetSize(st.Size())
+		return nil, apperr.New(apperr.UnsupportedType, "reason", "content")
+	}
+	buf := make([]byte, max(st.Size()+1, int64(n)))
+	copy(buf, head[:n])
+	m, err := io.ReadFull(r, buf[n:])
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+		return nil, apperr.Wrap(apperr.Internal, err)
+	}
+	data := buf[:n+m]
+	if len(data) == len(buf) { // stat のあとに大きくされた。上限＋1 バイトまで読み足す
+		more, err := io.ReadAll(io.LimitReader(r, limit+1-int64(len(data))))
+		if err != nil {
+			return nil, apperr.Wrap(apperr.Internal, err)
+		}
+		data = append(data, more...)
+	}
+	if int64(len(data)) > limit {
+		return nil, apperr.New(apperr.TooLarge, "max", limit)
+	}
+	au.SetSize(int64(len(data)))
+	return data, nil
+}
+
+// openError は検証後に起きた open・stat の失敗を API のコードにする。
+func openError(err error) error {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return apperr.New(apperr.NotFound, "field", "path")
+	case errors.Is(err, syscall.ELOOP), errors.Is(err, os.ErrPermission):
+		return apperr.New(apperr.PathForbidden, "field", "path", "reason", "unreadable")
+	}
+	return apperr.Wrap(apperr.Internal, err)
+}
+
+// sniffMIME は先頭バイトから MIME を決める（PNG・JPEG・WebP・GIF・MP4）。当てはまらなければ ""。
+func sniffMIME(b []byte) string {
+	switch {
+	case bytes.HasPrefix(b, []byte("\x89PNG\r\n\x1a\n")):
+		return "image/png"
+	case bytes.HasPrefix(b, []byte{0xFF, 0xD8, 0xFF}):
+		return "image/jpeg"
+	case bytes.HasPrefix(b, []byte("GIF87a")), bytes.HasPrefix(b, []byte("GIF89a")):
+		return "image/gif"
+	case len(b) >= 12 && bytes.Equal(b[:4], []byte("RIFF")) && bytes.Equal(b[8:12], []byte("WEBP")):
+		return "image/webp"
+	case len(b) >= 12 && bytes.Equal(b[4:8], []byte("ftyp")):
+		return "video/mp4"
+	}
+	return ""
+}

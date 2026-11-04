@@ -31,11 +31,12 @@
 | NFR-SEC-9 | 送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。Esc は `send_escape`（`confirm: true` 必須・`/ops` のみ） |
 | NFR-SEC-10 | `/report` に操作のツールを出さない（`tools/list` にも載らない）。`/report` からは書き込み（メモを含む）ができない |
 | NFR-SEC-11 | メモに秘密に見える文字列（`ghp_`・`sk-`・`eyJ`・PEM など）が入る書き込みは拒否し、拒否した値をログ・応答に出さない |
-| NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・どの `session` 引数で（任意。40 字まで。FR-SESS-13）・結果コード」だけを記録する。送った本文・トークン・メモの内容は記録しない |
+| NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・どの `session` 引数で（任意。40 字まで。FR-SESS-13）・結果コード」だけを記録する。`file_get` は取得先のパス（実パス。入力のままのこともある）とサイズも記録する。送った本文・トークン・メモの内容・`file_get` で返したファイルの中身（base64 を含む）は記録しない |
 | NFR-SEC-13 | 受け付けるリクエスト本文は 256 KiB まで。超えたら 413 |
 | NFR-SEC-14 | 設定・メモ・トークン・バイナリの置き場以外へ書き込まない。書き込み先は `~/.config/swarm-console`・`~/.local/share/swarm-console`・`/tmp/swarm-console` と、自己更新のための `~/bin/swarm-console/` の決まった 5 ファイルだけ（`swarm-console`・`swarm-console.new`・`swarm-console.old`・`swarm-console.update-pending`・`swarm-console.update-failed`。NFR-SEC-16）。`~/dotfiles` には触らない |
 | NFR-SEC-15 | 新しい版の確認と自己更新（FR-UPD）のための外向き通信は、確認の `https://api.github.com/repos/ousiassllc/swarm-console/releases/latest` への認証なしの GET 1 本と、更新のダウンロード（`https://github.com/ousiassllc/swarm-console/releases/download/<tag>/…` の 2 ファイルと、そのリダイレクト先の `objects.githubusercontent.com`・`release-assets.githubusercontent.com`）だけ。どちらも認証なしで、トークン・設定の値・ペインの内容を送らない（送るのは `User-Agent: swarm-console/<版>` まで）。リダイレクトは許可リスト内の `https` だけ。待ち受け（NFR-SEC-1・2）の方針は変えない。GitHub が返した文字列は、`vX.Y.Z` の形に合うときだけ応答・表示・URL の組み立てに使う |
 | NFR-SEC-16 | 自己更新は新しいバイナリを入れ替える前に実行せず、`systemctl` などのコマンドも実行しない（NFR-SEC-7 のまま）。再起動は自分で正常終了して systemd に任せる。入れ替えるのは、`SHA256SUMS` のハッシュが一致した、linux/amd64 の、現在より新しい版だけ。`os.Executable()` が `$HOME/bin/swarm-console/swarm-console` でない（シンボリックリンク・別の場所）なら入れ替えない。検証がハッシュだけである限界は機能要件 §12.5 に明記する |
+| NFR-SEC-17 | `file_get` は取れるパスを許可リスト（触れるセッションのペインの `cwd`・`report_dir`・`file_get_roots`）の実パスの下だけにし（ペインの `cwd` が `/` かホームそのものなら、その `cwd` は許可に入れない。実パスで判定し、シンボリックリンク経由も同じ。明示した `file_get_roots`・`report_dir` はそのまま許可）、`..`・シンボリックリンクでの外し抜け（宛先が存在しないリンク・循環でも、外のパスの存在の有無を判別させない）・秘密のファイル名（`.env`・`*.pem`・`*.key`・`id_*`・設定ファイル）・画像／動画でない中身（先頭 12 バイトで見分け、違えば残りを読まない）・上限超えを断る（P-91）。開いた fd の実パスを `/proc/self/fd` で確かめるため、**Linux の `/proc/self/fd` が必須**（読めなければ `internal`。確認を飛ばして読まない）。同時実行は制限しない。`/ops` のみで、`/report` には出さない（NFR-SEC-10） |
 
 ## 3. 可用性・信頼性
 
@@ -129,3 +130,6 @@
 | 1.10 | 2026-11-02 | NFR-TEST-8 の CI のステップ一覧に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
 | 1.11 | 2026-11-02 | NFR-SEC-1：tailnet の IP は 48120 以外のポートを起動拒否にし、ループバックだけどのポートでもよいと明記（P-73）。NFR-SEC-7：許可サブコマンドに `delete-buffer`（自分が作った一意名のバッファの後始末だけ）を追加（P-71）。NFR-PERF-3：「よくある入力での目標」と明記し、前提と単位（バイト）を書いた（P-74。実装は変えない） | Issue #72・#57・#71 |
 | 1.12 | 2026-11-02 | NFR-SEC-3：トークンに触れる tmux セッション（許可セッション）を付けられ、許可外は `session_forbidden`。NFR-SEC-12：監査ログに任意の `session` を足した（FR-SESS） | セッション分割運用（許可セッションの分離） |
+| 1.13 | 2026-11-03 | NFR-SEC-12：`file_get` のパスとサイズを監査ログに足し、ファイルの中身は残さないと明記。NFR-SEC-17（`file_get` の許可リスト・秘密・上限）を追加 | Issue #82 |
+| 1.14 | 2026-11-04 | NFR-SEC-17：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れないと追記（P-91） | Issue #82 |
+| 1.15 | 2026-11-04 | NFR-SEC-17：宛先が存在しないリンク・循環でも外のパスの存在を判別させない、先頭 12 バイトで種類を見分けて違えば残りを読まない、Linux の `/proc/self/fd` が必須（読めなければ `internal`）、同時実行は制限しないと追記 | Issue #82（PR #84 の独立レビューの指摘） |

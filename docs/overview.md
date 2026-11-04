@@ -23,7 +23,7 @@ tmux の中で動く AI コーディングエージェント（omp・Claude Code
 
 - MCP（Streamable HTTP）サーバー。窓口は `/report`（見るだけ）と `/ops`（見る＋操作）の 2 つ、ポート 48120（tailnet IP のみで待ち受け）
 - 3 つのエージェント（omp・Claude Code・Codex）のアダプタ。画面から状態・質問カード・活動を判定する
-- ツール 18 個：見る 10（`report`・`sessions_list`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`）と操作 8（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`）
+- ツール 19 個：見る 10（`report`・`sessions_list`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`）と操作 9（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`・`file_get`）
 - ペインごとのメモと閉じたペインの履歴（JSON ファイル）
 - サーバー側で組み立てる `report`（日本語・英語の markdown）と `dispatch`（条件のひな形つき指示文）
 - MCP の prompts（`report`・`dispatch`）と resources（`swarm://report`・`swarm://pane/<位置>`・`swarm://notes/<位置>`）
@@ -96,7 +96,7 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | `docs/requirements/functional.md` | ユースケース、ペイン位置、セッションの許可と解決（FR-SESS）、状態遷移、機能一覧（18 ツール） |
+| 機能要件 | `docs/requirements/functional.md` | ユースケース、ペイン位置、セッションの許可と解決（FR-SESS）、状態遷移、機能一覧（19 ツール） |
 | 機能要件：レポート・質問カード・指示 | `docs/requirements/functional-report.md` | レポート、質問カードの操作、指示文の組み立て、受け入れ確認 |
 | 機能要件：メモ・安全・設定 | `docs/requirements/functional-note.md` | メモ、安全のための決まり、対話型の設定（`setup`） |
 | 機能要件：新しい版の確認と自己更新 | `docs/requirements/functional-update.md` | 新しい版の確認（`version --check`）と自己更新 |
@@ -112,7 +112,7 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | ER：tokens.toml・実行時のペイン状態 | `docs/architecture/er-runtime.md` | tokens.toml、実行時のペイン状態（メモリ） |
 | ER：config.toml・profiles.toml ほか | `docs/architecture/er-config.md` | config.toml、profiles.toml、最終報告ファイル、自己更新のファイル |
 | API 仕様 | `docs/api/endpoints.md` | 窓口・認証・エラー形式・共通の決まり |
-| API 仕様：ペインを見る・操作する | `docs/api/endpoints-pane.md` | `panes_status`・`pane_tail`・`ask_card`・`report_read`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`（`session` 引数付き） |
+| API 仕様：ペインを見る・操作する | `docs/api/endpoints-pane.md` | `panes_status`・`pane_tail`・`ask_card`・`report_read`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`file_get`（`session` 引数付き） |
 | API 仕様：サーバーの状態・メモ | `docs/api/endpoints-state.md` | `sessions_list`・`host_status`・`agent_auth_status`・`note_*` |
 | API 仕様：レポート・指示・prompts・上限 | `docs/api/endpoints-report.md` | `report`・`dispatch`・prompts・resources・上限一覧 |
 | コンポーネント設計 | `docs/components/overview.md` | Go パッケージ構成、アダプタ IF、責務、依存関係、テスト構成 |
@@ -160,3 +160,4 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | 1.4 | 2026-11-01 | ドキュメントマップに機能要件：インストール（`make install`）を追加 | Issue #18 |
 | 1.5 | 2026-11-02 | スコープの CI の説明に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
 | 1.6 | 2026-11-02 | ツール数 17→18（`sessions_list`）、トークンごとの許可セッション・2 セッション運用の概要・用語（許可セッション、位置）・ドキュメントマップを追加・更新 | セッション分割運用（許可セッションの分離） |
+| 1.7 | 2026-11-03 | ツール数 18→19（`file_get`。`/ops` のみ）、ドキュメントマップの API 仕様：ペインを見る・操作するに `file_get` を追加 | Issue #82 |

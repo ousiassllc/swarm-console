@@ -1,4 +1,4 @@
-package tools
+package toolkit
 
 import (
 	"bytes"
@@ -15,27 +15,27 @@ import (
 // fieldName は details.field に載せてよい引数名の形。クライアントが打った未知キーをそのまま返さないための絞り込み。
 var fieldName = regexp.MustCompile(`^[A-Za-z0-9_]{1,40}$`)
 
-// invalidArg は invalid_args（details.field に引数名だけ）を作る。field が "" なら details なし。
-func invalidArg(field string) *apperr.Error {
+// InvalidArg は invalid_args（details.field に引数名だけ）を作る。field が "" なら details なし。
+func InvalidArg(field string) *apperr.Error {
 	if field == "" {
 		return apperr.New(apperr.InvalidArgs)
 	}
 	return apperr.New(apperr.InvalidArgs, "field", field)
 }
 
-// decodeArgs は引数 JSON を v（構造体へのポインタ）へ厳密に読む。
+// DecodeArgs は引数 JSON を v（構造体へのポインタ）へ厳密に読む。
 // 未知のキー・型違い・オブジェクトでない値・後続のゴミは invalid_args。空・null は {} として扱う。
-func decodeArgs(raw json.RawMessage, v any) error {
+func DecodeArgs(raw json.RawMessage, v any) error {
 	if len(bytes.TrimSpace(raw)) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		raw = json.RawMessage("{}")
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
-		return invalidArg(fieldOf(err))
+		return InvalidArg(fieldOf(err))
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return invalidArg("")
+		return InvalidArg("")
 	}
 	return checkExactKeys(raw, v)
 }
@@ -45,7 +45,7 @@ func decodeArgs(raw json.RawMessage, v any) error {
 func checkExactKeys(raw json.RawMessage, v any) error {
 	var keys map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &keys); err != nil {
-		return invalidArg("")
+		return InvalidArg("")
 	}
 	t := reflect.TypeOf(v).Elem()
 	known := make(map[string]bool, t.NumField())
@@ -59,9 +59,9 @@ func checkExactKeys(raw json.RawMessage, v any) error {
 			continue
 		}
 		if fieldName.MatchString(k) {
-			return invalidArg(k)
+			return InvalidArg(k)
 		}
-		return invalidArg("")
+		return InvalidArg("")
 	}
 	return nil
 }
@@ -89,16 +89,16 @@ func fieldOf(err error) string {
 	return ""
 }
 
-// requireStr は必須の文字列引数（空文字も不可）を取り出す。無ければ invalid_args。
-func requireStr(p *string, field string) (string, error) {
+// RequireStr は必須の文字列引数（空文字も不可）を取り出す。無ければ invalid_args。
+func RequireStr(p *string, field string) (string, error) {
 	if p == nil || *p == "" {
-		return "", invalidArg(field)
+		return "", InvalidArg(field)
 	}
 	return *p, nil
 }
 
-// withField は err が *apperr.Error なら details.field を足して返す。
-func withField(err error, field string) error {
+// WithField は err が *apperr.Error なら details.field を足して返す。
+func WithField(err error, field string) error {
 	e := apperr.As(err)
 	if e.Details == nil {
 		e.Details = map[string]any{}

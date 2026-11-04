@@ -10,7 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ousiassllc/swarm-console/internal/render"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 // prompt の文面はサーバー側で固定（クライアントによらず同じ。API 仕様 §6.1）。
@@ -25,7 +25,7 @@ func (b *builder) addPrompts(s *mcp.Server) {
 		Name: "report", Description: "全ペインの状況を report ツールで取得して、そのまま表示する",
 		Arguments: []*mcp.PromptArgument{{Name: "lang", Description: "言語（ja・en）。省略は設定の既定"}},
 	}, b.reportPrompt)
-	if b.endpoint != tools.EndpointOps {
+	if b.endpoint != toolkit.EndpointOps {
 		return
 	}
 	s.AddPrompt(&mcp.Prompt{

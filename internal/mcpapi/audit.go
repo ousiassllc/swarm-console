@@ -12,10 +12,13 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
 const codeOK = "ok"
+
+// maxAuditPath は監査ログに残す file_get のパスの最大字数（クライアントが付けた文字列をそのまま残さない）。
+const maxAuditPath = 512
 
 // middleware は要求ごとに、窓口に出ていないツールの拒否・resources/list の動的な列挙・監査ログの記録を行う。
 func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
@@ -27,7 +30,11 @@ func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 		var (
 			res mcp.Result
 			err error
+			au  *toolkit.Audit
 		)
+		if method == "tools/call" {
+			ctx, au = toolkit.WithAudit(ctx)
+		}
 		switch {
 		case method == "tools/call" && !b.hasTool(name):
 			res = unknownToolResult()
@@ -40,6 +47,9 @@ func (b *builder) middleware(next mcp.MethodHandler) mcp.MethodHandler {
 		}
 		if b.o.Audit != nil {
 			ev.Client, _ = auth.FromContext(ctx)
+			if au != nil {
+				ev.Path, ev.Size, ev.HasSize = clip(au.Path, maxAuditPath), au.Size, au.HasSize
+			}
 			ev.Code, ev.Duration = codeOf(res, err), time.Since(start)
 			b.o.Audit(ctx, ev)
 		}
@@ -76,7 +86,7 @@ func (b *builder) auditTarget(method, name string) string {
 
 // hasPrompt は name がこの窓口に登録された prompt か（/report は report のみ、/ops は report と dispatch）。
 func (b *builder) hasPrompt(name string) bool {
-	return name == "report" || (name == "dispatch" && b.endpoint == tools.EndpointOps)
+	return name == "report" || (name == "dispatch" && b.endpoint == toolkit.EndpointOps)
 }
 
 // describe は要求からツール名・prompt 名・resource 種別と、pane・session（短く切ったもの）を取り出す。
@@ -131,7 +141,7 @@ func codeOf(res mcp.Result, err error) string {
 			}
 			return "jsonrpc_" + strconv.FormatInt(je.Code, 10)
 		}
-		return tools.ErrorCode(err)
+		return toolkit.ErrorCode(err)
 	}
 	if r, ok := res.(*mcp.CallToolResult); ok && r.IsError {
 		if len(r.Content) > 0 {

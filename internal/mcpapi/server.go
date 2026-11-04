@@ -12,9 +12,10 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
-// Event は監査ログ 1 件分（NFR-SEC-12）。送った本文・メモの内容・トークンは含めない。
+// Event は監査ログ 1 件分（NFR-SEC-12）。送った本文・メモの内容・トークン・file_get の中身（base64）は含めない。
 type Event struct {
 	Endpoint string        // /report | /ops
 	Client   auth.Client   // 認証済みクライアント（名前だけをログに出す）
@@ -22,6 +23,9 @@ type Event struct {
 	Target   string        // ツール名・prompt 名・resource 名（report|pane|notes）。無ければ ""
 	Pane     string        // 引数・URI の pane（位置または ID）。無ければ ""
 	Session  string        // 引数の session（送られたまま）。無ければ ""
+	Path     string        // file_get の取得先（実パス。解決前に断ったときは入力のまま）。それ以外は ""
+	Size     int64         // file_get のファイルサイズ（バイト）。HasSize が true のときだけ意味がある
+	HasSize  bool          // Size が分かっているか
 	Code     string        // "ok" またはエラーコード
 	Duration time.Duration // 所要時間
 }
@@ -36,10 +40,10 @@ type Options struct {
 }
 
 // NewReportServer は /report の MCP サーバー（見るツール 10・prompts は report のみ・resources は全部）。
-func NewReportServer(o Options) *mcp.Server { return newServer(tools.EndpointReport, o) }
+func NewReportServer(o Options) *mcp.Server { return newServer(toolkit.EndpointReport, o) }
 
-// NewOpsServer は /ops の MCP サーバー（見る 10 ＋ 操作 8 のツール・prompts は report と dispatch・resources は全部）。
-func NewOpsServer(o Options) *mcp.Server { return newServer(tools.EndpointOps, o) }
+// NewOpsServer は /ops の MCP サーバー（見る 10 ＋ 操作 9 のツール・prompts は report と dispatch・resources は全部）。
+func NewOpsServer(o Options) *mcp.Server { return newServer(toolkit.EndpointOps, o) }
 
 func newServer(endpoint string, o Options) *mcp.Server {
 	version := o.Version

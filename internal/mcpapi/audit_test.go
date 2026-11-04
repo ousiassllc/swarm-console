@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -97,5 +99,44 @@ func TestAuditTargetIsRegisteredNamesOnly(t *testing.T) {
 	want := []string{"tools/call:unknown", "prompts/get:unknown", "tools/call:host_status"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("監査対象 = %v, want %v", got, want)
+	}
+}
+
+// file_get の Event には取得先のパスとサイズが入る（tools/call 以外・サイズが分からない拒否には入らない）。
+func TestAuditEventCarriesFileGetPathAndSize(t *testing.T) {
+	f := toolstest.New(t)
+	path := filepath.Join(f.Cfg.ReportDir, "shot.png")
+	data := append([]byte("\x89PNG\r\n\x1a\n"), []byte("body")...)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rec := &recorder{}
+	cs := connect(t, f, rec)
+	if _, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "file_get", Arguments: map[string]any{"path": path}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "file_get", Arguments: map[string]any{"path": "/etc/passwd"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "host_status", Arguments: map[string]any{}}); err != nil {
+		t.Fatal(err)
+	}
+	var got []mcpapi.Event
+	for _, e := range rec.all() {
+		if e.Method == "tools/call" {
+			got = append(got, e)
+		}
+	}
+	if len(got) != 3 {
+		t.Fatalf("tools/call の記録 = %d", len(got))
+	}
+	if e := got[0]; e.Target != "file_get" || e.Code != "ok" || e.Path != path || !e.HasSize || e.Size != int64(len(data)) {
+		t.Errorf("成功 = %+v", e)
+	}
+	if e := got[1]; e.Code != "path_forbidden" || e.Path != "/etc/passwd" || e.HasSize {
+		t.Errorf("拒否 = %+v", e)
+	}
+	if e := got[2]; e.Path != "" || e.HasSize {
+		t.Errorf("ほかのツール = %+v", e)
 	}
 }

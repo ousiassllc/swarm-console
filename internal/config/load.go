@@ -56,6 +56,8 @@ type rawConfig struct {
 	AllowedRoots     []string                   `toml:"allowed_roots"`
 	DeniedPaths      []string                   `toml:"denied_paths"`
 	FileRoots        []string                   `toml:"file_roots"`
+	FileGetRoots     []string                   `toml:"file_get_roots"`
+	FileGetMaxBytes  *int64                     `toml:"file_get_max_bytes"`
 	DiskMounts       []string                   `toml:"disk_mounts"`
 	ReportDir        string                     `toml:"report_dir"`
 	PaneNames        map[string]string          `toml:"pane_names"`

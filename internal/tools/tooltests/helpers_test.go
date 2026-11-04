@@ -8,7 +8,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/notes"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
 
@@ -17,7 +17,7 @@ var testClient = auth.Client{Name: "tester", Scope: auth.ScopeOps}
 // call は /ops に出ているツール name を args で呼ぶ。
 func call(t *testing.T, f *toolstest.Fixture, name, args string) (string, error) {
 	t.Helper()
-	tool, ok := f.Tools.Lookup(tools.EndpointOps, name)
+	tool, ok := f.Tools.Lookup(toolkit.EndpointOps, name)
 	if !ok {
 		t.Fatalf("ツール %s がありません", name)
 	}

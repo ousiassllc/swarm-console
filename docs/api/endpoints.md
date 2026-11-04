@@ -26,9 +26,9 @@ swarm-console は MCP（Streamable HTTP、JSON-RPC）サーバー。このドキ
 | 窓口 | ツール | prompts | resources |
 |------|--------|---------|-----------|
 | `/report` | `report`・`sessions_list`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`（10） | `report` | 全部（読み取りのみ） |
-| `/ops` | 上の 10 ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`（計 18） | `report`・`dispatch` | 全部 |
+| `/ops` | 上の 10 ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`・`file_get`（計 19） | `report`・`dispatch` | 全部 |
 
-`/report` の `tools/list` には操作のツール（`/ops` だけの 8 つ）は載らない。`tools/call` で呼んでも `-32601`（Method not found）相当の `unknown_tool` で拒否する。
+`/report` の `tools/list` には操作のツール（`/ops` だけの 9 つ。`file_get` を含む）は載らない。`tools/call` で呼んでも `-32601`（Method not found）相当の `unknown_tool` で拒否する。`file_get` は `ops` スコープのトークンでも `/report` では呼べない（`/ops` で呼ぶ）。
 
 ### 1.2 curl からの呼び出し例
 
@@ -97,6 +97,7 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 |--------|------|--------------|
 | `unauthorized` | 認証なし・不一致・失効 | 全部（HTTP 401） |
 | `forbidden_scope` | 窓口とスコープが合わない | 全部（HTTP 403） |
+| `not_found` | HTTP では未知のパス（404）。ツールでは `file_get` の `path` が許可リストの中にあるのに存在しない | HTTP 404・`file_get` |
 | `unknown_tool` | その窓口に出ていないツール | `/report` で操作系 |
 | `invalid_args` | 引数の型・必須・未知のキー・値の範囲 | 全部 |
 | `pane_not_found` | `pane` を、決めたセッションの位置・ID に解決できない（別の許可外セッションのペインに当たるときは `session_forbidden`、許可内の別セッションなら `invalid_args`） | `pane` を取る全部 |
@@ -113,6 +114,9 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | `text_too_long` | 8000 字超 | `send_text`・`dispatch` |
 | `forbidden_path` | 許可外のフォルダ／ファイル | `pane_start`・`dispatch`・`send_text` |
 | `file_unreadable` | `file` が読めない・UTF-8 でない | `send_text` |
+| `path_forbidden` | `file_get` の `path` が取得を許可されていない（相対パス・`..` を含む・許可リストの外・秘密のファイル・`denied_paths`。ペインの `cwd` が `/` やホームそのものなら、その `cwd` の下は許可リストの外）。`details.reason` は `not_absolute`・`dotdot`・`outside_roots`・`secret`・`denied`・`unreadable`。許可リストの外は存在の有無によらずこのコード | `file_get` |
+| `unsupported_type` | `file_get` で取れる種類ではない。`details.reason` は `extension`（拡張子が png・jpg・jpeg・webp・gif・mp4 以外）・`content`（先頭バイトが拡張子の形式と合わない）・`not_regular`（ディレクトリ・FIFO・デバイスなど通常ファイルでない） | `file_get` |
+| `too_large` | `file_get` のファイルが `file_get_max_bytes`（既定 20 MiB）を超える。`details.max` は上限（バイト） | `file_get` |
 | `secret_detected` | 秘密に見える文字列（`details.field` に項目名だけ） | `note_set`・`note_log`・`dispatch` |
 | `busy_timeout` | 同じペインの前の操作が `lock_timeout` 内に終わらない | 操作系全部 |
 | `exit_timeout` | `pane_close` の終了コマンドを送ったあと、`accept_timeout` 内にペインが `shell` へ戻らない（`details.state` は最後に見た状態。`cd ~` 以降は送っていない） | `pane_close` |
@@ -174,3 +178,6 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.11 | 2026-11-02 | endpoints-report.md：指示文の `{report_path}` の `<位置>` は `:`・`/`・`\` を `_` にする（er-config §7 への参照を足した）。実装は変えない | Issue #74・#75（Issue #69 の仕様書側の追記） |
 | 1.12 | 2026-11-02 | §1：tailnet の IP の `listen_addr` は 48120 以外のポートを起動拒否（ループバックは任意のポート）。endpoints-pane.md：`panes_status`・`report`（json）の各ペインは、`activity` を 120 字で切ったときだけ `"truncated": true` を付ける（実装を仕様に合わせた） | Issue #72・#70 |
 | 1.13 | 2026-11-02 | トークンごとの許可セッションと `session` 引数（§4.1）、エラー `session_required`・`session_forbidden`（§3.2）、`sessions_list` の追加（ツール数 /report 9→10、/ops 17→18）。`panes_status` の `session` 省略は全セッションではなく §4.1 の規則に変更（許可セッションが 2 つ以上のトークンには破壊的変更）。endpoints-pane.md・endpoints-state.md・endpoints-report.md も同じ | セッション分割運用（許可セッションの分離） |
+| 1.14 | 2026-11-03 | `file_get`（`/ops` のみ。許可リスト内の画像・動画を base64 で返す）を追加（ツール数 /ops 18→19、/report は 10 のまま）。エラー `path_forbidden`・`unsupported_type`・`too_large`（§3.2。`not_found` は `file_get` の存在しないパスにも使う）。endpoints-pane.md §5.2・endpoints-report.md §7 も同じ | Issue #82 |
+| 1.15 | 2026-11-04 | `file_get` の許可リスト：ペインの `cwd` が `/` やホームそのもの（実パス）のときは、その `cwd` を根に入れない。明示した `file_get_roots`・`report_dir` はそのまま許可。外した `cwd` の下は `path_forbidden`（endpoints-pane.md §5.2、§3.2） | Issue #82 |
+| 1.16 | 2026-11-04 | `file_get`（endpoints-pane.md）：宛先が存在しないシンボリックリンク・循環は、宛先が外なら存在の有無によらず `outside_roots`（宛先が許可の中なら `not_found`）。先頭 12 バイトを先に読み、形式が違えば残りを読まず `unsupported_type`。同時実行は制限しないと明記。`/proc/self/fd` が読めないときは `internal`（Linux の `/proc` が必須）。監査ログの `size`：stat 後に肥大化して上限を超えたときは記録しない | Issue #82（PR #84 の独立レビューの指摘） |

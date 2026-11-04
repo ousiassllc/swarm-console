@@ -9,7 +9,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/pane"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
 
@@ -81,7 +81,7 @@ func TestDispatchPreflightSendsAndSavesNothing(t *testing.T) {
 		if c.field != "" && d["field"] != c.field {
 			t.Errorf("%s: details = %v", c.name, d)
 		}
-		if strings.Contains(tools.ErrorText(err), secret) {
+		if strings.Contains(toolkit.ErrorText(err), secret) {
 			t.Errorf("%s: エラー本文に秘密が出ています", c.name)
 		}
 	}

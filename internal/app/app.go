@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	_ "github.com/ousiassllc/swarm-console/internal/agent/allagents" // 組み込みアダプタの登録（FR-AD-4）
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/auth"
@@ -129,7 +130,7 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 	if err != nil {
 		return nil, err
 	}
-	registry, err := tools.New(tools.Deps{
+	registry, err := tools.New(toolkit.Deps{
 		Cfg: cfg, Registry: reg, Ops: ops.New(reg), Notes: store, Safety: policy, Host: hostReader,
 		Profiles: profiles, Templates: tpl, Clock: clk, Logger: logger,
 	})

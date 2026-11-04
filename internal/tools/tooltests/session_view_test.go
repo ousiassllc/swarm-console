@@ -12,7 +12,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/pane"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
 
@@ -48,7 +48,7 @@ func TestSessionsList(t *testing.T) {
 	if want := map[string]any{"id": "1", "allowed": false, "operable": false}; !reflect.DeepEqual(all[1], want) {
 		t.Errorf("スタブ = %v, want %v", all[1], want)
 	}
-	if text, _ := callAs(t, f, kana, tools.EndpointOps, "sessions_list", `{"all":true}`); strings.Contains(text, "secret") || strings.Contains(text, "%11") {
+	if text, _ := callAs(t, f, kana, toolkit.EndpointOps, "sessions_list", `{"all":true}`); strings.Contains(text, "secret") || strings.Contains(text, "%11") {
 		t.Errorf("許可外のペインの中身が出ています: %s", text)
 	}
 
@@ -73,9 +73,9 @@ func TestSessionsListOperable(t *testing.T) {
 		endpoint string
 		want     bool
 	}{
-		{"ops トークン・/ops", natsumi, tools.EndpointOps, true},
-		{"ops トークン・/report", natsumi, tools.EndpointReport, false},
-		{"report トークン・/report", viewer, tools.EndpointReport, false},
+		{"ops トークン・/ops", natsumi, toolkit.EndpointOps, true},
+		{"ops トークン・/report", natsumi, toolkit.EndpointReport, false},
+		{"report トークン・/report", viewer, toolkit.EndpointReport, false},
 	} {
 		text, err := callAs(t, f, c.client, c.endpoint, "sessions_list", `{}`)
 		if err != nil {
@@ -89,7 +89,7 @@ func TestSessionsListOperable(t *testing.T) {
 		}
 	}
 	// 窓口が分からない呼び出し（ctx に載っていない）は、操作できるとは言わない。
-	tool, _ := f.Tools.Lookup(tools.EndpointOps, "sessions_list")
+	tool, _ := f.Tools.Lookup(toolkit.EndpointOps, "sessions_list")
 	res, err := tool.Handler(context.Background(), natsumi, json.RawMessage(`{}`))
 	if err != nil || !strings.Contains(res.Text, `"operable":false`) {
 		t.Errorf("窓口なし: %s %v", res.Text, err)
@@ -146,7 +146,7 @@ func TestReportSessionScope(t *testing.T) {
 			t.Errorf("全体の項目が消えています: %v", m)
 		}
 	}
-	md, err := callAs(t, f, kana, tools.EndpointReport, "report", `{}`)
+	md, err := callAs(t, f, kana, toolkit.EndpointReport, "report", `{}`)
 	if err != nil || strings.Contains(md, "1:T") {
 		t.Errorf("kana の markdown に他セッションの位置が出ています: %v\n%s", err, md)
 	}
@@ -154,7 +154,7 @@ func TestReportSessionScope(t *testing.T) {
 	if e := errAs(t, f, kana, "report", `{"pane":"%12"}`); e.Code != apperr.SessionForbidden {
 		t.Errorf("許可外の pane: %s", e.Code)
 	}
-	if text, err := callAs(t, f, natsumi, tools.EndpointReport, "report", `{"pane":"T2"}`); err != nil || !strings.Contains(text, "%12") {
+	if text, err := callAs(t, f, natsumi, toolkit.EndpointReport, "report", `{"pane":"T2"}`); err != nil || !strings.Contains(text, "%12") {
 		t.Errorf("natsumi の T2 = %v %s", err, text)
 	}
 }
@@ -198,7 +198,7 @@ func TestSingleSessionKeepsWorkingWithoutSessionArg(t *testing.T) {
 		{"send_text", `{"pane":"B1","text":"x"}`}, {"send_escape", `{"pane":"B2","confirm":true}`},
 		{"pane_close", `{"pane":"B1"}`}, {"ask_pick", `{"pane":"T2","n":1}`},
 	} {
-		if _, err := callAs(t, f, boss, tools.EndpointOps, c.tool, c.args); err != nil {
+		if _, err := callAs(t, f, boss, toolkit.EndpointOps, c.tool, c.args); err != nil {
 			t.Errorf("%s(%s): %v", c.tool, c.args, err)
 		}
 	}
@@ -217,7 +217,7 @@ func TestSingleSessionKeepsWorkingWithoutSessionArg(t *testing.T) {
 func TestSessionPropOnPaneTools(t *testing.T) {
 	f := toolstest.New(t)
 	var withSession, without []string
-	for _, tl := range f.Tools.ForEndpoint(tools.EndpointOps) {
+	for _, tl := range f.Tools.ForEndpoint(toolkit.EndpointOps) {
 		props := tl.Schema.(map[string]any)["properties"].(map[string]any)
 		if _, ok := props["session"]; ok {
 			withSession = append(withSession, tl.Name)
@@ -226,7 +226,7 @@ func TestSessionPropOnPaneTools(t *testing.T) {
 		}
 	}
 	slices.Sort(without)
-	if want := []string{"agent_auth_status", "note_history", "sessions_list"}; !slices.Equal(without, want) {
+	if want := []string{"agent_auth_status", "file_get", "note_history", "sessions_list"}; !slices.Equal(without, want) {
 		t.Errorf("session 引数が無いツール = %v, want %v", without, want)
 	}
 	if len(withSession) != 15 {

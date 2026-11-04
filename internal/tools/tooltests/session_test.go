@@ -9,7 +9,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/host"
-	"github.com/ousiassllc/swarm-console/internal/tools"
+	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
 
@@ -27,13 +27,13 @@ func callAs(t *testing.T, f *toolstest.Fixture, c auth.Client, endpoint, name, a
 	if !ok {
 		t.Fatalf("%s にツール %s がありません", endpoint, name)
 	}
-	res, err := tool.Handler(tools.WithEndpoint(context.Background(), endpoint), c, json.RawMessage(args))
+	res, err := tool.Handler(toolkit.WithEndpoint(context.Background(), endpoint), c, json.RawMessage(args))
 	return res.Text, err
 }
 
 func mustAs(t *testing.T, f *toolstest.Fixture, c auth.Client, name, args string) map[string]any {
 	t.Helper()
-	text, err := callAs(t, f, c, tools.EndpointOps, name, args)
+	text, err := callAs(t, f, c, toolkit.EndpointOps, name, args)
 	if err != nil {
 		t.Fatalf("%s %s(%s): %v", c.Name, name, args, err)
 	}
@@ -46,7 +46,7 @@ func mustAs(t *testing.T, f *toolstest.Fixture, c auth.Client, name, args string
 
 func errAs(t *testing.T, f *toolstest.Fixture, c auth.Client, name, args string) *apperr.Error {
 	t.Helper()
-	_, err := callAs(t, f, c, tools.EndpointOps, name, args)
+	_, err := callAs(t, f, c, toolkit.EndpointOps, name, args)
 	if err == nil {
 		t.Fatalf("%s %s(%s): 成功しましたが失敗を期待しました", c.Name, name, args)
 	}

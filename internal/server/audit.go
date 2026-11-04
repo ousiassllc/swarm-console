@@ -10,7 +10,7 @@ import (
 )
 
 // AuditFunc は mcpapi.Options.Audit に渡す記録関数。通ったリクエストごとに 1 行（slog の JSON Lines）を出す。
-// 記録するのは クライアント名・窓口・メソッド・ツール名（など）・ペイン・結果コード・所要時間だけ
+// 記録するのは クライアント名・窓口・メソッド・ツール名（など）・ペイン・file_get のパスとサイズ・結果コード・所要時間だけ
 // （FR-SAFE-8・NFR-SEC-12）。送った本文・トークン・メモの内容・Authorization ヘッダーは扱わない。
 func AuditFunc(l *slog.Logger) func(context.Context, mcpapi.Event) {
 	return func(ctx context.Context, e mcpapi.Event) {
@@ -29,6 +29,12 @@ func AuditFunc(l *slog.Logger) func(context.Context, mcpapi.Event) {
 		}
 		if e.Session != "" {
 			attrs = append(attrs, slog.String("session", e.Session))
+		}
+		if e.Path != "" {
+			attrs = append(attrs, slog.String("path", e.Path))
+		}
+		if e.HasSize {
+			attrs = append(attrs, slog.Int64("size", e.Size))
 		}
 		l.LogAttrs(ctx, slog.LevelInfo, "audit", attrs...)
 	}

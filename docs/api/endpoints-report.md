@@ -195,4 +195,5 @@
 | メモの文字列項目 | 2,000 字（`memo` 4,000 字）、配列 50 件 | `invalid_args` |
 | `note_log` の 1 行 | 500 字 | `invalid_args` |
 | `title` | 80 字 | `invalid_args` |
+| `file_get` の 1 ファイル | 20 MiB（20971520 バイト。`file_get_max_bytes` で 1〜100 MiB に変更可） | `too_large` |
 | リクエスト本文 | 256 KiB | 413 |

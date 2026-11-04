@@ -37,6 +37,7 @@
 | FR-SAFE-8 | ログ | 誰が・いつ・どのツールを・どのペインに（と、どの `session` 引数で）使ったかを記録する。送った本文とトークンは記録しない |
 | FR-SAFE-9 | 呼び出しの間隔 | 同じペインへの操作は前の操作が終わるまで待たせる |
 | FR-SAFE-10 | セッションの許可 | トークンごとの許可セッション以外のペインは、読み取りも操作も拒否する（`session_forbidden`。FR-SESS-10） |
+| FR-SAFE-11 | 画像・動画の取得 | `file_get`（`/ops` のみ）は、触れるセッションのペインの `cwd`・`report_dir`・`file_get_roots` の実パスの下の png・jpg・jpeg・webp・gif・mp4 だけ返す（ペインの `cwd` が `/` かホームそのものなら、その `cwd` は許可に入れない）。`..`・シンボリックリンクでの外し抜け・秘密のファイル（`.env`・`*.pem`・`*.key`・`id_*`・設定ファイル）・中身が拡張子の形式でないもの・上限（`file_get_max_bytes`、既定 20 MiB）超えは拒否する。ログにはパスとサイズだけを残し、中身は残さない（FR-O9。P-91） |
 
 ## 11. 対話型の設定（FR-SET）
 
@@ -66,7 +67,7 @@
 | 5 | エージェント（`omp`・`claude`・`codex`） | まず「エージェントの設定を変えますか」（既定は いいえ）。はい のときだけ、各エージェントの `command`・`exit_command`・`auth_file` を聞く | 空欄は「上書きしない」（組み込みの既定を使う）。既定値は入力欄の例示として出す |
 | 6 | トークン発行（任意） | 発行するか → 名前 → `ops`/`report` | FR-SET-10 |
 
-`setup` が聞かず手書きだけに残すもの：`tmux_socket`・`default_lang`・期間のキー（`poll_interval` ほか 6 つ）・`title_prefix`・`file_roots`・`disk_mounts`・`report_dir`・`[pane_names]`・`[agents.<name>]` の正規表現とその他のキー（`process_match`・`working_re`・`ask_re`・`idle_re`・`spinner_chars`・`status_line_re`・`border_re`）・`profiles.toml`・レポートのテンプレート。これらが手で書かれていても、`setup` は読み込んだうえでそのまま残す。
+`setup` が聞かず手書きだけに残すもの：`tmux_socket`・`default_lang`・期間のキー（`poll_interval` ほか 6 つ）・`title_prefix`・`file_roots`・`file_get_roots`・`file_get_max_bytes`・`disk_mounts`・`report_dir`・`[pane_names]`・`[agents.<name>]` の正規表現とその他のキー（`process_match`・`working_re`・`ask_re`・`idle_re`・`spinner_chars`・`status_line_re`・`border_re`）・`profiles.toml`・レポートのテンプレート。これらが手で書かれていても、`setup` は読み込んだうえでそのまま残す。
 
 ### 11.2 `setup` の流れ
 
