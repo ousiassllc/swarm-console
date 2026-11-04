@@ -43,6 +43,8 @@ func checkName(name string) error {
 		return fmt.Errorf("1〜%d 文字にしてください（%d 文字）", maxName, n)
 	case strings.IndexFunc(name, unicode.IsControl) >= 0:
 		return errors.New("改行・制御文字は使えません")
+	case strings.TrimSpace(name) == "":
+		return errors.New("空白だけの名前は使えません")
 	}
 	return nil
 }

@@ -42,6 +42,7 @@ func TestPairRejectsInvalidNameWithoutIssuing(t *testing.T) {
 		"タブ":          "a\tb",
 		"ESC":         "a\x1bb",
 		"不正な UTF-8":   "a\xffb",
+		"空白だけ":        "   ",
 	} {
 		e := newEnv(t, "100.64.0.5:48120", `["0"]`)
 		stdout, _, err := e.pair("--name", n)
