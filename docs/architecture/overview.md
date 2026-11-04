@@ -240,3 +240,4 @@ flowchart TD
 | 1.22 | 2026-11-04 | decisions.md P-91：ペインの `cwd` が `/` やホームそのもの（実パス）のときは許可リストに入れず、明示した `file_get_roots`・`report_dir` はそのまま許可と追記。deployment.md §8 の `file_get_roots` の説明も同じ | Issue #82 |
 | 1.23 | 2026-11-04 | §3：ツール層のパッケージを `internal/tools`（`toolkit`・`view`・`ops`）に更新（Linterly のディレクトリ上限のための分割。振る舞いは変えない） | Issue #82（PR #84） |
 | 1.24 | 2026-11-04 | decisions.md P-91：宛先が存在しないリンク・循環は外のパスと区別しない、先頭 12 バイトを先に読む、同時実行は制限しない、`/proc/self/fd` が必須（読めなければ `internal`）を追記 | Issue #82（PR #84 の独立レビューの指摘） |
+| 1.25 | 2026-11-05 | decisions.md P-93（`report`・`host_status` のメモリ `mem`）・P-94（使用状況のアカウントごとの `reason`）を追加。report-values.md §2.1・§2.2・§3・§7 を改訂 | Issue #86・#87 |

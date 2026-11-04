@@ -35,6 +35,8 @@ type usageReport struct {
 		Email string `json:"email"`
 	} `json:"metadata"`
 	Limits []usageLimit `json:"limits"`
+	// without は accountsWithoutUsage から来たこと（出力のキーではない）。
+	without bool
 }
 
 type usageLimit struct {
@@ -83,16 +85,17 @@ func ParseUsage(out []byte) (Usage, error) {
 		if !known(r) || seen[r.Provider+"\x00"+r.Metadata.Email] {
 			continue
 		}
+		r.without = true
 		byProvider[r.Provider] = append(byProvider[r.Provider], r)
 	}
 	for _, r := range namedReports(byProvider[providerClaude]) {
-		u.Claude = append(u.Claude, buildAccount(r.name, r.rep))
+		u.Claude = append(u.Claude, buildAccount(r))
 	}
 	for _, r := range namedReports(byProvider[providerCodex]) {
-		u.Codex = append(u.Codex, buildAccount(r.name, r.rep))
+		u.Codex = append(u.Codex, buildAccount(r))
 	}
 	for _, r := range namedReports(byProvider[providerCursor]) {
-		u.Cursor = append(u.Cursor, buildCursor(r.name, r.rep))
+		u.Cursor = append(u.Cursor, buildCursor(r))
 	}
 	sort.SliceStable(u.Claude, func(i, j int) bool { return u.Claude[i].Name < u.Claude[j].Name })
 	sort.SliceStable(u.Codex, func(i, j int) bool { return u.Codex[i].Name < u.Codex[j].Name })
@@ -101,8 +104,20 @@ func ParseUsage(out []byte) (Usage, error) {
 }
 
 type namedReport struct {
-	name string
-	rep  usageReport
+	name   string
+	reason string // Account.Reason と同じ（without_usage を優先）
+	rep    usageReport
+}
+
+// accountReason は理由を返す。accountsWithoutUsage 由来なら without_usage、そうでなくメールが空なら no_email、どちらでもなければ ""。
+func accountReason(r usageReport) string {
+	switch {
+	case r.without:
+		return AccountWithoutUsage
+	case r.Metadata.Email == "":
+		return AccountNoEmail
+	}
+	return ""
 }
 
 func namedReports(reps []usageReport) []namedReport {
@@ -113,14 +128,14 @@ func namedReports(reps []usageReport) []namedReport {
 	names := accountNames(emails)
 	out := make([]namedReport, len(reps))
 	for i, r := range reps {
-		out[i] = namedReport{name: names[i], rep: r}
+		out[i] = namedReport{name: names[i], reason: accountReason(r), rep: r}
 	}
 	return out
 }
 
-func buildAccount(name string, r usageReport) Account {
-	a := Account{Name: name}
-	for _, l := range r.Limits {
+func buildAccount(n namedReport) Account {
+	a := Account{Name: n.name, Reason: n.reason}
+	for _, l := range n.rep.Limits {
 		if !l.Scope.Shared {
 			continue // tier つきの枠（fable など）は出さない
 		}
@@ -134,9 +149,9 @@ func buildAccount(name string, r usageReport) Account {
 	return a
 }
 
-func buildCursor(name string, r usageReport) CursorAccount {
-	c := CursorAccount{Name: name}
-	for _, l := range r.Limits {
+func buildCursor(n namedReport) CursorAccount {
+	c := CursorAccount{Name: n.name, Reason: n.reason}
+	for _, l := range n.rep.Limits {
 		if l.Label == cursorLabel {
 			// 枠の名前は出力の文字列なので、決まった形（monthly・weekly など）に合うものだけ出す（FR-REP-18）。
 			if labelRE.MatchString(l.Window.ID) {

@@ -116,7 +116,7 @@ func fixedSnapshot() *pane.Snapshot {
 	return &pane.Snapshot{
 		At: time.Date(2026, 10, 31, 22, 10, 5, 0, jst),
 		Host: host.Status{
-			Load: [3]float64{98.24, 95.1, 90.4}, CPUs: 32, MemFreeGB: 41.31,
+			Load: [3]float64{98.24, 95.1, 90.4}, CPUs: 32, MemTotalGB: 128, MemFreeGB: 41.31,
 			CPU:  host.CPU{Available: true, UsedPercent: 42},
 			Swap: host.Swap{Available: true, TotalGB: 8, UsedGB: 0.4, UsedPercent: 5},
 			Disk: []host.Disk{

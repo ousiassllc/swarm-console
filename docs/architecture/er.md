@@ -248,3 +248,4 @@ erDiagram
 | 1.13 | 2026-11-03 | §2.2 PANE_NOTE に `origin`（`user` \| `agent`。ほかの値は `invalid_args`）と `started_by`（自由な文字列）を追加、要約に出す項目を増やし、§2.4 履歴の検索に `origin`・`started_by`（完全一致）を追記。既存のメモは移行しない（新しい項目は空のまま） | Issue #80 |
 | 1.14 | 2026-11-03 | §5 config.toml に `file_get_roots`（既定は空）・`file_get_max_bytes`（既定 20 MiB、1〜100 MiB）を追加し、`denied_paths` は `file_get` の `path` にも効くと追記（P-91）。`setup` が触らない手書き専用のキーにも加えた。既存の config はそのまま動く | Issue #82 |
 | 1.15 | 2026-11-04 | §5 config.toml（er-config.md）：`file_get_roots` の説明に、ペインの `cwd` が `/` やホームそのものなら `cwd` は許可に入れず、明示した根はそのまま許可と追記（P-91）。既存の config はそのまま動く | Issue #82 |
+| 1.16 | 2026-11-05 | er-runtime.md：HOST_STATE に `mem`（`MemTotal`・`MemAvailable` から。P-93）、`usage` のアカウントに `reason`（P-94）を追記 | Issue #86・#87 |

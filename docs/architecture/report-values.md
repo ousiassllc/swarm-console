@@ -1,4 +1,4 @@
-# レポートに足す値の集め方（Issue #21〜#25、P-60〜P-69）
+# レポートに足す値の集め方（Issue #21〜#25・#86・#87、P-60〜P-69・P-93・P-94）
 
 [機能要件：レポート](../requirements/functional-report.md)（FR-REP-10〜18）の「値をどう取るか」を定める。出す形（キー・単位・取れないときの値）は [API 仕様：レポート](../api/endpoints-report.md#55-report) と [API 仕様：サーバーの状態](../api/endpoints-state.md#53-サーバーの状態)。
 
@@ -39,11 +39,21 @@
 | `window.resetsAt` | epoch ミリ秒 | `resets_at`（RFC 3339、`at` と同じオフセット）。無ければ `null` |
 | `status` | `ok`・`exhausted` | そのまま `status` に入れる。ほかの文字列は `unknown` |
 | `generatedAt` | epoch ミリ秒 | トップの `fetched_at` |
-| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-61） |
+| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-61）。アカウントごとの `reason` は `without_usage`（§2.2。P-94） |
 
 ### 2.2 アカウント名
 
 メールの `@` 以降の最初のラベルを小文字にしたもの（例 `user@acme.example` → `acme`。前のスクリプトの `name()` と同じ）。ラベルが取れなければ `account-N`（N は、同じプロバイダのなかで並べたときの順番、1 始まり）。同じプロバイダで名前が重なったら、メール全体の昇順で 2 つ目から `-2`・`-3` を付ける。**メールのどの部分もそれ以外に出さない。**
+
+アカウントごとの `reason`（`usage` の各アカウントのキー。P-94）は、名前の作り方を変えずに、次の決まった値だけを付ける。出力の文面・メール・`accountId`・`orgId` は入れない（FR-REP-18）。
+
+| `reason` | 条件 |
+|----------|------|
+| `without_usage` | `accountsWithoutUsage` から来たアカウント（`reports` に同じプロバイダ・メールのものがあれば足さず、`reports` 側が勝つので `reason` は付かない。§2.1） |
+| `no_email` | `accountsWithoutUsage` から来たのではなく、`metadata.email` が空で、名前を `account-N` にしたアカウント |
+| なし（JSON は `null`） | それ以外 |
+
+両方に当てはまるとき（`accountsWithoutUsage` から来て、メールも空）は `without_usage`（使用量が取れないことのほうが、見る人にとって大事なため）。メールがあるのに `@` 以降のラベルが使えず `account-N` になったアカウントは、メールが空ではないので `no_email` にしない（`null`）。Cursor も同じ規則で付ける。markdown には出さない。ログイン切れかどうかを別に調べない（`agent_auth_status` とも結び付けない）。
 
 ### 2.3 並びと欠け
 
@@ -55,6 +65,7 @@
 
 | 値 | 取り方 | 取れないとき |
 |----|--------|-------------|
+| `mem.total_gb`・`used_gb`・`used_percent` | `/proc/meminfo` の `MemTotal`・`MemAvailable`（KiB）。`used` ＝ `MemTotal − MemAvailable`（`free` コマンドの `used` に近く、`used_gb + mem_free_gb ≒ total_gb`）。GB は 1024³ で割って小数 1 位、`used_percent` は `100 × used ÷ total` を四捨五入した整数（スワップと同じ丸め）。`host.mem_free_gb` は `MemAvailable` のまま残す（`MemFree` ではない。P-93） | `/proc/meminfo` を読めない（スナップショットの `host` がゼロ値のまま）・`MemTotal` が 0 以下・`MemAvailable` が `MemTotal` より大きい：`available: false`・数値は `null` |
 | `cpu.used_percent` | `/proc/stat` の先頭 `cpu` 行。**前のサンプラーの値との差**で `100 × (1 − (idle + iowait) / 合計)`、整数に丸める | 起動後の最初のサンプル（差が無い）・読めない・合計が増えていない：`available: false` |
 | `swap.total_gb`・`used_gb`・`used_percent` | `/proc/meminfo` の `SwapTotal`・`SwapFree`（KiB）。GB は 1024³ で割って小数 1 位、`used_percent` は整数 | 読めない：`available: false`。`SwapTotal` が 0 なら `total_gb: 0`・`used_gb: 0`・`used_percent: 0`（スワップ無し。取得できずではない） |
 | `disk[].total_gb`・`used_percent` | `disk_mounts` の各マウントを `statfs`。`used_percent` は `df` の `Use%` と同じ（使用 ÷ （使用 ＋ 一般ユーザーが使える空き）、切り上げの整数）。`free_gb` は今のとおり | `statfs` が失敗：そのマウントを残し `available: false` |
@@ -94,7 +105,7 @@ swarm-console 自身の更新状態は、`host_status.update` と同じ値を `r
 
 | 対象 | 方法 |
 |------|------|
-| 使用状況・omp の読み取り | 録った `omp usage --json`・`omp update --check` の出力（秘密を除いたもの）を固定して読ませる。5 アカウント・5 時間枠が無いアカウント・`unit: usd`・`exhausted`・`accountsWithoutUsage`・壊れた JSON・打ち切り |
+| 使用状況・omp の読み取り | 録った `omp usage --json`・`omp update --check` の出力（秘密を除いたもの）を固定して読ませる。5 アカウント・5 時間枠が無いアカウント・`unit: usd`・`exhausted`・`accountsWithoutUsage`・壊れた JSON・打ち切り。アカウントの `reason`（`without_usage`・`no_email`・`null`・両方に当てはまるときの優先）と、出力にメールが入らないこと |
 | 実行 | 偽の `omp`（テスト用の実行ファイル）を `command` に指す。呼び出しの引数が固定の 2 つだけであること |
-| CPU・スワップ・ディスク | `/proc` 相当の固定入力。2 回目のサンプルで値が出る・差が無いと `available: false`・スワップ無し |
+| CPU・メモリ・スワップ・ディスク | `/proc` 相当の固定入力。2 回目のサンプルで値が出る・差が無いと `available: false`・`MemTotal` が 0 のとき `mem` が `available: false`・スワップ無し |
 | 同一性 | 同じスナップショットを固定して `ja`・`en`・`json` を 2 回描画し、1 文字も違わない（AC-1。`serve` の収集器が途中で結果を変えても、同じスナップショットの出力は変わらない） |

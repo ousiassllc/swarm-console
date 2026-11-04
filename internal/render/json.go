@@ -54,10 +54,11 @@ type jsonStatus struct {
 	Warnings []jsonWarning `json:"warnings"`
 }
 
-// jsonReportHost は report の host（panes_status の host に cpu・swap・disk を足したもの）。
+// jsonReportHost は report の host（panes_status の host に mem・cpu・swap・disk を足したもの）。
 type jsonReportHost struct {
 	Load1     float64    `json:"load1"`
 	MemFreeGB float64    `json:"mem_free_gb"`
+	Mem       MemJSON    `json:"mem"`
 	CPU       CPUJSON    `json:"cpu"`
 	Swap      SwapJSON   `json:"swap"`
 	Disk      []DiskJSON `json:"disk"`
@@ -149,7 +150,7 @@ func reportJSON(in *ReportInput, target *pane.PaneState) ([]byte, error) {
 		At: snap.At.Format(rfc3339),
 		Host: jsonReportHost{
 			Load1: host.Load1, MemFreeGB: host.MemFreeGB,
-			CPU: NewCPUJSON(snap), Swap: NewSwapJSON(snap), Disk: NewDiskJSON(snap),
+			Mem: NewMemJSON(snap), CPU: NewCPUJSON(snap), Swap: NewSwapJSON(snap), Disk: NewDiskJSON(snap),
 		},
 		Layout: layout, Panes: jsonPanes(panes), Attention: att,
 		Usage: NewUsageJSON(snap), Omp: NewOmpJSON(snap), Update: NewUpdateJSON(snap), Auth: NewAuthJSON(snap),

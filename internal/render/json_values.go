@@ -1,6 +1,7 @@
 package render
 
 import (
+	"math"
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/host"
@@ -16,6 +17,14 @@ import (
 type CPUJSON struct {
 	Available   bool `json:"available"`
 	UsedPercent *int `json:"used_percent"`
+}
+
+// MemJSON は host.mem。使用量は MemTotal − MemAvailable（mem_free_gb と合わせると total_gb に近くなる）。
+type MemJSON struct {
+	Available   bool     `json:"available"`
+	TotalGB     *float64 `json:"total_gb"`
+	UsedGB      *float64 `json:"used_gb"`
+	UsedPercent *int     `json:"used_percent"`
 }
 
 // SwapJSON は host.swap。
@@ -47,6 +56,7 @@ type WindowJSON struct {
 // UsageAccountJSON は Claude・Codex の 1 アカウント。
 type UsageAccountJSON struct {
 	Account  string     `json:"account"`
+	Reason   *string    `json:"reason"`
 	FiveHour WindowJSON `json:"five_hour"`
 	SevenDay WindowJSON `json:"seven_day"`
 }
@@ -54,6 +64,7 @@ type UsageAccountJSON struct {
 // UsageCursorJSON は Cursor の 1 アカウント。
 type UsageCursorJSON struct {
 	Account string     `json:"account"`
+	Reason  *string    `json:"reason"`
 	Window  *string    `json:"window"`
 	Models  WindowJSON `json:"models"`
 }
@@ -125,6 +136,16 @@ func NewCPUJSON(snap *pane.Snapshot) CPUJSON {
 	return CPUJSON{Available: true, UsedPercent: new(c.UsedPercent)}
 }
 
+// NewMemJSON は snap の host.mem。MemTotal が 0 以下・MemAvailable が MemTotal より大きいときは取得できず。
+func NewMemJSON(snap *pane.Snapshot) MemJSON {
+	total, free := snap.Host.MemTotalGB, snap.Host.MemFreeGB
+	if total <= 0 || free < 0 || free > total {
+		return MemJSON{}
+	}
+	used := total - free
+	return MemJSON{Available: true, TotalGB: new(round1(total)), UsedGB: new(round1(used)), UsedPercent: new(int(math.Round(100 * used / total)))}
+}
+
 // NewSwapJSON は snap の host.swap。
 func NewSwapJSON(snap *pane.Snapshot) SwapJSON {
 	s := snap.Host.Swap
@@ -159,7 +180,7 @@ func newWindowJSON(w reportvalues.Window, at time.Time) WindowJSON {
 func newAccountsJSON(in []reportvalues.Account, at time.Time) []UsageAccountJSON {
 	out := make([]UsageAccountJSON, 0, len(in))
 	for _, a := range in {
-		out = append(out, UsageAccountJSON{Account: a.Name, FiveHour: newWindowJSON(a.FiveHour, at), SevenDay: newWindowJSON(a.SevenDay, at)})
+		out = append(out, UsageAccountJSON{Account: a.Name, Reason: nilIfEmpty(a.Reason), FiveHour: newWindowJSON(a.FiveHour, at), SevenDay: newWindowJSON(a.SevenDay, at)})
 	}
 	return out
 }
@@ -172,7 +193,7 @@ func NewUsageJSON(snap *pane.Snapshot) UsageJSON {
 		Claude: newAccountsJSON(u.Claude, at), Codex: newAccountsJSON(u.Codex, at), Cursor: make([]UsageCursorJSON, 0, len(u.Cursor)),
 	}
 	for _, c := range u.Cursor {
-		out.Cursor = append(out.Cursor, UsageCursorJSON{Account: c.Name, Window: nilIfEmpty(c.Window), Models: newWindowJSON(c.Models, at)})
+		out.Cursor = append(out.Cursor, UsageCursorJSON{Account: c.Name, Reason: nilIfEmpty(c.Reason), Window: nilIfEmpty(c.Window), Models: newWindowJSON(c.Models, at)})
 	}
 	return out
 }

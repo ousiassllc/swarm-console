@@ -56,16 +56,25 @@ type Window struct {
 // HasReset はリセット時刻があるか。
 func (w Window) HasReset() bool { return !w.ResetsAt.IsZero() }
 
+// Account の Reason（取れなかった・名前が作れなかった理由。どちらでもなければ ""）。
+const (
+	AccountWithoutUsage = "without_usage" // omp の accountsWithoutUsage から来た
+	AccountNoEmail      = "no_email"      // メールが空で、名前を account-N にした
+)
+
 // Account は Claude・Codex の 1 アカウント。Name は names.go の規則だけ（メールの一部は出さない）。
+// Reason は AccountWithoutUsage・AccountNoEmail・""。両方に当てはまるときは AccountWithoutUsage。
 type Account struct {
 	Name     string
+	Reason   string
 	FiveHour Window
 	SevenDay Window
 }
 
-// CursorAccount は Cursor の 1 アカウント。Window は monthly・weekly など（枠が無ければ ""）。
+// CursorAccount は Cursor の 1 アカウント。Window は monthly・weekly など（枠が無ければ ""）。Reason は Account と同じ。
 type CursorAccount struct {
 	Name   string
+	Reason string
 	Window string
 	Models Window
 }
