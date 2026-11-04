@@ -84,6 +84,29 @@ sessions = ["0"]                  # 対象の tmux セッション（分けて�
 
 `--sessions`（カンマ区切り。例 `0,1`）で、そのトークンが触れる tmux セッションを決めます。省略すると `config.toml` の `sessions` 全部です。名前は `config.toml` の `sessions` にあるものだけ（なければ発行しません）。触れるセッションを変えるときは、`token revoke` してから `--sessions` 付きで発行し直します。tmux セッションを分けた運用では、ツールの引数 `session` で対象を選びます（触れるセッションが 1 つなら省略できます。2 つ以上なら必須で、省略すると `session_required`）。許可外のセッションのペインは読めも操作もできません（`session_forbidden`）。`sessions_list` で、触れるセッションとレイアウトを取れます（[API 仕様 §4.1](docs/api/endpoints.md#41-session-引数と許可セッション)）。
 
+`token list` で、発行済みのトークンを 1 件 1 行で見られます（名前・scope・許可セッション〔`all` は `config.toml` の `sessions` 全部〕・発行日時・`active` か `revoked <日時>`）。ハッシュも平文も出しません。
+
+```sh
+~/bin/swarm-console/swarm-console token list
+```
+
+### swarm-viewer の接続文字列（pair）
+
+swarm-viewer（`/report` を読む専用のデスクトップのビューア）につなぐための接続文字列を、1 行で出します。`report` スコープのトークンを 1 つ発行して、`listen_addr` の tailnet の IP（ポート 48120）と組み合わせます。
+
+```sh
+~/bin/swarm-console/swarm-console pair [--sessions 0,1] [--name devbox]
+# swarm-viewer://pair?v=1&url=http%3A%2F%2F100.64.0.5%3A48120%2Freport&token=<TOKEN>&name=devbox&sessions=0%2C1
+```
+
+- `--sessions` は `token add` と同じです（省略すると `config.toml` の `sessions` 全部）。接続文字列の `sessions` は表示のヒントで、権限は発行したトークンが決めます。
+- `--name` は接続文字列の `name`（1〜100 文字）に入ります。省略すると付けません。
+- トークンの名前は自動で `viewer-<ホスト名>-<yyyymmdd>` になります。同じ名前があれば（失効済みも含む）、末尾に `-2`・`-3`… を付けます。名前は `token list` で分かります。
+- `listen_addr` が tailnet の IP:48120 でないとき（ループバック・ホスト名など）は、トークンを発行せずにエラーで終わります。
+- 標準出力は接続文字列の 1 行だけで、案内は標準エラーに出ます。`ops` スコープは発行しません。
+
+**注意**: 標準出力にトークンの平文が入ります。コマンド履歴・端末ログ・チャットに貼らないでください。平文は今回しか表示されず、使い回さないでください。なくしたときは `token revoke <名前>` で失効させ、`pair` をやり直します。
+
 ## レポートの使用状況・omp の版
 
 `report` は、Claude・Cursor・Codex の使用状況、CPU・スワップ・ディスクの使用率、omp の新しい版の有無、ログイン期限を返します。`host_status` は、ログイン期限を除く値（使用状況・CPU・スワップ・ディスク・omp の版）と、swarm-console 自身の更新の状況（`update`）を返します。ログイン期限は `agent_auth_status`（と `report`）で取ります（[機能要件 FR-REP-10〜18](docs/requirements/functional-report.md)）。値はスナップショットを作るときにまとめて入れるので、同じスナップショットなら出力は同じです。

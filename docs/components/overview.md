@@ -64,13 +64,14 @@ graph TD
 
 ```
 swarm-console/
-├── cmd/swarm-console/        main.go（serve / setup / token add|revoke / version [--check]）。setup.go は引数と TTY 判定だけ
+├── cmd/swarm-console/        main.go（serve / setup / token add|revoke|list / pair / version [--check]）。setup.go は引数と TTY 判定だけ
 ├── internal/
 │   ├── config/               config.toml・profiles.toml の読み込み・検証・既定値
 │   │   └── tomledit/         config.toml の部分編集（値の範囲の置き換え・キーの追加。I/O なしの純関数）
 │   ├── setup/                `setup` の画面（huh）、tailnet 候補の列挙、入力 → 編集操作の変換、保存（競合・検査・原子的書き込み）
 │   ├── server/               HTTP サーバー、窓口ルーティング、リクエスト上限、監査ログ
 │   ├── auth/                 tokens.toml、Bearer 検証、スコープ、token CLI
+│   ├── pair/                 `pair`（swarm-viewer の接続文字列。`listen_addr` から url、4,096 バイトの事前確認、自動の token 名、`report` スコープの発行）
 │   ├── session/              セッション ACL とセッション内のペイン解決（許可セッションの決定・`session` 引数の決め方・ペインの解決。状態を持たない純関数）
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
 │   ├── tools/                ツールの組み立て（`New`・`Registry`。resources 用の窓口）。Linterly のディレクトリ上限のため、ハンドラは下の 3 つに分ける
@@ -115,7 +116,8 @@ swarm-console/
 | `config/tomledit` | `go-toml/v2` の `unstable.Parser` で値のバイト範囲を取り、変更したキーの値だけを置き換える・無いキーを足す。変更範囲の外を 1 バイトも変えない（ER §5.1） | `Edit(src []byte, ops []Op) ([]byte, error)`、`Op{Key []string, Value any}` | FR-SET-3, NFR-OPS-8 |
 | `setup` | `huh` のフォーム（項目と順番は FR-SET §11.1）、`net.InterfaceAddrs` による tailnet 候補、現在値の読み込み、変更したキーだけの `Op` への変換、保存前の検査・競合検出・`store.WriteFileAtomic`、任意のトークン発行（`auth.Add`） | `Run(ctx, Options) error`（`Options{Path, Out, Home, Prompter, IssueToken}`。`Path` は `config.toml` のパス、`Prompter` は画面の差し替え、`IssueToken` は `token add` と同じ処理の注入で FR-SET-10）。tailnet 候補は `HostCandidates()`（`net.InterfaceAddrs` を直接呼ぶ）と `Candidates(addrs)`（引数のアドレスから選ぶ純関数。差し替えの接点） | FR-SET, NFR-OPS-8, NFR-OPS-9 |
 | `server` | `net/http` の起動、`/report`・`/ops` のマウント、本文上限、`listen_addr` の検証、監査ログ、グレースフル停止 | `New(Options) (*Server, error)`（`Options{ListenAddr, Auth, Report, Ops, Logger, ShutdownTimeout}`）、`Server.Serve(ctx)` | NFR-SEC-1, NFR-SEC-13, NFR-AVL-7 |
-| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、`allowed_sessions` の検証、定数時間照合、スコープ判定、`token add/revoke`（`add` は `--sessions`） | `Open(path, clk, logger)`（`logger` は再読み込み失敗の警告の出力先。nil なら出さない）、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope, AllowedSessions []string}`（`nil` は `sessions` 全部、値があれば明示のリスト）、`Add`・`Revoke` | NFR-SEC-3〜6, FR-SESS-1〜3 |
+| `auth` | `tokens.toml` の読み込み（更新時刻で再読込）、`allowed_sessions` の検証、定数時間照合、スコープ判定、`token add/revoke/list`（`add` は `--sessions`。`pair` も `add` を使う） | `Open(path, clk, logger)`（`logger` は再読み込み失敗の警告の出力先。nil なら出さない）、`Authenticator.Authenticate(header) (Client, error)`、`Client{Name, Scope, AllowedSessions []string}`（`nil` は `sessions` 全部、値があれば明示のリスト）、`Add`（名前が使われていれば `ErrNameInUse` を `errors.Is` で判定できる形で返す）・`Revoke`・`List(path) ([]Info, error)`（`Info` はハッシュ・平文を持たない） | NFR-SEC-3〜6, FR-SESS-1〜3, FR-PAIR-6〜7 |
+| `pair` | `swarm-console pair`：`listen_addr` から tailnet の IP の `url` を作る（決められなければ発行しない）、接続文字列の組み立て（順は `v`・`url`・`token`・`name`・`sessions`。4,096 バイトを仮の token で事前確認）、自動の token 名（`viewer-<ホスト名>-<yyyymmdd>`、重なれば `-2`…。`auth.ErrNameInUse`）、`report` スコープの発行（`auth.Add`） | `Run(args, stdout, stderr) error`、`Help`、`ErrUsage`（テストでは `Deps{Hostname, Now}` を差し替える） | FR-PAIR-1〜6 |
 | `mcpapi` | 公式 SDK で 2 つの MCP サーバーを作り、窓口ごとにツールを登録（`/report` には見るツールだけ）。prompts・resources の登録。`tools/call` ごとに `toolkit.Audit` を ctx に載せ、`file_get` が埋めた取得先のパス・サイズを監査ログの `Event`（`Path`・`Size`・`HasSize`）に写す | `NewReportServer(Options)`、`NewOpsServer(Options)`（`Options{Tools, Version, Logger, Audit}`）、`NewHTTPHandler(s)` | FR-SAFE-6, NFR-SEC-12 |
 | `tools` | ツール 19 個のハンドラ。引数検証、窓口の権限確認、`session` の決定と `pane` の解決（`session` パッケージ経由）、エラーコードへの変換。`file_get`（`tools/ops/file.go`）は許可リスト（ペインの `cwd`・`report_dir`・`file_get_roots`）の組み立て、有限読み取り、先頭 12 バイトでの種類判定（違えば残りを読まない）を持つ | `New(toolkit.Deps)`、`Registry`。共有部品は `toolkit` パッケージ（`Tool` 構造体（名前・説明・スキーマ・ハンドラ・`Scope`）、`Deps`、`ErrorText`、`WithAudit(ctx)`・`Audit`（ツールが監査ログへ足す値））。ハンドラは `tools/view`（見る 10）と `tools/ops`（操作 9） | API 仕様 §5 |
 | `session` | 許可セッション（`auth.Client.AllowedSessions` と `config.sessions` の共通部分）の計算、`session` 引数の決め方（`invalid_args`・`session_forbidden`・`session_required`）、決めたセッションの中での `pane` の解決（別のセッションのペインに当たるときの `session_forbidden`・`invalid_args`）。`tools` と `mcpapi`（resources）が使う | `Allowed(granted, configured)`、`Pick(allowed, configured, arg)`、`Resolve(snap, allowed, in, arg)` | FR-SESS-4〜6・11 |
@@ -293,3 +295,4 @@ type Tool struct {
 | 2.7 | 2026-11-04 | `safety` に `IsBroadCWD`（ペインの `cwd` が `/`・ホームそのものか）を追加。`tools` の `file_get` の根の集め方で使う。§3 の表を更新 | Issue #82 |
 | 2.8 | 2026-11-04 | `internal/tools` を `toolkit`（共有部品）・`view`（読み取り系 10 ツール）・`ops`（操作系 9 ツール）に分け、`tools` は `New`・`Registry` だけにした（Linterly のディレクトリ上限のため。ファイルの移動と公開名の大文字化だけで、振る舞いは変えない）。`Tool`・`Deps`・`Audit`・`ErrorText`・`Endpoint*` は `toolkit` の名前になった。§2 のツリー・§3 の表を更新（§1 の依存図の `tools` は 3 つのサブパッケージをまとめた箱） | Issue #82（PR #84） |
 | 2.9 | 2026-11-04 | §3 の `tools` の `file_get` の記述に、先頭 12 バイトを先に読むことを追記。`file_get` を試すための差し込み口（`toolkit.Deps.FileGet`。本番は nil）を追加。§2 のツリーに `test/integration/filegetintegration/` を追加 | Issue #82（PR #84 の独立レビューの指摘） |
+| 2.10 | 2026-11-04 | `cmd/swarm-console` に `token list` と `pair` を追加。新しいパッケージ `internal/pair`（`pair` の本体）、`app` に `TokenAdd`・`TokenRevoke`・`TokenList`（`cmd` から移した。linterly のディレクトリ行数のため）、`auth` に `ErrNameInUse`（`Add` の名前重複の判定）と `List`・`Info` を追加（P-92） | Issue #83 |

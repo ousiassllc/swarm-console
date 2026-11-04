@@ -67,7 +67,7 @@
 | ID | 要件 |
 |----|------|
 | NFR-OPS-1 | 置き場所：バイナリ `~/bin/swarm-console/`（自己更新の対象はここに固定。FR-UPD-12）、設定 `~/.config/swarm-console/`、データ `~/.local/share/swarm-console/`。`~/dotfiles` には触らない |
-| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console setup`（対話型の設定。FR-SET）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console version`（`--check` で新しい版を確認。FR-UPD-6） |
+| NFR-OPS-2 | CLI：`swarm-console serve`（常駐）、`swarm-console setup`（対話型の設定。FR-SET）、`swarm-console token add <名前> --scope ops` または `--scope report`、`swarm-console token revoke <名前>`、`swarm-console token list`、`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。FR-PAIR）、`swarm-console version`（`--check` で新しい版を確認。FR-UPD-6） |
 | NFR-OPS-3 | エージェントの画面が変わったら、設定ファイルの正規表現の上書きだけで直せる（再ビルド不要）。設定は `serve` の再起動で反映 |
 | NFR-OPS-4 | レポートのテンプレート（`templates/report.ja.md`・`report.en.md`）と条件のひな形（`profiles.toml`）は設定フォルダに置け、再ビルド不要。テンプレートの構文エラーは起動時に検出して拒否する |
 | NFR-OPS-5 | ログは構造化（JSON Lines）で標準エラーへ出し、systemd の journal で見る |
@@ -133,3 +133,4 @@
 | 1.13 | 2026-11-03 | NFR-SEC-12：`file_get` のパスとサイズを監査ログに足し、ファイルの中身は残さないと明記。NFR-SEC-17（`file_get` の許可リスト・秘密・上限）を追加 | Issue #82 |
 | 1.14 | 2026-11-04 | NFR-SEC-17：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れないと追記（P-91） | Issue #82 |
 | 1.15 | 2026-11-04 | NFR-SEC-17：宛先が存在しないリンク・循環でも外のパスの存在を判別させない、先頭 12 バイトで種類を見分けて違えば残りを読まない、Linux の `/proc/self/fd` が必須（読めなければ `internal`）、同時実行は制限しないと追記 | Issue #82（PR #84 の独立レビューの指摘） |
+| 1.16 | 2026-11-04 | NFR-OPS-2：CLI に `token list`・`pair`（FR-PAIR）を追加。`pair` は平文のトークンを標準出力に出すので、履歴・ログ・チャットに貼らないことを `--help` と README に明記（NFR-SEC-5 のまま。トークンは標準エラーにもログにも出さない） | Issue #83 |

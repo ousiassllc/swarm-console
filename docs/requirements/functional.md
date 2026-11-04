@@ -55,6 +55,7 @@ graph TD
 | UC10 | 動いているバイナリより新しい版が GitHub Releases にあるかを確認し、あれば `serve` が自分で入れ替える（自己更新。§12） | `swarm-console version --check`（確認だけ）・`serve` の定期確認と自動更新・`host_status` の `update` | CLI、`/report` `/ops` |
 | UC11 | tmux セッションを分けた運用で、自分に許可されたセッション（例：セッション `0` は agent-a、`1` は agent-b）のペインだけを、同じ `T1` などの位置で見る・操作する。ほかのセッションのペインは読めも操作もできない（FR-SESS） | `session` 引数・`sessions_list` | `/report` `/ops` |
 | UC12 | トークンごとに許可セッションを決めて発行し、変えるときは無効化して発行し直す（FR-SESS-1〜3） | `swarm-console token add --sessions`・`token revoke` | CLI |
+| UC13 | swarm-viewer につなぐ接続文字列を 1 行で作る（`report` スコープのトークンを 1 つ発行する。FR-PAIR）。発行済みのトークンは一覧で確かめ、無効化できる | `swarm-console pair`・`token list`・`token revoke`（サーバー上） | CLI |
 
 ## 2. ペイン位置の決め方（FR-POS）
 
@@ -200,6 +201,18 @@ stateDiagram-v2
 | FR-O-C3 | 画面の確認は上限付きのポーリング（`accept_timeout` 既定 10 秒、`start_timeout` 既定 30 秒）で行い、固定時間の待ちに頼らない（ただし仕様で定めた「1 秒待って Enter」を除く） |
 | FR-O-C4 | 送れる文字は通常の文字と Enter だけ。Esc は `send_escape` だけ。その他の制御キーは拒否する（`text` の ESC・NUL・CR などを含む制御文字は `forbidden_control_char`。`\n`・`\t` は許可） |
 
+### 4.3 swarm-viewer のペアリング（FR-PAIR）
+
+| ID | 要件 |
+|----|------|
+| FR-PAIR-1 | `swarm-console pair [--sessions 0,1] [--name <表示名>] [--config <path>]` は、`report` スコープのトークンを 1 つ発行（`token add <自動名> --scope report [--sessions …]` と同じ処理）し、swarm-viewer の接続文字列を標準出力に **1 行だけ**出す。`ops` スコープは発行しない。案内（平文は今回しか表示されない・履歴・端末ログ・チャットに貼らない・使い回さない・なくしたら `token revoke <名前>` して `pair` をやり直す・発行した名前）は標準エラーに出し、トークンは標準エラーに出さない（P-92） |
+| FR-PAIR-2 | 接続文字列は `swarm-viewer://pair?v=1&url=<URLエンコード>&token=<TOKEN>[&name=<表示名>][&sessions=0%2C1]`。パラメータの順は `v`・`url`・`token`・`name`・`sessions`、同じパラメータは 1 回だけ。全体は 4,096 バイト以内（超えるときは発行せずエラー）。空白は `%20`、カンマは `%2C` にエンコードする |
+| FR-PAIR-3 | `url` は `http://<IP>:48120/report`（IPv6 は `[ ]` で囲む。末尾スラッシュ・userinfo・クエリ・フラグメントなし）。IP は `listen_addr` の tailnet の IP リテラル（100.64.0.0/10・fd7a:115c:a1e0::/48）で、ポートは 48120 だけ。ループバック・それ以外・読めない・`listen_addr` がない場合は、トークンを発行せず（`tokens.toml` に触れず）エラーにする |
+| FR-PAIR-4 | `--sessions` は `token add` と同じ（省略すると `allowed_sessions` を書かず `config.toml` の `sessions` 全部。指定は `config.toml` の `sessions` にあるものだけ）。接続文字列の `sessions` は実効の一覧（省略時は `config.toml` の `sessions` 全部）をカンマ区切りにした表示のヒントで、権限の正は発行したトークン。空なら付けない |
+| FR-PAIR-5 | `--name` は接続文字列の `name` にそのまま入る（1〜100 文字・制御文字なし。違えば発行せずエラー）。省略すると `name` は付けない |
+| FR-PAIR-6 | トークン名は自動で `viewer-<ホスト名>-<yyyymmdd>`（ホスト名は token 名の規則に合わせて小文字・英数字・`-`・`_` にし、12 文字まで。取れなければ `host`）。同じ名前があれば（失効済みを含む）末尾に `-2`・`-3`… を付けて、`-100` まで試し、それでも決まらなければエラー。重なりの判定は `auth.Add` が返す `auth.ErrNameInUse` による |
+| FR-PAIR-7 | `swarm-console token list [--config <path>]` は、`tokens.toml` のトークンを 1 件 1 行（名前・scope・許可セッション〔なしは `all`〕・発行日時・`active` か `revoked <日時>`）で標準出力に出す。ハッシュも平文も出さない。ファイルがなければ何も出さずに正常終了する |
+
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
@@ -226,3 +239,4 @@ stateDiagram-v2
 | 1.19 | 2026-11-03 | functional-note.md：FR-NOTE-2 にメモの項目 `origin`（`user`・`agent`）と `started_by` を追加、FR-NOTE-3 に要約への追加と markdown の `🤖 <started_by>発` の印・`note_history` の絞り込みを追記。functional-report.md：FR-REP-6 に印は言語によらず固定と追記、表の例を更新。FR-R8 に絞り込みの項目を追記。`from` の意味・絞り込みと `/report` の読み取り専用（FR-SAFE-6）は変えない | Issue #80 |
 | 1.20 | 2026-11-03 | §4.2 に FR-O9 `file_get`（`/ops` のみ。許可リスト内の画像・動画を base64 で返す。P-91）を追加。FR-SAFE-6（`/report` に出さない）は変えない | Issue #82 |
 | 1.21 | 2026-11-04 | FR-O9・functional-note.md FR-SAFE-11：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れない（明示した `file_get_roots`・`report_dir` はそのまま許可。P-91） | Issue #82 |
+| 1.22 | 2026-11-04 | UC13 と §4.3（FR-PAIR-1〜7）を追加：`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。`report` スコープのトークンを発行）と `token list`（P-92） | Issue #83 |
