@@ -2,8 +2,11 @@ package auth
 
 import (
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -167,5 +170,63 @@ func TestRevokeUnknownNameIsError(t *testing.T) {
 	}
 	if err := Revoke(filepath.Join(t.TempDir(), "none.toml"), "x", f.clk.Now()); err == nil {
 		t.Fatal("ファイル無しの Revoke はエラーのはず")
+	}
+}
+
+func TestAddNameInUseIsSentinelErrorIncludingRevoked(t *testing.T) {
+	f := newFixture(t)
+	if _, err := Add(f.path, "rep", ScopeReport, f.clk.Now()); !errors.Is(err, ErrNameInUse) {
+		t.Fatalf("既存の名前: %v, want ErrNameInUse", err)
+	}
+	if err := Revoke(f.path, "rep", f.clk.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Add(f.path, "rep", ScopeReport, f.clk.Now()); !errors.Is(err, ErrNameInUse) || !strings.Contains(err.Error(), "失効済み") {
+		t.Fatalf("失効済みの名前: %v, want ErrNameInUse（失効済みの説明つき）", err)
+	}
+	if _, err := Add(f.path, "Bad Name", ScopeReport, f.clk.Now()); err == nil || errors.Is(err, ErrNameInUse) {
+		t.Fatalf("形式違反は ErrNameInUse ではない: %v", err)
+	}
+}
+
+func TestListReturnsRecordsWithoutHashOrPlaintext(t *testing.T) {
+	f := newFixture(t)
+	plain, err := Add(f.path, "scoped", ScopeReport, f.clk.Now(), "0", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	later := f.clk.Now().Add(time.Hour)
+	if err := Revoke(f.path, "rep", later); err != nil {
+		t.Fatal(err)
+	}
+	got, err := List(f.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	created := f.clk.Now().Format(time.RFC3339)
+	want := []Info{
+		{Name: "rep", Scope: ScopeReport, CreatedAt: created, RevokedAt: later.Format(time.RFC3339)},
+		{Name: "adm", Scope: ScopeOps, CreatedAt: created},
+		{Name: "scoped", Scope: ScopeReport, Sessions: []string{"0", "1"}, CreatedAt: created},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("List = %+v\nwant %+v", got, want)
+	}
+	if strings.Contains(fmt.Sprintf("%+v", got), plain) {
+		t.Error("List の結果に平文が含まれます")
+	}
+}
+
+func TestListMissingFileIsEmptyAndBadModeIsError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tokens.toml")
+	if got, err := List(path); err != nil || len(got) != 0 {
+		t.Fatalf("ファイルなし: %v, %v", got, err)
+	}
+	if _, err := Add(path, "x", ScopeReport, baseTime); err != nil {
+		t.Fatal(err)
+	}
+	chmod(t, path, 0o644)
+	if _, err := List(path); err == nil {
+		t.Error("権限 644 を拒否しません")
 	}
 }
