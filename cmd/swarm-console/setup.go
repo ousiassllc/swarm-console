@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/setup"
@@ -48,7 +49,7 @@ func runSetup(ctx context.Context, args []string, stdout, stderr io.Writer, in, 
 		},
 		// token add と同じ処理（平文は標準出力へ 1 度だけ）
 		IssueToken: func(name string, scope auth.Scope) error {
-			return tokenAdd(*configPath, name, scope, nil, stdout, stderr)
+			return app.TokenAdd(*configPath, name, scope, nil, stdout, stderr)
 		},
 	})
 	switch {

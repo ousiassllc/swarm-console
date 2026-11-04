@@ -5,11 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
 	"time"
 )
+
+// ErrNameInUse は Add の name が既に使われている（失効済みを含む）ときのエラー。errors.Is で判定する。
+var ErrNameInUse = errors.New("名前が既に使われています")
 
 // manageMu は Add / Revoke の読み → 書きをプロセス内で直列化する。
 var manageMu sync.Mutex
@@ -37,7 +41,7 @@ func Add(path, name string, scope Scope, now time.Time, sessions ...string) (str
 	}
 	for _, r := range recs {
 		if r.Name == name {
-			return "", fmt.Errorf("名前 %s は既に使われています（失効済みの名前も再利用できません）", name)
+			return "", fmt.Errorf("%w: %s（失効済みの名前も再利用できません）", ErrNameInUse, name)
 		}
 	}
 	var raw [32]byte

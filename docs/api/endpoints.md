@@ -77,6 +77,8 @@ sequenceDiagram
 
 トークンには、触れる tmux セッション（許可セッション）を付けられる：`token add <名前> --scope ops|report [--sessions 0,1]`（`--sessions` を省略すると `config.toml` の `sessions` 全部）。許可の検査は上の HTTP の 401・403 とは別に、ツール層が `session` を取るツールごとに行う（§4.1）。許可セッションを変えるには `token revoke` してから `token add --sessions` で発行し直す。
 
+swarm-viewer 向けの接続文字列は `swarm-console pair [--sessions 0,1] [--name <表示名>]` で出す（FR-PAIR）。`report` スコープのトークンを自動の名前（`viewer-<ホスト名>-<yyyymmdd>`。重なれば `-2`・`-3`…）で 1 つ発行し、`swarm-viewer://pair?v=1&url=<URLエンコード>&token=<TOKEN>[&name=<表示名>][&sessions=0%2C1]` を標準出力に 1 行だけ出す。`url` は `listen_addr` の tailnet の IP・ポート 48120・`/report` から作る（決められなければトークンを発行せず終了）。全体は 4,096 バイト以内で、同じパラメータは 1 回だけ。平文のトークンが標準出力に入るので、履歴・ログ・チャットに貼らず、使い回さず、なくしたら `token revoke` して `pair` をやり直す。発行済みのトークンは `swarm-console token list`（名前・scope・許可セッション・発行日時・失効日時。ハッシュと平文は出さない）で見られる。
+
 ## 3. エラー
 
 ### 3.1 形式
@@ -181,3 +183,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.14 | 2026-11-03 | `file_get`（`/ops` のみ。許可リスト内の画像・動画を base64 で返す）を追加（ツール数 /ops 18→19、/report は 10 のまま）。エラー `path_forbidden`・`unsupported_type`・`too_large`（§3.2。`not_found` は `file_get` の存在しないパスにも使う）。endpoints-pane.md §5.2・endpoints-report.md §7 も同じ | Issue #82 |
 | 1.15 | 2026-11-04 | `file_get` の許可リスト：ペインの `cwd` が `/` やホームそのもの（実パス）のときは、その `cwd` を根に入れない。明示した `file_get_roots`・`report_dir` はそのまま許可。外した `cwd` の下は `path_forbidden`（endpoints-pane.md §5.2、§3.2） | Issue #82 |
 | 1.16 | 2026-11-04 | `file_get`（endpoints-pane.md）：宛先が存在しないシンボリックリンク・循環は、宛先が外なら存在の有無によらず `outside_roots`（宛先が許可の中なら `not_found`）。先頭 12 バイトを先に読み、形式が違えば残りを読まず `unsupported_type`。同時実行は制限しないと明記。`/proc/self/fd` が読めないときは `internal`（Linux の `/proc` が必須）。監査ログの `size`：stat 後に肥大化して上限を超えたときは記録しない | Issue #82（PR #84 の独立レビューの指摘） |
+| 1.17 | 2026-11-04 | §2：`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。`report` スコープのトークンを 1 つ発行）と `token list` を追記 | Issue #83 |

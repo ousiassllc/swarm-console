@@ -4,6 +4,8 @@
 //	swarm-console setup [--config <path>]
 //	swarm-console token add <名前> --scope ops|report [--config <path>]
 //	swarm-console token revoke <名前> [--config <path>]
+//	swarm-console token list [--config <path>]
+//	swarm-console pair [--sessions 0,1] [--name <表示名>] [--config <path>]
 //	swarm-console version [--check]
 package main
 
@@ -16,6 +18,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/ousiassllc/swarm-console/internal/pair"
 )
 
 // version はリリースビルドで -ldflags "-X main.version=v1.0.0" により上書きする。
@@ -26,6 +30,8 @@ const usage = `使い方:
   swarm-console setup [--config <path>]
   swarm-console token add <名前> --scope ops|report [--config <path>]
   swarm-console token revoke <名前> [--config <path>]
+  swarm-console token list [--config <path>]
+  swarm-console pair [--sessions 0,1] [--name <表示名>] [--config <path>]   （swarm-viewer の接続文字列。token が標準出力に入る。pair --help 参照）
   swarm-console version [--check]
 `
 
@@ -50,6 +56,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		err = runSetup(ctx, args[1:], stdout, stderr, os.Stdin, os.Stdout, os.Getenv("TERM"))
 	case "token":
 		err = runToken(args[1:], stdout, stderr)
+	case "pair":
+		err = pair.Run(args[1:], stdout, stderr)
 	case "version":
 		err = runVersion(ctx, args[1:], stdout, stderr)
 	case "help", "-h", "--help":
@@ -68,7 +76,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 0
 	case errors.Is(err, errSilent):
 		return 1
-	case errors.Is(err, errUsage):
+	case errors.Is(err, errUsage), errors.Is(err, pair.ErrUsage):
 		_, _ = fmt.Fprintf(stderr, "%v\n%s", err, usage)
 		return 2
 	}
