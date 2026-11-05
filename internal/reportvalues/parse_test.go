@@ -104,17 +104,22 @@ func TestAccountNames(t *testing.T) {
 	}
 }
 
-// 結果にメールの一部（ユーザー名）が残らない。
+// 結果にメールの一部（ユーザー名・ドメインの残り）や accountId・orgId が残らない。名前はドメインの最初のラベルだけ。
 func TestParseUsageNoEmailLeak(t *testing.T) {
-	u, err := ParseUsage(readFixture(t, "usage_ok.json"))
+	u, err := ParseUsage([]byte(`{"reports":[
+	 {"provider":"anthropic","metadata":{"email":"alice.user@secret.example","accountId":"acc-1234","orgId":"org-5678"},"limits":[]}],
+	 "accountsWithoutUsage":[{"provider":"anthropic","metadata":{"email":"bob.user@bad label.hidden.example","accountId":"acc-4321","orgId":"org-8765"}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := fmt.Sprintf("%+v", u)
-	for _, bad := range []string{"@", "user", ".example"} {
+	s := fmt.Sprintf("%+v", u.Claude)
+	for _, bad := range []string{"@", "user", "alice", "bob", "hidden", "bad label", ".example", "acc-", "org-"} {
 		if strings.Contains(s, bad) {
 			t.Errorf("結果に %q が残っている: %s", bad, s)
 		}
+	}
+	if len(u.Claude) != 2 || u.Claude[0].Name != "account-2" || u.Claude[1].Name != "secret" {
+		t.Errorf("名前: %+v", u.Claude)
 	}
 }
 
@@ -221,26 +226,29 @@ func TestParseUsageReason(t *testing.T) {
 	}
 }
 
-// 録った出力の通常のアカウントは reason が空。理由の文字列（値）にメールなどは入らない。
-func TestParseUsageReasonValuesAreFixed(t *testing.T) {
-	for _, name := range []string{"usage_ok.json", "usage_without.json"} {
-		u, err := ParseUsage(readFixture(t, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		var reasons []string
-		for _, a := range append(append([]Account{}, u.Claude...), u.Codex...) {
-			reasons = append(reasons, a.Reason)
-		}
-		for _, c := range u.Cursor {
-			reasons = append(reasons, c.Reason)
-		}
-		for _, r := range reasons {
-			if r != "" && r != AccountWithoutUsage && r != AccountNoEmail {
-				t.Errorf("%s: 決まった値以外: %q", name, r)
-			}
-		}
+// メールに使える `@` 以降のラベルが無くても、メールが空でなければ no_email にはならない（名前は account-N）。
+// メールが空の reports のアカウントと accountsWithoutUsage のアカウントは、同じ provider に両方あっても落とさず別々に出す。
+func TestParseUsageReasonEdgeCases(t *testing.T) {
+	u, err := ParseUsage([]byte(`{"reports":[
+	 {"provider":"anthropic","metadata":{},"limits":[]},
+	 {"provider":"anthropic","metadata":{"email":"nodomain"},"limits":[]}],
+	 "accountsWithoutUsage":[{"provider":"anthropic","metadata":{}}]}`))
+	if err != nil {
+		t.Fatal(err)
 	}
+	// 名前はメール全体の昇順の順番（"" "" nodomain）で account-1・account-2・account-3。
+	want := []Account{
+		{Name: "account-1", Reason: AccountNoEmail},      // reports のメールが空
+		{Name: "account-2", Reason: AccountWithoutUsage}, // accountsWithoutUsage のメールが空
+		{Name: "account-3"},                              // メールはあるが使えるラベルが無い → reason は空
+	}
+	if fmt.Sprintf("%+v", u.Claude) != fmt.Sprintf("%+v", want) {
+		t.Fatalf("claude\n got %+v\nwant %+v", u.Claude, want)
+	}
+}
+
+// 録った出力の usage_without.json では、reports 側の acct-a は reason が空、accountsWithoutUsage 側の acct-b は without_usage。
+func TestParseUsageReasonRecorded(t *testing.T) {
 	u, err := ParseUsage(readFixture(t, "usage_without.json"))
 	if err != nil {
 		t.Fatal(err)

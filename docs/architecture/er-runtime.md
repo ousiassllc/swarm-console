@@ -98,8 +98,9 @@ erDiagram
     HOST_STATE {
         array load "1・5・15 分"
         int cpus
-        float mem_total_gb "MemTotal。JSON の mem（total_gb・used_gb・used_percent）は mem_free_gb と合わせて描画で作る"
+        float mem_total_gb "MemTotal"
         float mem_free_gb "MemAvailable"
+        object mem "total_gb・used_gb・used_percent（保持はせず、描画のとき mem_total_gb と mem_free_gb から作る。MemTotal が 0 以下・MemAvailable が MemTotal より大きいときは取得できず。P-93）"
         array disk "mount・free_gb・available・total_gb・used_percent"
         object cpu "used_percent（前のサンプラーとの差。最初は取得できず）"
         object swap "total_gb・used_gb・used_percent"

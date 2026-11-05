@@ -1,7 +1,7 @@
 # swarm-console report
 
 - Time: 2026-10-31 22:10:05 (+09:00)
-- Server load: load1 98.2 / CPU Unavailable / Mem free 41.3 GB / Swap 0%
+- Server load: load1 98.2 / CPU Unavailable / Mem free 0.0 GB / Swap 0%
 - Disk: / 95% (5 GB free), /mnt/nvme Unavailable
 - Updates: omp 18.14.2 (Update 18.15.0 available) / swarm-console dev (Unavailable)
 - Login: omp Valid / claude Unknown / codex Unknown
@@ -24,15 +24,16 @@
 | Account | 5-hour | 7-day |
 | --- | --- | --- |
 | acct-a | Unavailable | 48% (Resets 2026-11-01 07:00) |
-| acct-b | 0% | 7% (Resets 2026-11-06 10:00) |
+| account-1 | 0% | 7% (Resets 2026-11-06 10:00) |
 | acct-c | 100% (Exhausted, Resets 2026-11-01 00:00) | 61.5% (Resets 2026-11-03 00:00) |
+| acct-d | Unavailable | Unavailable |
 
 ### Cursor
 
 | Account | Window | Used |
 | --- | --- | --- |
 | acct-a | monthly | 0% (Resets 2026-12-01 09:00) |
-| acct-b | weekly | 0 USD (Resets 2026-11-02 09:00) |
+| account-1 | weekly | 0 USD (Resets 2026-11-02 09:00) |
 
 ### Codex
 

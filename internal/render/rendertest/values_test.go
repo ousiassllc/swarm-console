@@ -34,7 +34,7 @@ func TestReportJSONPaneKeepsLoginItems(t *testing.T) {
 	if len(got.Panes) != 1 || got.Panes[0].Pos != "T2" || strings.Join(kinds, " ") != want {
 		t.Fatalf("panes=%+v attention=%v", got.Panes, kinds)
 	}
-	if len(got.Usage.Claude) != 3 || len(got.Auth.Agents) != 3 || got.Update.Status != "up_to_date" || got.Omp.Status != "up_to_date" {
+	if len(got.Usage.Claude) != 4 || len(got.Auth.Agents) != 3 || got.Update.Status != "up_to_date" || got.Omp.Status != "up_to_date" {
 		t.Fatalf("値が絞られた: %s", out)
 	}
 	// 詳しい版（markdown）も、見出し・要対応・使用状況は全体の版と同じ。
