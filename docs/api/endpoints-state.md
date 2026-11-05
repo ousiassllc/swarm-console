@@ -58,7 +58,7 @@
 
 `disk` は設定した監視マウント（既定 `/` と `/mnt/nvme`。SSD 2 台はこの 2 つ）。`agents` は種別ごとのペイン数。`session`（または許可が 1 つのときの省略）で決まったセッションについて、`agents` はそのセッションのペインだけを数え、`tmux_session` はそのセッションにペインがあるかを返す。`load`・`cpus`・`mem_*`・`cpu`・`swap`・`disk`・`uptime`・`usage`・`omp`・`update` はセッションによらずホスト全体の値。
 
-`mem`・`cpu`・`swap`・`disk`（`available`・`total_gb`・`used_percent`）・`usage`（アカウントごとの `reason` を含む）・`omp` は、`report` の JSON と同じ形・同じ値（`mem` は `host.mem` に当たる。`mem_total_gb`・`mem_free_gb` は互換のため残す。形と取れないときの値は [API 仕様 §5.5](endpoints-report.md#55-report)、取り方は [report-values.md](../architecture/report-values.md)）。FR-REP-17。値はスナップショットに入っていたもので、呼び出しでコマンドを実行しない。取れない値はキーを残し `available: false` と `null` にする（FR-REP-11）。
+`mem`・`cpu`・`swap`・`disk`（`available`・`total_gb`・`used_percent`）・`usage`（アカウントごとの `reason` を含む）・`omp` は、`report` の JSON と同じ形・同じ値（`mem` は `host.mem` に当たる。`mem_total_gb`・`mem_free_gb` は互換のため残し、`/proc/meminfo` を読めないときは 0 になる（0 GB 空きと区別するには `mem.available` を見る。P-95）。形と取れないときの値は [API 仕様 §5.5](endpoints-report.md#55-report)、取り方は [report-values.md](../architecture/report-values.md)）。FR-REP-17。値はスナップショットに入っていたもので、呼び出しでコマンドを実行しない。取れない値はキーを残し `available: false` と `null` にする（FR-REP-11）。
 
 `update` は新しい版の確認の結果と、自己更新の状況 `apply`（FR-UPD-9・20）。`serve` が持つ最後の結果を返すだけで、呼び出しで GitHub へは通信しない。
 

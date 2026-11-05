@@ -48,7 +48,7 @@ func TestStatusParsesProcFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Load != [3]float64{1.5, 2.25, 3} || st.MemTotalGB != 16 || st.MemFreeGB != 4 {
+	if st.Load != [3]float64{1.5, 2.25, 3} || st.MemTotalGB != 16 || st.MemFreeGB != 4 || st.MemErr != nil {
 		t.Fatalf("%+v", st)
 	}
 	if st.Uptime != 3723450*time.Millisecond || st.CPUs < 1 {
@@ -94,6 +94,9 @@ func TestStatusMemFailureKeepsOtherValues(t *testing.T) {
 			}
 			if st.MemTotalGB != 0 || st.MemFreeGB != 0 {
 				t.Fatalf("メモリは 0 のはず: %+v", st)
+			}
+			if st.MemErr == nil {
+				t.Fatalf("読めなかった理由が MemErr に入るはず: %+v", st)
 			}
 			if st.Load != [3]float64{1.5, 2.25, 3} || st.Uptime != 3723450*time.Millisecond || st.CPUs < 1 {
 				t.Fatalf("負荷・稼働時間・CPU 数は残るはず: %+v", st)

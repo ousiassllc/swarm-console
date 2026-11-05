@@ -54,7 +54,7 @@ func NewReader(c clock.Clock) *Reader {
 // Status は負荷・メモリ・スワップ・ディスク・稼働時間と最後の CPU サンプルを返す。メモリの単位は GiB（1024^3）。
 // 読めない /proc ファイル（メモリ・スワップ・CPU を除く）はエラー。メモリ（/proc/meminfo）を読めない・値が不正なときはエラーにせず、
 // MemTotalGB・MemFreeGB を 0 のまま残して稼働時間・CPU・スワップ・ディスクを返す（スワップと同じ扱い。P-95）。
-// そのエラーは呼び出し側へ返さず、Reader にはロガーがないので記録もしない。statfs に失敗したマウントは Available が false で残す。
+// そのエラーは Status.MemErr に入れて返し（Reader にはロガーがないので記録は呼び出し側が行う）、Status のエラーにはしない。statfs に失敗したマウントは Available が false で残す。
 func (r *Reader) Status(ctx context.Context, diskMounts []string) (Status, error) {
 	var st Status
 	if err := ctx.Err(); err != nil {
@@ -66,7 +66,9 @@ func (r *Reader) Status(ctx context.Context, diskMounts []string) (Status, error
 	}
 	st.Load = load
 	st.CPUs = runtime.NumCPU()
-	if total, avail, err := r.readMem(); err == nil {
+	if total, avail, merr := r.readMem(); merr != nil {
+		st.MemErr = merr
+	} else {
 		st.MemTotalGB, st.MemFreeGB = total, avail
 	}
 	if st.Uptime, err = r.readUptime(); err != nil {

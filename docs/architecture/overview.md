@@ -242,3 +242,4 @@ flowchart TD
 | 1.24 | 2026-11-04 | decisions.md P-91：宛先が存在しないリンク・循環は外のパスと区別しない、先頭 12 バイトを先に読む、同時実行は制限しない、`/proc/self/fd` が必須（読めなければ `internal`）を追記 | Issue #82（PR #84 の独立レビューの指摘） |
 | 1.25 | 2026-11-05 | decisions.md P-93（`report`・`host_status` のメモリ `mem`）・P-94（使用状況のアカウントごとの `reason`）を追加。report-values.md §2.1・§2.2・§3・§7 を改訂 | Issue #86・#87 |
 | 1.26 | 2026-11-05 | decisions.md P-95（`/proc/meminfo` を読めなくても `host` を捨てず、メモリだけ取得できずにする。P-93 の「変えない」を改めた）・P-96（`accountsWithoutUsage` に理由のキーがなく、`reason` は 2 値のまま）を追加。report-values.md §2.1・§2.2・§3 を改訂 | Issue #86・#87 |
+| 1.27 | 2026-11-05 | decisions.md P-95：メモリのエラーは `host.Status.MemErr` で返し、`internal/pane/build.go` が警告ログに残す（「記録しない」から改める）。`mem_free_gb`・`mem_total_gb` が 0 になることと、読み手は `mem.available` を見ることを明記。report-values.md §3 を改訂 | Issue #86 |

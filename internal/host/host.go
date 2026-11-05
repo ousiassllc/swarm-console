@@ -35,10 +35,13 @@ type Status struct {
 	CPUs       int
 	MemTotalGB float64
 	MemFreeGB  float64
-	CPU        CPU
-	Swap       Swap
-	Disk       []Disk
-	Uptime     time.Duration
+	// MemErr は /proc/meminfo を読めなかった理由。nil でなければ MemTotalGB・MemFreeGB は 0 のまま（P-95）。
+	// Status 全体の失敗にはせず、記録は呼び出し側（スナップショットの組み立て）が行う。
+	MemErr error
+	CPU    CPU
+	Swap   Swap
+	Disk   []Disk
+	Uptime time.Duration
 }
 
 // Proc は /proc から読んだプロセス 1 つ。
