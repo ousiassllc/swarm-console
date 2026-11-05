@@ -61,12 +61,58 @@ func TestStatusParsesProcFiles(t *testing.T) {
 	}
 }
 
+// meminfo を読めない・項目がない・数値が不正でも Status は失敗せず、メモリだけ 0 のまま、
+// 負荷・稼働時間・スワップ・ディスクは残る（スワップと同じ扱い。P-95）。
+func TestStatusMemFailureKeepsOtherValues(t *testing.T) {
+	tests := []struct {
+		name string
+		body string // "" は meminfo を消す
+	}{
+		{"meminfo が無い", ""},
+		{"MemAvailable がない", "MemTotal: 1 kB\nSwapTotal: 8388608 kB\nSwapFree: 7969178 kB\n"},
+		{"MemTotal がない", "MemAvailable: 1 kB\nSwapTotal: 8388608 kB\nSwapFree: 7969178 kB\n"},
+		{"数値が不正", "MemTotal: x kB\nMemAvailable: 1 kB\nSwapTotal: 8388608 kB\nSwapFree: 7969178 kB\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := fakeProc(t)
+			r.statfs = func(_ string, st *syscall.Statfs_t) error {
+				st.Bsize, st.Bavail = 4096, 2*gib/4096
+				return nil
+			}
+			path := filepath.Join(r.proc, "meminfo")
+			if tt.body == "" {
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				writeFile(t, path, tt.body)
+			}
+			st, err := r.Status(context.Background(), []string{"/"})
+			if err != nil {
+				t.Fatalf("メモリだけの失敗は Status の失敗にしない: %v", err)
+			}
+			if st.MemTotalGB != 0 || st.MemFreeGB != 0 {
+				t.Fatalf("メモリは 0 のはず: %+v", st)
+			}
+			if st.Load != [3]float64{1.5, 2.25, 3} || st.Uptime != 3723450*time.Millisecond || st.CPUs < 1 {
+				t.Fatalf("負荷・稼働時間・CPU 数は残るはず: %+v", st)
+			}
+			if len(st.Disk) != 1 || !st.Disk[0].Available {
+				t.Fatalf("ディスクは残るはず: %+v", st.Disk)
+			}
+			wantSwap := tt.body != ""
+			if wantSwap && !(st.Swap.Available && st.Swap.TotalGB == 8) {
+				t.Fatalf("スワップは残るはず: %+v", st.Swap)
+			}
+		})
+	}
+}
+
 func TestStatusErrors(t *testing.T) {
 	tests := []struct{ name, file, body string }{
 		{"loadavg が短い", "loadavg", "1.0\n"},
 		{"loadavg が数値でない", "loadavg", "a b c\n"},
-		{"meminfo に MemAvailable がない", "meminfo", "MemTotal: 1 kB\n"},
-		{"meminfo の数値が不正", "meminfo", "MemTotal: x kB\nMemAvailable: 1 kB\n"},
 		{"uptime が空", "uptime", ""},
 		{"uptime が数値でない", "uptime", "x y"},
 	}

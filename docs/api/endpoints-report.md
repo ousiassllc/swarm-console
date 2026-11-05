@@ -82,7 +82,7 @@
 
 | キー | 形 | 取れないとき |
 |------|-----|-------------|
-| `host.mem` | `{available, total_gb, used_gb, used_percent}`（GB は小数 1 位、率は整数）。`used_gb` は `MemTotal − MemAvailable`、`used_percent` は `100 × used ÷ total` の整数。`host.mem_free_gb`（`MemAvailable`）は互換のため今までどおり返す（`used_gb + mem_free_gb ≒ total_gb`）。取り方は [report-values.md §3](../architecture/report-values.md#3-サーバー負荷issue-23) | `available: false`・数値は `null`（`/proc/meminfo` を読めず、スナップショットの `host` がゼロ値のままのとき・`MemTotal` が 0 以下のとき・`MemAvailable` が `MemTotal` より大きいとき。`mem_free_gb` は読めた値のまま、`host` がゼロ値のときは `0`） |
+| `host.mem` | `{available, total_gb, used_gb, used_percent}`（GB は小数 1 位、率は整数）。`used_gb` は `MemTotal − MemAvailable`、`used_percent` は `100 × used ÷ total` の整数。`host.mem_free_gb`（`MemAvailable`）は互換のため今までどおり返す（`used_gb + mem_free_gb ≒ total_gb`）。取り方は [report-values.md §3](../architecture/report-values.md#3-サーバー負荷issue-23) | `available: false`・数値は `null`（`/proc/meminfo` を読めない・項目がない・数値が不正なとき・`MemTotal` が 0 以下のとき・`MemAvailable` が `MemTotal` より大きいとき。メモリが読めなくても `host` の `load1` などほかの値は読めたまま。`mem_free_gb` は読めたときはその値、読めないときは `0` なので、読み手は `mem.available` を見る。P-95） |
 | `host.cpu` | `{available, used_percent}`（整数 0〜100） | `{"available": false, "used_percent": null}`（起動後の最初のサンプルなど。取り方は [report-values.md §3](../architecture/report-values.md#3-サーバー負荷issue-23)） |
 | `host.swap` | `{available, total_gb, used_gb, used_percent}`（GB は小数 1 位、率は整数）。スワップ無しは `total_gb: 0`・`used_percent: 0` | `available: false`・数値は `null` |
 | `host.disk[]` | 既存の `mount`・`free_gb` に `available`・`total_gb`・`used_percent`（整数）を足す。要素は `disk_mounts` の順 | そのマウントを残し `available: false`・数値は `null` |
