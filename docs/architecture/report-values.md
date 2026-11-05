@@ -39,7 +39,7 @@
 | `window.resetsAt` | epoch ミリ秒 | `resets_at`（RFC 3339、`at` と同じオフセット）。無ければ `null` |
 | `status` | `ok`・`exhausted` | そのまま `status` に入れる。ほかの文字列は `unknown` |
 | `generatedAt` | epoch ミリ秒 | トップの `fetched_at` |
-| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-61）。アカウントごとの `reason` は `without_usage`（§2.2。P-94）。`accountsWithoutUsage[]` の要素に理由を表すキーはなく（実測。P-96）、ログイン切れ・権限・API エラーは区別できない |
+| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-61）。メールは要素のトップレベルの `email` から読む（無ければ `metadata.email`。`reports[]` とは位置が違う。実測。P-97）。`provider`・`email` 以外（`accountId`・`orgId`・`orgName` など）は読まない。アカウントごとの `reason` は `without_usage`（§2.2。P-94）。`accountsWithoutUsage[]` の要素に理由を表すキーはなく（実測。P-96）、ログイン切れ・権限・API エラーは区別できない |
 
 ### 2.2 アカウント名
 
@@ -56,6 +56,8 @@
 両方に当てはまるとき（`accountsWithoutUsage` から来て、メールも空）は `without_usage`（使用量が取れないことのほうが、見る人にとって大事なため）。メールがあるのに `@` 以降のラベルが使えず `account-N` になったアカウントは、メールが空ではないので `no_email` にしない（`null`）。Cursor も同じ規則で付ける。markdown には出さない。ログイン切れかどうかを別に調べない（`agent_auth_status` とも結び付けない）。
 
 実機の `omp usage --json` では、`accountsWithoutUsage[]` の各要素に理由を表すキーがなく、`disabledCredentials`（トップレベルの別のキー）もアカウントと結びつかない。そのためログイン切れ・権限・API エラーの理由は区別できず、`reason` はこの 2 つだけのままにする（P-96）。
+
+`accountsWithoutUsage[]` のメールは、実機ではトップレベルの `email`（`metadata` はない。P-97）。ここから名前を作るので、実機の出力ではメールが読めるアカウントは `account-N` ではなくメールのラベルの名前になり、`reports[]` に同じプロバイダ・メールのものがあれば 1 つにまとまる（`reports[]` 側が勝つ。§2.1）。理由は `without_usage` のまま。名前の作り方（上の規則）は変えていない。
 
 ### 2.3 並びと欠け
 
@@ -107,7 +109,7 @@ swarm-console 自身の更新状態は、`host_status.update` と同じ値を `r
 
 | 対象 | 方法 |
 |------|------|
-| 使用状況・omp の読み取り | 録った `omp usage --json`・`omp update --check` の出力（秘密を除いたもの）を固定して読ませる。5 アカウント・5 時間枠が無いアカウント・`unit: usd`・`exhausted`・`accountsWithoutUsage`・壊れた JSON・打ち切り。アカウントの `reason`（`without_usage`・`no_email`・`null`・両方に当てはまるときの優先）と、出力にメールが入らないこと |
+| 使用状況・omp の読み取り | 録った `omp usage --json`・`omp update --check` の出力（秘密を除いたもの）を固定して読ませる。5 アカウント・5 時間枠が無いアカウント・`unit: usd`・`exhausted`・`accountsWithoutUsage`・壊れた JSON・打ち切り。アカウントの `reason`（`without_usage`・`no_email`・`null`・両方に当てはまるときの優先）と、出力にメールが入らないこと。`accountsWithoutUsage[]` は、実機の形（トップレベルの `email`・`metadata` なし。ダミーのメール・ID の `usage_without_real_shape.json`）と前の形（`metadata.email`）の両方を読ませ、名前・`reports` との重複の除去・メール・ID が出力に出ないことを確かめる（P-97） |
 | 実行 | 偽の `omp`（テスト用の実行ファイル）を `command` に指す。呼び出しの引数が固定の 2 つだけであること |
 | CPU・メモリ・スワップ・ディスク | `/proc` 相当の固定入力。2 回目のサンプルで値が出る・差が無いと `available: false`・`MemTotal` が 0 のとき `mem` が `available: false`・スワップ無し |
 | 同一性 | 同じスナップショットを固定して `ja`・`en`・`json` を 2 回描画し、1 文字も違わない（AC-1。`serve` の収集器が途中で結果を変えても、同じスナップショットの出力は変わらない） |
