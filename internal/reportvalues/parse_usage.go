@@ -25,8 +25,27 @@ const cursorLabel = "Cursor Models"
 type usageDoc struct {
 	GeneratedAt *float64      `json:"generatedAt"`
 	Reports     []usageReport `json:"reports"`
-	// 使用量が取れなかったアカウント。要素の形は reports と同じ provider・metadata.email だけ読む。
-	Without []usageReport `json:"accountsWithoutUsage"`
+	// 使用量が取れなかったアカウント。reports と形が違い、メールはトップレベルの email（実測。P-97）。
+	Without []usageWithout `json:"accountsWithoutUsage"`
+}
+
+// usageWithout は accountsWithoutUsage[] の要素。provider・email（無ければ metadata.email）だけ読む。
+type usageWithout struct {
+	Provider string `json:"provider"`
+	Email    string `json:"email"`
+	Metadata struct {
+		Email string `json:"email"`
+	} `json:"metadata"`
+}
+
+// report は reports と同じ形にする。メールはトップレベルの email を先に、無ければ metadata.email を使う。
+func (w usageWithout) report() usageReport {
+	r := usageReport{Provider: w.Provider, without: true}
+	r.Metadata.Email = w.Email
+	if r.Metadata.Email == "" {
+		r.Metadata.Email = w.Metadata.Email
+	}
+	return r
 }
 
 type usageReport struct {
@@ -81,11 +100,11 @@ func ParseUsage(out []byte) (Usage, error) {
 		seen[r.Provider+"\x00"+r.Metadata.Email] = r.Metadata.Email != ""
 		byProvider[r.Provider] = append(byProvider[r.Provider], r)
 	}
-	for _, r := range doc.Without {
+	for _, w := range doc.Without {
+		r := w.report()
 		if !known(r) || seen[r.Provider+"\x00"+r.Metadata.Email] {
 			continue
 		}
-		r.without = true
 		byProvider[r.Provider] = append(byProvider[r.Provider], r)
 	}
 	for _, r := range namedReports(byProvider[providerClaude]) {
