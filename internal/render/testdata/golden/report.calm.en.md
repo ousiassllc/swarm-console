@@ -24,15 +24,16 @@
 | Account | 5-hour | 7-day |
 | --- | --- | --- |
 | acct-a | Unavailable | 48% (Resets 2026-11-01 07:00) |
-| acct-b | 0% | 7% (Resets 2026-11-06 10:00) |
+| account-1 | 0% | 7% (Resets 2026-11-06 10:00) |
 | acct-c | 100% (Exhausted, Resets 2026-11-01 00:00) | 61.5% (Resets 2026-11-03 00:00) |
+| acct-d | Unavailable | Unavailable |
 
 ### Cursor
 
 | Account | Window | Used |
 | --- | --- | --- |
 | acct-a | monthly | 0% (Resets 2026-12-01 09:00) |
-| acct-b | weekly | 0 USD (Resets 2026-11-02 09:00) |
+| account-1 | weekly | 0 USD (Resets 2026-11-02 09:00) |
 
 ### Codex
 

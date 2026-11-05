@@ -139,7 +139,7 @@ func NewCPUJSON(snap *pane.Snapshot) CPUJSON {
 // NewMemJSON は snap の host.mem。MemTotal が 0 以下・MemAvailable が MemTotal より大きいときは取得できず。
 func NewMemJSON(snap *pane.Snapshot) MemJSON {
 	total, free := snap.Host.MemTotalGB, snap.Host.MemFreeGB
-	if total <= 0 || free < 0 || free > total {
+	if total <= 0 || free > total {
 		return MemJSON{}
 	}
 	used := total - free

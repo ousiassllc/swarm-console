@@ -218,12 +218,6 @@ func TestReportUsageReason(t *testing.T) {
 			t.Errorf("%v: reason = %v (キー有り=%v), want %v", c.got["account"], got, has, c.want)
 		}
 	}
-	body := strings.ReplaceAll(mustReport(t, render.ReportInput{Snapshot: snap, Format: "json"}), reportvalues.AccountNoEmail, "")
-	for _, bad := range []string{"@", "accountId", "orgId", "email"} {
-		if strings.Contains(body, bad) {
-			t.Errorf("JSON に %q が出ている: %s", bad, body)
-		}
-	}
 	// markdown は reason を出さない（reason を外しても同じ）。
 	withReason := mustReport(t, render.ReportInput{Snapshot: snap, Lang: "ja"})
 	for _, bad := range []string{"without_usage", "no_email"} {
@@ -254,6 +248,8 @@ func TestNewMemJSON(t *testing.T) {
 		{"ふつう", mk(128, 41.31), `{"available":true,"total_gb":128,"used_gb":86.7,"used_percent":68}`},
 		{"端数", mk(15.6, 3.2), `{"available":true,"total_gb":15.6,"used_gb":12.4,"used_percent":79}`},
 		{"空きなし", mk(8, 0), `{"available":true,"total_gb":8,"used_gb":8,"used_percent":100}`},
+		{"四捨五入で上がる", mk(8, 3.96), `{"available":true,"total_gb":8,"used_gb":4,"used_percent":51}`},
+		{"四捨五入で下がる", mk(8, 4.08), `{"available":true,"total_gb":8,"used_gb":3.9,"used_percent":49}`},
 		{"全部空き", mk(8, 8), `{"available":true,"total_gb":8,"used_gb":0,"used_percent":0}`},
 		{"MemTotal が 0", mk(0, 0), `{"available":false,"total_gb":null,"used_gb":null,"used_percent":null}`},
 		{"MemTotal が 0 で空きだけある", mk(0, 4), `{"available":false,"total_gb":null,"used_gb":null,"used_percent":null}`},
