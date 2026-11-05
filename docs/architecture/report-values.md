@@ -39,7 +39,7 @@
 | `window.resetsAt` | epoch ミリ秒 | `resets_at`（RFC 3339、`at` と同じオフセット）。無ければ `null` |
 | `status` | `ok`・`exhausted` | そのまま `status` に入れる。ほかの文字列は `unknown` |
 | `generatedAt` | epoch ミリ秒 | トップの `fetched_at` |
-| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-61）。アカウントごとの `reason` は `without_usage`（§2.2。P-94） |
+| `accountsWithoutUsage` | 使用量が取れなかったアカウント | Claude なら、2 枠とも取得できずで出す（P-61）。アカウントごとの `reason` は `without_usage`（§2.2。P-94）。`accountsWithoutUsage[]` の要素に理由を表すキーはなく（実測。P-96）、ログイン切れ・権限・API エラーは区別できない |
 
 ### 2.2 アカウント名
 
@@ -55,6 +55,8 @@
 
 両方に当てはまるとき（`accountsWithoutUsage` から来て、メールも空）は `without_usage`（使用量が取れないことのほうが、見る人にとって大事なため）。メールがあるのに `@` 以降のラベルが使えず `account-N` になったアカウントは、メールが空ではないので `no_email` にしない（`null`）。Cursor も同じ規則で付ける。markdown には出さない。ログイン切れかどうかを別に調べない（`agent_auth_status` とも結び付けない）。
 
+実機の `omp usage --json` では、`accountsWithoutUsage[]` の各要素に理由を表すキーがなく、`disabledCredentials`（トップレベルの別のキー）もアカウントと結びつかない。そのためログイン切れ・権限・API エラーの理由は区別できず、`reason` はこの 2 つだけのままにする（P-96）。
+
 ### 2.3 並びと欠け
 
 - アカウントは `account` の昇順（辞書順）。前のスクリプトは使用率の降順だったが、スナップショットごとに並びが入れ替わらないよう名前順にした（P-62）。
@@ -65,7 +67,7 @@
 
 | 値 | 取り方 | 取れないとき |
 |----|--------|-------------|
-| `mem.total_gb`・`used_gb`・`used_percent` | `/proc/meminfo` の `MemTotal`・`MemAvailable`（KiB）。`used` ＝ `MemTotal − MemAvailable`（`free` コマンドの `used` に近く、`used_gb + mem_free_gb ≒ total_gb`）。GB は 1024³ で割って小数 1 位、`used_percent` は `100 × used ÷ total` を四捨五入した整数（スワップと同じ丸め）。`host.mem_free_gb` は `MemAvailable` のまま残す（`MemFree` ではない。P-93） | `/proc/meminfo` を読めない（スナップショットの `host` がゼロ値のまま）・`MemTotal` が 0 以下・`MemAvailable` が `MemTotal` より大きい：`available: false`・数値は `null` |
+| `mem.total_gb`・`used_gb`・`used_percent` | `/proc/meminfo` の `MemTotal`・`MemAvailable`（KiB）。`used` ＝ `MemTotal − MemAvailable`（`free` コマンドの `used` に近く、`used_gb + mem_free_gb ≒ total_gb`）。GB は 1024³ で割って小数 1 位、`used_percent` は `100 × used ÷ total` を四捨五入した整数（スワップと同じ丸め）。`host.mem_free_gb` は `MemAvailable` のまま残す（`MemFree` ではない。P-93） | `/proc/meminfo` を読めない・項目がない・数値が不正（`host` 全体は捨てず、負荷・稼働時間・CPU・スワップ・ディスクは読めた値のまま。`mem_free_gb` は 0 になるので、読み手は `mem.available` を見る。P-95）・`MemTotal` が 0 以下・`MemAvailable` が `MemTotal` より大きい：`available: false`・数値は `null`。メモリのエラーは `Reader` が記録しない（ロガーがない） |
 | `cpu.used_percent` | `/proc/stat` の先頭 `cpu` 行。**前のサンプラーの値との差**で `100 × (1 − (idle + iowait) / 合計)`、整数に丸める | 起動後の最初のサンプル（差が無い）・読めない・合計が増えていない：`available: false` |
 | `swap.total_gb`・`used_gb`・`used_percent` | `/proc/meminfo` の `SwapTotal`・`SwapFree`（KiB）。GB は 1024³ で割って小数 1 位、`used_percent` は整数 | 読めない：`available: false`。`SwapTotal` が 0 なら `total_gb: 0`・`used_gb: 0`・`used_percent: 0`（スワップ無し。取得できずではない） |
 | `disk[].total_gb`・`used_percent` | `disk_mounts` の各マウントを `statfs`。`used_percent` は `df` の `Use%` と同じ（使用 ÷ （使用 ＋ 一般ユーザーが使える空き）、切り上げの整数）。`free_gb` は今のとおり | `statfs` が失敗：そのマウントを残し `available: false` |
