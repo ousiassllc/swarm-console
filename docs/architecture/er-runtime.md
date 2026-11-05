@@ -65,7 +65,7 @@ erDiagram
     SNAPSHOT {
         string at "取得時刻（report の時刻）"
         object layout "段数・列数"
-        object usage "最後の使用状況の結果（収集器から。status・アカウント）"
+        object usage "最後の使用状況の結果（収集器から。status・アカウント。アカウントごとに name・reason（without_usage | no_email | 空）・枠）"
         object omp "omp の更新確認の結果（収集器から）"
         object update "swarm-console の更新確認の結果（host_status.update と同じ）"
         object auth "エージェントのログイン期限（スナップショットを作るときに読む）"
@@ -98,8 +98,9 @@ erDiagram
     HOST_STATE {
         array load "1・5・15 分"
         int cpus
-        float mem_total_gb
-        float mem_free_gb
+        float mem_total_gb "MemTotal"
+        float mem_free_gb "MemAvailable"
+        object mem "total_gb・used_gb・used_percent（保持はせず、描画のとき mem_total_gb と mem_free_gb から作る。MemTotal が 0 以下・MemAvailable が MemTotal より大きいときは取得できず。/proc/meminfo を読めないときは mem_total_gb・mem_free_gb が 0 のまま取得できずで、ほかの値は残る。P-93・P-95）"
         array disk "mount・free_gb・available・total_gb・used_percent"
         object cpu "used_percent（前のサンプラーとの差。最初は取得できず）"
         object swap "total_gb・used_gb・used_percent"

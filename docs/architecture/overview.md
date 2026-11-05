@@ -104,7 +104,7 @@ flowchart LR
 - 操作ツールは、送信後の確認のために対象ペインを `accept_timeout` までポーリングし、終わったらスナップショットを取り直す。
 - 画面ハッシュは、アダプタが「揮発部分（スピナー・経過時間・トークン数の表示）」を取り除いた本文から計算する。ハッシュが変わった時刻を `changed_at` として覚え、`working` で `now - changed_at ≥ stalled_after` なら `stalled` にする。サーバー起動直後は `changed_at` を起動時刻とし、起動後 `stalled_after` 経つまで `stalled` にしない。
 - 並びの差分（追加・削除・位置の変化）は前回のスナップショットと比べて、セッションごとに検知し、`layout_changed` 警告を `layout_warning_ttl` の間出す（セッションに絞った応答にはそのセッションの警告だけ。FR-SESS-8）。サーバー起動直後は比較対象がないので警告しない。
-- レポートに足す値（使用状況・omp の版・CPU・スワップ・ディスクの使用率・ログイン期限）もスナップショットに入れる。遅い取得（`omp usage --json`・`omp update --check`）は `serve` の別の収集器（`reportvalues`）が決まった間隔で行い、スナップショットはそのときの最後の結果を持つ。収集器が結果を更新しても、作ったスナップショットは変わらない（FR-REP-7・10。取り方は [report-values.md](report-values.md)）。
+- レポートに足す値（使用状況・omp の版・メモリ・CPU・スワップ・ディスクの使用率・ログイン期限）もスナップショットに入れる。遅い取得（`omp usage --json`・`omp update --check`）は `serve` の別の収集器（`reportvalues`）が決まった間隔で行い、スナップショットはそのときの最後の結果を持つ。収集器が結果を更新しても、作ったスナップショットは変わらない（FR-REP-7・10。取り方は [report-values.md](report-values.md)）。
 - ペインが 2 回連続のスナップショットで消えていたら、そのペインのメモを履歴へ移す（`closed_by: "vanished"`）。
 
 ## 5. 通信フロー
@@ -240,3 +240,7 @@ flowchart TD
 | 1.22 | 2026-11-04 | decisions.md P-91：ペインの `cwd` が `/` やホームそのもの（実パス）のときは許可リストに入れず、明示した `file_get_roots`・`report_dir` はそのまま許可と追記。deployment.md §8 の `file_get_roots` の説明も同じ | Issue #82 |
 | 1.23 | 2026-11-04 | §3：ツール層のパッケージを `internal/tools`（`toolkit`・`view`・`ops`）に更新（Linterly のディレクトリ上限のための分割。振る舞いは変えない） | Issue #82（PR #84） |
 | 1.24 | 2026-11-04 | decisions.md P-91：宛先が存在しないリンク・循環は外のパスと区別しない、先頭 12 バイトを先に読む、同時実行は制限しない、`/proc/self/fd` が必須（読めなければ `internal`）を追記 | Issue #82（PR #84 の独立レビューの指摘） |
+| 1.25 | 2026-11-05 | decisions.md P-93（`report`・`host_status` のメモリ `mem`）・P-94（使用状況のアカウントごとの `reason`）を追加。report-values.md §2.1・§2.2・§3・§7 を改訂 | Issue #86・#87 |
+| 1.26 | 2026-11-05 | decisions.md P-95（`/proc/meminfo` を読めなくても `host` を捨てず、メモリだけ取得できずにする。P-93 の「変えない」を改めた）・P-96（`accountsWithoutUsage` に理由のキーがなく、`reason` は 2 値のまま）を追加。report-values.md §2.1・§2.2・§3 を改訂 | Issue #86・#87 |
+| 1.27 | 2026-11-05 | decisions.md P-95：メモリのエラーは `host.Status.MemErr` で返し、`internal/pane/build.go` が警告ログに残す（「記録しない」から改める）。`mem_free_gb`・`mem_total_gb` が 0 になることと、読み手は `mem.available` を見ることを明記。report-values.md §3 を改訂 | Issue #86 |
+| 1.28 | 2026-11-05 | decisions.md P-97（実機の `accountsWithoutUsage[]` はメールがトップレベルの `email` にある。読む位置だけを直し、無ければ `metadata.email`。名前の作り方は変えず、実機の出力ではこれまで空だった入力が入るため、名前と `reports` との重複の除去が変わる）を追加。report-values.md §2.1・§2.2・§7 を改訂 | Issue #87 |

@@ -38,13 +38,14 @@ func fixedUsage() reportvalues.Usage {
 		Status: reportvalues.StatusOK, FetchedAt: time.Date(2026, 10, 31, 22, 9, 30, 0, jst),
 		Claude: []reportvalues.Account{
 			{Name: "acct-a", SevenDay: win(48, "percent", "ok", time.Date(2026, 11, 1, 7, 0, 0, 0, jst))},
-			{Name: "acct-b", FiveHour: win(0, "percent", "ok", time.Time{}), SevenDay: win(7, "percent", "ok", time.Date(2026, 11, 6, 10, 0, 0, 0, jst))},
+			{Name: "account-1", Reason: reportvalues.AccountNoEmail, FiveHour: win(0, "percent", "ok", time.Time{}), SevenDay: win(7, "percent", "ok", time.Date(2026, 11, 6, 10, 0, 0, 0, jst))},
 			// 収集器は resets_at を UTC の瞬間で持つ。描画で At のオフセット（JST）に直す（15:00 UTC → 翌 00:00）。
 			{Name: "acct-c", FiveHour: win(100, "percent", "exhausted", time.Date(2026, 10, 31, 15, 0, 0, 0, time.UTC)), SevenDay: win(61.5, "percent", "ok", time.Date(2026, 11, 3, 0, 0, 0, 0, jst))},
+			{Name: "acct-d", Reason: reportvalues.AccountWithoutUsage}, // accountsWithoutUsage から来た（2 枠とも取得できず）
 		},
 		Cursor: []reportvalues.CursorAccount{
 			{Name: "acct-a", Window: "monthly", Models: win(0, "percent", "ok", time.Date(2026, 12, 1, 9, 0, 0, 0, jst))},
-			{Name: "acct-b", Window: "weekly", Models: win(0, "usd", "ok", time.Date(2026, 11, 2, 9, 0, 0, 0, jst))},
+			{Name: "account-1", Reason: reportvalues.AccountNoEmail, Window: "weekly", Models: win(0, "usd", "ok", time.Date(2026, 11, 2, 9, 0, 0, 0, jst))},
 		},
 		Codex: []reportvalues.Account{
 			{Name: "acct-a", FiveHour: win(0, "percent", "ok", time.Date(2026, 11, 2, 3, 9, 0, 0, jst)), SevenDay: win(2, "percent", "ok", time.Date(2026, 11, 4, 9, 0, 0, 0, jst))},
@@ -55,6 +56,7 @@ func fixedUsage() reportvalues.Usage {
 // degradedSnapshot は取れない・止めてある・起動直後の値を通す（FR-REP-11）。
 func degradedSnapshot() *pane.Snapshot {
 	s := calmSnapshot()
+	s.Host.MemTotalGB, s.Host.MemFreeGB = 0, 0 // MemTotal が 0 以下のとき mem は取得できず（MemFreeGB も 0 に揃える）
 	s.Host.CPU = host.CPU{}
 	s.Host.Swap = host.Swap{Available: true} // スワップ無し（取得できずとは違う）
 	s.Host.Disk = []host.Disk{{Mount: "/", Available: true, FreeGB: 5, TotalGB: 100, UsedPercent: 95}, {Mount: "/mnt/nvme"}}
@@ -117,7 +119,7 @@ func fixedSnapshot() *pane.Snapshot {
 	return &pane.Snapshot{
 		At: time.Date(2026, 10, 31, 22, 10, 5, 0, jst),
 		Host: host.Status{
-			Load: [3]float64{98.24, 95.1, 90.4}, CPUs: 32, MemFreeGB: 41.31,
+			Load: [3]float64{98.24, 95.1, 90.4}, CPUs: 32, MemTotalGB: 128, MemFreeGB: 41.31,
 			CPU:  host.CPU{Available: true, UsedPercent: 42},
 			Swap: host.Swap{Available: true, TotalGB: 8, UsedGB: 0.4, UsedPercent: 5},
 			Disk: []host.Disk{

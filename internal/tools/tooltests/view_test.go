@@ -2,6 +2,7 @@ package tooltests_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/host"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/render"
+	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
 
@@ -107,6 +109,7 @@ func TestHostStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := `{"load":[98.2,95.1,90.4],"cpus":32,"mem_total_gb":128,"mem_free_gb":41.3,` +
+		`"mem":{"available":true,"total_gb":128,"used_gb":86.7,"used_percent":68},` +
 		`"cpu":{"available":true,"used_percent":42},` +
 		`"swap":{"available":true,"total_gb":8,"used_gb":0.4,"used_percent":5},` +
 		`"disk":[{"mount":"/","available":true,"free_gb":120,"total_gb":450,"used_percent":73},` +
@@ -243,5 +246,33 @@ func TestNoteGetAndHistory(t *testing.T) {
 	}
 	if h := mustCall(t, f, "note_history", `{"repo":"other"}`); h["total"] != float64(0) || len(h["entries"].([]any)) != 0 {
 		t.Errorf("絞り込み後が空 = %v", h)
+	}
+}
+
+// host_status の mem・usage（アカウントごとの reason）は report と同じ値・同じ形（FR-REP-17）。メールなどは出ない。
+func TestHostStatusMemAndUsageReasonMatchReport(t *testing.T) {
+	f := toolstest.New(t)
+	f.Registry.Snap.Usage = reportvalues.Usage{
+		Status: reportvalues.StatusOK, Codex: []reportvalues.Account{}, Claude: []reportvalues.Account{{Name: "acct-a"}, {Name: "account-1", Reason: reportvalues.AccountNoEmail}, {Name: "acct-z", Reason: reportvalues.AccountWithoutUsage}},
+		Cursor: []reportvalues.CursorAccount{{Name: "account-1", Reason: reportvalues.AccountNoEmail}},
+	}
+	type body struct {
+		Mem, Usage json.RawMessage
+		Host       struct{ Mem json.RawMessage }
+	}
+	get := func(tool, args string) (b body) {
+		text, err := call(t, f, tool, args)
+		if err != nil || json.Unmarshal([]byte(text), &b) != nil {
+			t.Fatalf("%s: %v %s", tool, err, text)
+		}
+		return b
+	}
+	st, rep := get("host_status", `{}`), get("report", `{"format":"json"}`)
+	const wantMem = `{"available":true,"total_gb":128,"used_gb":86.7,"used_percent":68}`
+	if string(st.Mem) != wantMem || string(rep.Host.Mem) != wantMem || string(st.Usage) != string(rep.Usage) {
+		t.Errorf("mem/usage が違う: %s %s\n%s\n%s", st.Mem, rep.Host.Mem, st.Usage, rep.Usage)
+	}
+	if u := string(st.Usage); !strings.Contains(u, `"acct-a","reason":null`) || !strings.Contains(u, `"account-1","reason":"no_email"`) || !strings.Contains(u, `"acct-z","reason":"without_usage"`) {
+		t.Errorf("reason が違う: %s", u)
 	}
 }

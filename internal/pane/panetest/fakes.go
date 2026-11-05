@@ -22,6 +22,8 @@ type FakeHost struct {
 	Load    float64
 	// StatusErr が非 nil なら Status はこのエラーを返す（/proc が読めない状態）。
 	StatusErr error
+	// MemErr が非 nil なら Status は成功のまま Status.MemErr にこれを入れる（/proc/meminfo が読めない状態）。
+	MemErr error
 }
 
 // NewHost は空のフェイクを作る。プロセス木が無い pid は ProcTree がエラーを返す（/proc が読めない状態）。
@@ -57,7 +59,7 @@ func (h *FakeHost) Status(context.Context, []string) (host.Status, error) {
 	if h.StatusErr != nil {
 		return host.Status{}, h.StatusErr
 	}
-	return host.Status{Load: [3]float64{h.Load, 0, 0}, CPUs: 4}, nil
+	return host.Status{Load: [3]float64{h.Load, 0, 0}, CPUs: 4, MemErr: h.MemErr}, nil
 }
 
 // ClearTree は pid のプロセス木を消す（以後 ProcTree はエラーを返す。/proc が読めない状態）。

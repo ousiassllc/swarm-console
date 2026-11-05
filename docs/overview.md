@@ -107,7 +107,7 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | アーキテクチャ：提案した既定値 | `docs/architecture/decisions.md` | 提案した既定値と実装時確認事項（P-xx）の一覧 |
 | エージェントの画面判定 | `docs/architecture/agent-patterns.md` | 状態判定・質問カードの正規表現（P-22） |
 | エージェントの認証期限 | `docs/architecture/agent-auth.md` | `agent_auth_status` の読み先と判定表（P-16） |
-| レポートに足す値の集め方 | `docs/architecture/report-values.md` | 使用状況・CPU・スワップ・ディスク・omp の版・ログイン期限の取り方、間隔、取れないときの値（P-60〜P-67） |
+| レポートに足す値の集め方 | `docs/architecture/report-values.md` | 使用状況・メモリ・CPU・スワップ・ディスク・omp の版・ログイン期限の取り方、間隔、取れないときの値（P-60〜P-67） |
 | ER / データモデル | `docs/architecture/er.md` | ファイル一覧、全体 ER 図、notes.json |
 | ER：tokens.toml・実行時のペイン状態 | `docs/architecture/er-runtime.md` | tokens.toml、実行時のペイン状態（メモリ） |
 | ER：config.toml・profiles.toml ほか | `docs/architecture/er-config.md` | config.toml、profiles.toml、最終報告ファイル、自己更新のファイル |
@@ -161,3 +161,4 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | 1.5 | 2026-11-02 | スコープの CI の説明に linterly・release plan test・install script test を追加（`ci.yml` に合わせた） | Issue #41 |
 | 1.6 | 2026-11-02 | ツール数 17→18（`sessions_list`）、トークンごとの許可セッション・2 セッション運用の概要・用語（許可セッション、位置）・ドキュメントマップを追加・更新 | セッション分割運用（許可セッションの分離） |
 | 1.7 | 2026-11-03 | ツール数 18→19（`file_get`。`/ops` のみ）、ドキュメントマップの API 仕様：ペインを見る・操作するに `file_get` を追加 | Issue #82 |
+| 1.8 | 2026-11-05 | ドキュメントマップ：レポートに足す値の集め方にメモリ（`host.mem`）を追記 | Issue #86・#87 |
