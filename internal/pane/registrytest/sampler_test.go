@@ -228,6 +228,36 @@ func TestVersionWarnOnce(t *testing.T) {
 	}
 }
 
+// meminfo を読めなかったとき（Status.MemErr）は Snapshot の host をそのまま使い、警告を 1 件残す（P-95）。
+// 読めたときは残さない。
+func TestSnapshotWarnsWhenMemoryUnreadable(t *testing.T) {
+	for _, memErr := range []error{errors.New("読めない"), nil} {
+		env := panetest.NewEnv()
+		twoRows(env)
+		env.Host.Load = 1.5
+		env.Host.MemErr = memErr
+		var mu sync.Mutex
+		var msgs []string
+		r, err := pane.NewRegistry(pane.Deps{
+			Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters, Notes: env.Notes, Clock: env.Clock, FS: env.FS,
+			Logger: slog.New(recordHandler{&mu, &msgs}),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := mustRefresh(t, r)
+		if s.Host.Load[0] != 1.5 || !errors.Is(s.Host.MemErr, memErr) {
+			t.Fatalf("host を使うはず: %+v", s.Host)
+		}
+		mu.Lock()
+		warned := strings.Join(msgs, ",") == "メモリを読めませんでした"
+		mu.Unlock()
+		if warned != (memErr != nil) || (memErr == nil && len(msgs) != 0) {
+			t.Fatalf("memErr=%v msgs=%v", memErr, msgs)
+		}
+	}
+}
+
 func TestRunSamplesEveryPollInterval(t *testing.T) {
 	env := panetest.NewEnv()
 	twoRows(env)

@@ -26,6 +26,10 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 		}
 	} else {
 		snap.Host = st
+		if st.MemErr != nil {
+			// MemTotalGB・MemFreeGB は 0 のまま使う（P-95）。panes_status の mem_free_gb には取得できずの印がない。
+			r.log.Warn("メモリを読めませんでした", "err", st.MemErr)
+		}
 	}
 	r.checkVersionOnce(ctx)
 

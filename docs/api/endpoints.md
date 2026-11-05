@@ -186,3 +186,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.17 | 2026-11-04 | §2：`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。`report` スコープのトークンを 1 つ発行）と `token list` を追記 | Issue #83 |
 | 1.18 | 2026-11-05 | endpoints-report.md §5.5・endpoints-state.md §5.3：`host.mem`（`host_status` は `mem`。`available`・`total_gb`・`used_gb`・`used_percent`。`mem_free_gb`・`mem_total_gb` は残す）と、`usage` のアカウントごとの `reason`（`without_usage`・`no_email`・`null`）を追加。どちらも既存のキーを足すだけで、値は変えない | Issue #86・#87 |
 | 1.19 | 2026-11-05 | endpoints-report.md §5.5：`host.mem` は `/proc/meminfo` を読めないときも `host` のほかの値（`load1` など）を残し、`available: false`・数値 `null`（`mem_free_gb` は 0。読み手は `mem.available` を見る。P-95） | Issue #86 |
+| 1.20 | 2026-11-05 | endpoints-pane.md §5.1・endpoints-state.md §5.3・endpoints-report.md §5.5：`/proc/meminfo` を読めないときは `panes_status` の `host.mem_free_gb`、`host_status` の `mem_free_gb`・`mem_total_gb` も 0 になると明記（`report`・`host_status` の `mem.available` で見分ける。`panes_status` には印がない。P-95） | Issue #86 |
