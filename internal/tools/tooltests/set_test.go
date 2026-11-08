@@ -17,7 +17,7 @@ var viewTools = []string{
 }
 
 var opsTools = []string{
-	"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dispatch", "note_set", "note_log", "file_get",
+	"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dispatch", "note_set", "note_log", "file_get", "dir_list",
 }
 
 func names(ts []toolkit.Tool) []string {

@@ -135,7 +135,7 @@ func TestHelpMentionsSecurityNotes(t *testing.T) {
 	if !errors.Is(err, flag.ErrHelp) {
 		t.Fatalf("--help は flag.ErrHelp のはず: %v", err)
 	}
-	for _, w := range []string{"標準出力", "履歴", "チャット", "使い回さない", "token revoke", "pair をやり直", "report スコープ", "ops は発行しません", "--sessions", "--name"} {
+	for _, w := range []string{"標準出力", "履歴", "チャット", "使い回さない", "token revoke", "pair をやり直", "report スコープ", "--scope", "ops", "/ops", "--sessions", "--name"} {
 		if !strings.Contains(stderr, w) {
 			t.Errorf("pair --help に %q がありません:\n%s", w, stderr)
 		}

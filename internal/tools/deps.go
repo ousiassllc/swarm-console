@@ -9,7 +9,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/tools/toolkit"
 )
 
-// New はツール 19 個を組み立てる。必須の依存が無ければエラー。
+// New はツール 20 個を組み立てる。必須の依存が無ければエラー。
 func New(d toolkit.Deps) (*Registry, error) {
 	switch {
 	case d.Cfg == nil:

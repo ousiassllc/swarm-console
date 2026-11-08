@@ -20,7 +20,7 @@ graph TD
         AUTH["認証ミドルウェア（Bearer・窓口スコープ・監査ログ）"]
         MCPR["MCP サーバー /report"]
         MCPO["MCP サーバー /ops"]
-        TOOLS["ツール層（19 ツール・prompts・resources。許可セッションの検査・セッション内のペイン解決）"]
+        TOOLS["ツール層（20 ツール・prompts・resources。許可セッションの検査・セッション内のペイン解決）"]
         DOM["ドメイン層（ペイン台帳・状態判定・メモ・指示組み立て・レンダラ・安全ポリシー）"]
         AD["アダプタ層（omp / claude / codex）"]
         INF["インフラ層（tmux クライアント・/proc リーダー・ファイルストア・クロック）"]
@@ -244,3 +244,4 @@ flowchart TD
 | 1.26 | 2026-11-05 | decisions.md P-95（`/proc/meminfo` を読めなくても `host` を捨てず、メモリだけ取得できずにする。P-93 の「変えない」を改めた）・P-96（`accountsWithoutUsage` に理由のキーがなく、`reason` は 2 値のまま）を追加。report-values.md §2.1・§2.2・§3 を改訂 | Issue #86・#87 |
 | 1.27 | 2026-11-05 | decisions.md P-95：メモリのエラーは `host.Status.MemErr` で返し、`internal/pane/build.go` が警告ログに残す（「記録しない」から改める）。`mem_free_gb`・`mem_total_gb` が 0 になることと、読み手は `mem.available` を見ることを明記。report-values.md §3 を改訂 | Issue #86 |
 | 1.28 | 2026-11-05 | decisions.md P-97（実機の `accountsWithoutUsage[]` はメールがトップレベルの `email` にある。読む位置だけを直し、無ければ `metadata.email`。名前の作り方は変えず、実機の出力ではこれまで空だった入力が入るため、名前と `reports` との重複の除去が変わる）を追加。report-values.md §2.1・§2.2・§7 を改訂 | Issue #87 |
+| 1.29 | 2026-11-08 | §1：ツール数 19→20（`dir_list`）。decisions.md P-98（`dir_list` の判定を `file_get`・`pane_start` と共通にする。`pair --scope ops`。P-92 の「`ops` は出さない」を改めた）を追加 | Issue #90 |

@@ -161,6 +161,30 @@ func TestAuditLogRecordsFileGetPathAndSizeButNeverContent(t *testing.T) {
 	}
 }
 
+// dir_list の監査ログは 誰が・どのパス（実パス。拒否は入力のまま）・結果コード。サイズは持たない。
+func TestAuditLogRecordsDirListPath(t *testing.T) {
+	e := newEnv(t)
+	dir := e.f.Cfg.ReportDir
+	cs := e.connect(t, "/ops", "boss")
+	if text, isErr := callText(t, cs, "dir_list", map[string]any{"path": dir}); isErr {
+		t.Fatalf("dir_list = %s", text)
+	}
+	const outside = "/etc"
+	if text, isErr := callText(t, cs, "dir_list", map[string]any{"path": outside}); !isErr || !strings.Contains(text, `"code":"path_forbidden"`) {
+		t.Fatalf("outside = %v %s", isErr, text)
+	}
+	lines := auditLines(t, e)
+	byPath := func(p string) *auditLine {
+		return findAudit(lines, func(l auditLine) bool { return l.Tool == "dir_list" && l.Path == p })
+	}
+	if l := byPath(dir); l == nil || l.Client != "boss" || l.Endpoint != "/ops" || l.Code != "ok" || l.Size != nil {
+		t.Errorf("成功の記録 = %+v", l)
+	}
+	if l := byPath(outside); l == nil || l.Code != "path_forbidden" || l.Size != nil {
+		t.Errorf("拒否の記録 = %+v", l)
+	}
+}
+
 // file_get は /ops だけ。/report の tools/list に出ず、tools/call は unknown_tool（何も読まない）。report スコープのトークンは /ops に入れない。
 func TestFileGetIsOpsOnly(t *testing.T) {
 	e := newEnv(t)

@@ -58,8 +58,8 @@ WantedBy=default.target
 | `layout_warning_ttl` | `10m` | 並び変更の警告を出し続ける時間 |
 | `accept_timeout` / `start_timeout` / `lock_timeout` | `10s` / `30s` / `60s` | 操作の確認待ち・起動待ち・同ペイン待ち |
 | `title_prefix` | `"agent: "` | `pane_start` のタイトル接頭辞 |
-| `allowed_roots` | `["/mnt/nvme/", "~/projects/"]` | `cwd` を許可する根 |
-| `denied_paths` | `["~/dotfiles"]`（書いたら入れ替え。P-29） | `cwd`・`file`・`file_get` の `path` を拒否するパス |
+| `allowed_roots` | `["/mnt/nvme/", "~/projects/"]` | `cwd` を許可する根。`dir_list`（`/ops` のみ）が一覧する範囲でもある |
+| `denied_paths` | `["~/dotfiles"]`（書いたら入れ替え。P-29） | `cwd`・`file`・`file_get` と `dir_list` の `path` を拒否するパス |
 | `file_roots` | `["/tmp/", + allowed_roots]` | `send_text` の `file` を許可する根（P-13） |
 | `file_get_roots` | `[]`（なし） | `file_get` の許可リストに足す根。ペインの `cwd` の下と `report_dir` の下は書かなくても常に取れる（ただし `cwd` が `/` やホームそのものなら、その `cwd` は除く。ここに書いた根はそのまま許可。P-91） |
 | `file_get_max_bytes` | `20971520`（20 MiB。1〜104857600） | `file_get` が返す 1 ファイルの上限（P-91） |

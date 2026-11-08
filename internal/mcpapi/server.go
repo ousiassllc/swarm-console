@@ -23,7 +23,7 @@ type Event struct {
 	Target   string        // ツール名・prompt 名・resource 名（report|pane|notes）。無ければ ""
 	Pane     string        // 引数・URI の pane（位置または ID）。無ければ ""
 	Session  string        // 引数の session（送られたまま）。無ければ ""
-	Path     string        // file_get の取得先（実パス。解決前に断ったときは入力のまま）。それ以外は ""
+	Path     string        // file_get・dir_list の対象（実パス。解決前に断ったときは入力のまま）。それ以外は ""
 	Size     int64         // file_get のファイルサイズ（バイト）。HasSize が true のときだけ意味がある
 	HasSize  bool          // Size が分かっているか
 	Code     string        // "ok" またはエラーコード
@@ -42,7 +42,7 @@ type Options struct {
 // NewReportServer は /report の MCP サーバー（見るツール 10・prompts は report のみ・resources は全部）。
 func NewReportServer(o Options) *mcp.Server { return newServer(toolkit.EndpointReport, o) }
 
-// NewOpsServer は /ops の MCP サーバー（見る 10 ＋ 操作 9 のツール・prompts は report と dispatch・resources は全部）。
+// NewOpsServer は /ops の MCP サーバー（見る 10 ＋ 操作 10 のツール・prompts は report と dispatch・resources は全部）。
 func NewOpsServer(o Options) *mcp.Server { return newServer(toolkit.EndpointOps, o) }
 
 func newServer(endpoint string, o Options) *mcp.Server {

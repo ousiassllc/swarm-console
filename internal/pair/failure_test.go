@@ -199,7 +199,7 @@ func TestTokenBaseSanitizesHostname(t *testing.T) {
 	} {
 		deps := fixedDeps(c.host)
 		deps.Hostname = func() (string, error) { return c.host, c.err }
-		got := tokenBase(deps)
+		got := tokenBase(deps, auth.ScopeReport)
 		if got != c.want {
 			t.Errorf("%s: %q, want %q", name, got, c.want)
 		}

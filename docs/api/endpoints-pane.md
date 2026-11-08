@@ -1,6 +1,6 @@
 # API 仕様：ペインを見る・操作するツール
 
-[API 仕様](endpoints.md) の続き。§5 ツールのうち、§5.1 見る（`panes_status`・`pane_tail`・`ask_card`・`report_read`）と §5.2 操作する（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`file_get`）を定める。
+[API 仕様](endpoints.md) の続き。§5 ツールのうち、§5.1 見る（`panes_status`・`pane_tail`・`ask_card`・`report_read`）と §5.2 操作する（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`file_get`・`dir_list`）を定める。
 
 改訂履歴は [API 仕様（本書）](endpoints.md#改訂履歴) にまとめてある。
 
@@ -143,7 +143,7 @@ tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が�
 | `pane` | string | 必須 | `shell` のペインのみ |
 | `session` | string | 任意 | §4.1 |
 | `agent` | string | 必須 | `omp`・`claude`・`codex` |
-| `cwd` | string | 必須 | 許可したフォルダの下の既存ディレクトリ |
+| `cwd` | string | 必須 | 許可したフォルダ（`allowed_roots`）の下の既存ディレクトリ。選べる候補は `dir_list` で調べる |
 | `title` | string | 必須 | 80 字まで、制御文字なし。タイトルは `agent: <title>` になる |
 
 ```json
@@ -211,5 +211,40 @@ ompが撮ったスクショ・動画をサーバーから取るツール（scp �
 サイズは読む前に `stat` で判定する。読むときは、先に先頭 12 バイトだけ読んで拡張子の形式と比べ、合わなければ残りを読まずに `unsupported_type`（`content`）にする（拡張子だけ画像の大きなファイルを全部は読まない）。合えば、`stat` のサイズ＋1 バイトのバッファ 1 つへ残りを読む（読み込みを倍々に確保し直さない）。確認のあとに大きくされたときは、上限＋1 バイトまでだけ読み足して `too_large` にする（上限を超えて読まない）。同時に呼ばれる `file_get` の数は制限しない（1 回の最大はメモリ上でファイル本体・base64・JSON 本文の約 3 倍。上限は `file_get_max_bytes`）。シンボリックリンクは解決した実パスを `O_NOFOLLOW` で開く（最後の成分の差し替えを拒否）。開いたあとに `/proc/self/fd/<fd>` の実パスを読み、確認した実パスと違えば（確認後に途中のディレクトリがリンクへ差し替えられた場合）`path_forbidden`（`unreadable`）で断り、中身は読まない。**Linux の `/proc/self/fd` が必須**：読めない環境（`/proc` が無い・マウントされていない・Linux 以外）では、確かめられないので許さず、`internal`（`path_forbidden` ではない）を返す。つまり `file_get` はそのような環境では常に失敗し、確認を飛ばして読むことはない（NFR-SEC-17）。
 
 **監査ログ**：成功・拒否のどちらも 1 行に、`client`（トークン名）・`tool: file_get`・`path`（解決できたときは実パス、断った場合は入力のまま。512 字で切る）・`size`（バイト。ファイルを開けたときだけ。`stat` で上限超えと分かったときは実際のサイズ、種類違いのときは `stat` のサイズ、成功のときは読んだ長さ。確認のあとに大きくされて上限を超えたときは実際のサイズが分からないので記録しない）・`code`（`ok` またはエラーコード）を残す。`data_base64`・ファイルの中身は残さない（NFR-SEC-12）。
+
+#### `dir_list`（`/ops` のみ）
+
+`pane_start` の `cwd` に選べるディレクトリを、1 階層ずつ返すツール。ペインには何も送らない（読むだけ）。`file_get` と同じく `/report` には出さない（`ops` スコープのトークンでも `/report` では `unknown_tool`）。許可するフォルダは全セッション共通の `allowed_roots` なので、`session` は取らない。ディレクトリの作成・削除・ファイルの一覧は範囲外。
+
+| 引数 | 型 | 必須 | 説明 |
+|------|-----|------|------|
+| `path` | string | 任意 | 一覧するディレクトリの絶対パス。省略すると `allowed_roots` そのものを返す |
+| `limit` | int | 任意 | 返す件数の上限。既定 200、1〜500（範囲外・整数でないものは `invalid_args`、`details.field` = `"limit"`） |
+
+```json
+{"path": "/mnt/nvme/ousiassllc", "entries": [{"name": "funid-sweep-982", "path": "/mnt/nvme/ousiassllc/funid-sweep-982", "git": true}], "truncated": false}
+```
+
+キー順は `path`・`entries`・`truncated`（`entries` の各項目は `name`・`path`・`git`）。`path` は実パス（シンボリックリンクを解決したもの）で、`path` を省略したときは出さない。`entries` は名前順（バイト順）で、`path` の直下のサブディレクトリだけ（再帰しない。ファイルは返さない）。各項目の `path` は `<path>/<name>`（`path` を省略したときは `allowed_roots` の各根。名前順）で、そのまま `pane_start` の `cwd` や次の `dir_list` の `path` に渡せる。`git` は、そのディレクトリの直下に `.git`（ディレクトリでも、git worktree のファイルでも）があるとき `true`（中身は見ない）。載せる項目が `limit` を超えるときは先頭から `limit` 件を返し `"truncated": true`（ちょうど `limit` 件なら `false`）。空なら `"entries": []`。
+
+**載せないもの**：隠しディレクトリ（`.` で始まる名前。`.git` など）、ファイル、`pane_start` の `cwd` として通らないもの。つまり `denied_paths` の一致・配下、宛先が存在しない・ディレクトリでないシンボリックリンク、実パスが `allowed_roots` の外へ出るシンボリックリンク（実パスが中に収まるリンクは載せる。`path` はリンクのまま）、秘密のファイル名と同じ名前のもの（`id_rsa`・`*.pem`・`*.key` など。下記）、`'`・制御文字を含む名前。載せないものは、エラーにせず一覧から省くだけ。`allowed_roots` が存在しない・`denied_paths` の下のときも、その根は省く。
+
+**判定は `file_get`・`pane_start` と同じ実装を共有する**。`path` の検証は `file_get` の判定（§ 上の表の `invalid_args`〜`not_found` の順序。根は `allowed_roots`）と同じで、`details.reason` の語彙も同じ。
+
+| 条件 | エラー（`details.reason`） |
+|------|---------------------------|
+| `path` が空・制御文字を含む・引数の型が違う・未知のキー | `invalid_args` |
+| 相対パス | `path_forbidden`（`not_absolute`） |
+| `..` の成分を含む | `path_forbidden`（`dotdot`） |
+| 名前が秘密のもの（`file_get` と同じ規則。`id_*`・`*.pem`・`*.key`・`.env`・`.env.*`・`config.toml`・`tokens.toml`・`profiles.toml`） | `path_forbidden`（`secret`） |
+| 実パスが `allowed_roots` の外（存在しなくても同じ。外のパスの存在を漏らさない。外へ出るシンボリックリンクを `path` に指定したときも） | `path_forbidden`（`outside_roots`） |
+| 実パスが `denied_paths` の一致・配下 | `path_forbidden`（`denied`） |
+| `allowed_roots` の中だが存在しない | `not_found` |
+| 存在するがディレクトリでない | `path_forbidden`（`not_directory`） |
+| 読み取れない（権限など） | `path_forbidden`（`unreadable`） |
+
+**不変条件**：`dir_list` が返した `path` は、`pane_start`（`dispatch` の `shell` のとき）の `cwd` で `forbidden_path` にならず、その `path` を指定した `dir_list` も成功する。載せるかどうかは `pane_start` の `cwd` の判定と `dir_list` の `path` の判定の両方を通るかで決める。
+
+**監査ログ**：成功・拒否のどちらも 1 行に、`client`・`tool: dir_list`・`path`（解決できたときは実パス、断った場合は入力のまま。512 字で切る。`path` を省略したときは空）・`code` を残す。`size` は持たない。
 
 #### `dispatch` → §5.6

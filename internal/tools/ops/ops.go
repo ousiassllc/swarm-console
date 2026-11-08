@@ -1,5 +1,5 @@
-// Package ops は操作系の MCP ツール 9 個（ask_pick・send_text・send_escape・pane_start・pane_close・dispatch・
-// note_set・note_log・file_get）のハンドラを持つ。/ops だけに出る（API 仕様 §1.1）。
+// Package ops は操作系の MCP ツール 10 個（ask_pick・send_text・send_escape・pane_start・pane_close・dispatch・
+// note_set・note_log・file_get・dir_list）のハンドラを持つ。/ops だけに出る（API 仕様 §1.1）。
 package ops
 
 import "github.com/ousiassllc/swarm-console/internal/tools/toolkit"
@@ -22,5 +22,6 @@ func Tools(e *toolkit.Env) []toolkit.Tool {
 		h.noteSetTool(),
 		h.noteLogTool(),
 		h.fileGetTool(),
+		h.dirListTool(),
 	}
 }

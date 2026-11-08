@@ -17,7 +17,7 @@ import (
 
 const codeOK = "ok"
 
-// maxAuditPath は監査ログに残す file_get のパスの最大字数（クライアントが付けた文字列をそのまま残さない）。
+// maxAuditPath は監査ログに残す file_get・dir_list のパスの最大字数（クライアントが付けた文字列をそのまま残さない）。
 const maxAuditPath = 512
 
 // middleware は要求ごとに、窓口に出ていないツールの拒否・resources/list の動的な列挙・監査ログの記録を行う。
