@@ -68,8 +68,8 @@ erDiagram
 | `sessions` | 1 つ以上。重複なし。名前は空（空白だけを含む）・`.`・`:`・制御文字を含まない（tmux が `.`・`:` を `_` に置き換えて一致しなくなるため）。`default_session` は `sessions` のどれか。トークンの `allowed_sessions`（ER §3）は `sessions` の部分集合で、ツールが触れるセッションは両方の共通部分。`default_session` は位置の接頭辞を省略するセッションを決めるだけで、ツールの許可・`session` の既定には使わない（FR-SESS-12・P-87） |
 | `default_lang` | 省略（`ja`）か `"ja"`・`"en"`。それ以外は起動拒否 |
 | `pane_names` | キーは `<セッション>:<ウィンドウ>.<ペイン番号>`（`^(.+):([0-9]+)\.([0-9]+)$`）の形で、セッションは `sessions` のどれか（FR-POS-5）。名前は `^[A-Za-z][A-Za-z0-9_-]*$`（英字始まりなので tmux のペイン ID の `%` 始まりとは重ならない）で、自動名（`T1`・`B2`・`R12` など）と衝突せず、名前どうしも大文字小文字を区別せず重ならない。どれかに反したら起動拒否 |
-| `allowed_roots` | 1 つ以上（空配列は起動拒否）。書かなければ既定を使う |
-| `allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths`・`disk_mounts`・`report_dir` | 絶対パス（空文字・制御文字を含むもの・相対パスは不可）。`~` は `~` 単体（ホームそのもの）か `~/…` の形だけで、`~user` のような他ユーザー形式は不可。`~` は展開。`report_dir` は 1 つの文字列で、省略か空文字なら既定（`/tmp/swarm-console/reports`）。`allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths` の比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file`・`file_get` の `path`） |
+| `allowed_roots` | 1 つ以上（空配列は起動拒否）。書かなければ既定を使う。`pane_start`・`dispatch` の `cwd` を許す根で、`dir_list`（`/ops` のみ。`cwd` に選べるディレクトリの一覧）が一覧する範囲と、`path` を省略したときに返す一覧そのものにも使う（`denied_paths` と合わせて `cwd` の判定と共通） |
+| `allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths`・`disk_mounts`・`report_dir` | 絶対パス（空文字・制御文字を含むもの・相対パスは不可）。`~` は `~` 単体（ホームそのもの）か `~/…` の形だけで、`~user` のような他ユーザー形式は不可。`~` は展開。`report_dir` は 1 つの文字列で、省略か空文字なら既定（`/tmp/swarm-console/reports`）。`allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths` の比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file`・`file_get` と `dir_list` の `path`） |
 | `denied_paths` の既定 | 既定は `["~/dotfiles"]`。`config.toml` に書いたら既定と**入れ替わる**（足されない。書き方の例は [環境構築](../environment/setup.md#ローカルで動かす)）。P-29 |
 | 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h、`usage_interval` ≥ 1m。`stalled_after`・`layout_warning_ttl`・`accept_timeout`・`start_timeout`・`lock_timeout` は 0 より大きい期間（下限は決めていない） |
 | `title_prefix` | 改行・制御文字を含まない 1 行 |

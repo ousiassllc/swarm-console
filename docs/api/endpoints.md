@@ -26,9 +26,9 @@ swarm-console は MCP（Streamable HTTP、JSON-RPC）サーバー。このドキ
 | 窓口 | ツール | prompts | resources |
 |------|--------|---------|-----------|
 | `/report` | `report`・`sessions_list`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`（10） | `report` | 全部（読み取りのみ） |
-| `/ops` | 上の 10 ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`・`file_get`（計 19） | `report`・`dispatch` | 全部 |
+| `/ops` | 上の 10 ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`・`file_get`・`dir_list`（計 20） | `report`・`dispatch` | 全部 |
 
-`/report` の `tools/list` には操作のツール（`/ops` だけの 9 つ。`file_get` を含む）は載らない。`tools/call` で呼んでも `-32601`（Method not found）相当の `unknown_tool` で拒否する。`file_get` は `ops` スコープのトークンでも `/report` では呼べない（`/ops` で呼ぶ）。
+`/report` の `tools/list` には操作のツール（`/ops` だけの 10 個。`file_get`・`dir_list` を含む）は載らない。`tools/call` で呼んでも `-32601`（Method not found）相当の `unknown_tool` で拒否する。`file_get`・`dir_list` は `ops` スコープのトークンでも `/report` では呼べない（`/ops` で呼ぶ）。
 
 ### 1.2 curl からの呼び出し例
 
@@ -77,7 +77,7 @@ sequenceDiagram
 
 トークンには、触れる tmux セッション（許可セッション）を付けられる：`token add <名前> --scope ops|report [--sessions 0,1]`（`--sessions` を省略すると `config.toml` の `sessions` 全部）。許可の検査は上の HTTP の 401・403 とは別に、ツール層が `session` を取るツールごとに行う（§4.1）。許可セッションを変えるには `token revoke` してから `token add --sessions` で発行し直す。
 
-swarm-viewer 向けの接続文字列は `swarm-console pair [--sessions 0,1] [--name <表示名>]` で出す（FR-PAIR）。`report` スコープのトークンを自動の名前（`viewer-<ホスト名>-<yyyymmdd>`。重なれば `-2`・`-3`…）で 1 つ発行し、`swarm-viewer://pair?v=1&url=<URLエンコード>&token=<TOKEN>[&name=<表示名>][&sessions=0%2C1]` を標準出力に 1 行だけ出す。`url` は `listen_addr` の tailnet の IP・ポート 48120・`/report` から作る（決められなければトークンを発行せず終了）。全体は 4,096 バイト以内で、同じパラメータは 1 回だけ。平文のトークンが標準出力に入るので、履歴・ログ・チャットに貼らず、使い回さず、なくしたら `token revoke` して `pair` をやり直す。発行済みのトークンは `swarm-console token list`（名前・scope・許可セッション・発行日時・失効日時。ハッシュと平文は出さない）で見られる。
+swarm-viewer 向けの接続文字列は `swarm-console pair [--scope report|ops] [--sessions 0,1] [--name <表示名>]` で出す（FR-PAIR）。`--scope`（既定 `report`。それ以外の値は使い方の誤りで、トークンを発行しない）のトークンを自動の名前で 1 つ発行する。名前は `report` が `viewer-<ホスト名>-<yyyymmdd>`、`ops` が `viewer-ops-<ホスト名>-<yyyymmdd>`（どちらも重なれば `-2`・`-3`…）。`swarm-viewer://pair?v=1&url=<URLエンコード>&token=<TOKEN>[&name=<表示名>][&sessions=0%2C1]` を標準出力に 1 行だけ出す（形式は `--scope` によらず `v=1` のまま）。`url` は `listen_addr` の tailnet の IP・ポート 48120・窓口の path（`report` なら `/report`、`ops` なら `/ops`）から作る（決められなければトークンを発行せず終了）。viewer は `url` の path で `report`／`ops` を見分ける。全体は 4,096 バイト以内で、同じパラメータは 1 回だけ。平文のトークンが標準出力に入るので、履歴・ログ・チャットに貼らず、使い回さず、なくしたら `token revoke` して `pair` をやり直す。`--scope ops` のトークンはペインへの送信・中断・起動・終了ができるので、標準エラーに強い警告（スマホをなくしたらすぐ `token revoke` する・`--sessions` で絞ることを勧める）を出す（`--sessions` を付けたときも警告は出す）。発行済みのトークンは `swarm-console token list`（名前・scope・許可セッション・発行日時・失効日時。ハッシュと平文は出さない）で見られる。
 
 ## 3. エラー
 
@@ -99,7 +99,7 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 |--------|------|--------------|
 | `unauthorized` | 認証なし・不一致・失効 | 全部（HTTP 401） |
 | `forbidden_scope` | 窓口とスコープが合わない | 全部（HTTP 403） |
-| `not_found` | HTTP では未知のパス（404）。ツールでは `file_get` の `path` が許可リストの中にあるのに存在しない | HTTP 404・`file_get` |
+| `not_found` | HTTP では未知のパス（404）。ツールでは `file_get`・`dir_list` の `path` が許可リストの中にあるのに存在しない | HTTP 404・`file_get`・`dir_list` |
 | `unknown_tool` | その窓口に出ていないツール | `/report` で操作系 |
 | `invalid_args` | 引数の型・必須・未知のキー・値の範囲 | 全部 |
 | `pane_not_found` | `pane` を、決めたセッションの位置・ID に解決できない（別の許可外セッションのペインに当たるときは `session_forbidden`、許可内の別セッションなら `invalid_args`） | `pane` を取る全部 |
@@ -116,7 +116,7 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | `text_too_long` | 8000 字超 | `send_text`・`dispatch` |
 | `forbidden_path` | 許可外のフォルダ／ファイル | `pane_start`・`dispatch`・`send_text` |
 | `file_unreadable` | `file` が読めない・UTF-8 でない | `send_text` |
-| `path_forbidden` | `file_get` の `path` が取得を許可されていない（相対パス・`..` を含む・許可リストの外・秘密のファイル・`denied_paths`。ペインの `cwd` が `/` やホームそのものなら、その `cwd` の下は許可リストの外）。`details.reason` は `not_absolute`・`dotdot`・`outside_roots`・`secret`・`denied`・`unreadable`。許可リストの外は存在の有無によらずこのコード | `file_get` |
+| `path_forbidden` | `file_get`・`dir_list` の `path` が許可されていない（相対パス・`..` を含む・許可リストの外・秘密のファイル・`denied_paths`。ペインの `cwd` が `/` やホームそのものなら、その `cwd` の下は許可リストの外）。`details.reason` は `not_absolute`・`dotdot`・`outside_roots`・`secret`・`denied`・`unreadable`（`dir_list` だけ、ディレクトリでないときの `not_directory` も）。許可リストの外は存在の有無によらずこのコード。`dir_list` の許可リストは `allowed_roots` | `file_get`・`dir_list` |
 | `unsupported_type` | `file_get` で取れる種類ではない。`details.reason` は `extension`（拡張子が png・jpg・jpeg・webp・gif・mp4 以外）・`content`（先頭バイトが拡張子の形式と合わない）・`not_regular`（ディレクトリ・FIFO・デバイスなど通常ファイルでない） | `file_get` |
 | `too_large` | `file_get` のファイルが `file_get_max_bytes`（既定 20 MiB）を超える。`details.max` は上限（バイト） | `file_get` |
 | `secret_detected` | 秘密に見える文字列（`details.field` に項目名だけ） | `note_set`・`note_log`・`dispatch` |
@@ -140,7 +140,7 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 
 ### 4.1 `session` 引数と許可セッション
 
-許可セッションは、トークンの `allowed_sessions`（なければ全部）と `config.toml` の `sessions` の共通部分。`session`（string、任意）を取るツール：`panes_status`・`report`・`host_status`・`pane_tail`・`ask_card`・`report_read`・`note_get`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`。`sessions_list`（`all` を取る。§5.3）・`note_history`・`agent_auth_status` は取らない。
+許可セッションは、トークンの `allowed_sessions`（なければ全部）と `config.toml` の `sessions` の共通部分。`session`（string、任意）を取るツール：`panes_status`・`report`・`host_status`・`pane_tail`・`ask_card`・`report_read`・`note_get`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`。`sessions_list`（`all` を取る。§5.3）・`note_history`・`agent_auth_status`・`file_get`・`dir_list` は取らない。
 
 | `session` | 結果 |
 |-----------|------|
@@ -187,3 +187,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.18 | 2026-11-05 | endpoints-report.md §5.5・endpoints-state.md §5.3：`host.mem`（`host_status` は `mem`。`available`・`total_gb`・`used_gb`・`used_percent`。`mem_free_gb`・`mem_total_gb` は残す）と、`usage` のアカウントごとの `reason`（`without_usage`・`no_email`・`null`）を追加。どちらも既存のキーを足すだけで、値は変えない | Issue #86・#87 |
 | 1.19 | 2026-11-05 | endpoints-report.md §5.5：`host.mem` は `/proc/meminfo` を読めないときも `host` のほかの値（`load1` など）を残し、`available: false`・数値 `null`（`mem_free_gb` は 0。読み手は `mem.available` を見る。P-95） | Issue #86 |
 | 1.20 | 2026-11-05 | endpoints-pane.md §5.1・endpoints-state.md §5.3・endpoints-report.md §5.5：`/proc/meminfo` を読めないときは `panes_status` の `host.mem_free_gb`、`host_status` の `mem_free_gb`・`mem_total_gb` も 0 になると明記（`report`・`host_status` の `mem.available` で見分ける。`panes_status` には印がない。P-95） | Issue #86 |
+| 1.21 | 2026-11-08 | `dir_list`（`/ops` のみ。`pane_start` の `cwd` に選べるディレクトリを 1 階層ずつ返す読み取りツール）を追加（ツール数 /ops 19→20、/report は 10 のまま）。`path_forbidden`・`not_found` の対象に `dir_list` を追加（`not_directory` を追記。§3.2）。§2：`pair --scope report`・`pair --scope ops`（`ops` は `/ops` の接続文字列と強い警告。既定は従来どおり `report`）。endpoints-pane.md §5.2 も同じ | Issue #90 |

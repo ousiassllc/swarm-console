@@ -92,18 +92,19 @@ sessions = ["0"]                  # 対象の tmux セッション（分けて�
 
 ### swarm-viewer の接続文字列（pair）
 
-swarm-viewer（`/report` を読む専用のデスクトップのビューア）につなぐための接続文字列を、1 行で出します。`report` スコープのトークンを 1 つ発行して、`listen_addr` の tailnet の IP（ポート 48120）と組み合わせます。
+swarm-viewer につなぐための接続文字列を、1 行で出します。トークンを 1 つ発行して、`listen_addr` の tailnet の IP（ポート 48120）と組み合わせます。既定は `report` スコープ（`/report`。見るだけ）で、`--scope ops` なら `ops` スコープ（`/ops`。ペインへの送信・中断・起動・終了もできる）です。
 
 ```sh
-~/bin/swarm-console/swarm-console pair [--sessions 0,1] [--name devbox]
+~/bin/swarm-console/swarm-console pair [--scope report|ops] [--sessions 0,1] [--name devbox]
 # swarm-viewer://pair?v=1&url=http%3A%2F%2F100.64.0.5%3A48120%2Freport&token=<TOKEN>&name=devbox&sessions=0%2C1
 ```
 
+- `--scope` は `report`（既定）か `ops` です。`ops` は `url` の path が `/ops` になり、トークンの名前は `viewer-ops-<ホスト名>-<yyyymmdd>` です。**`ops` のトークンはペインを操作できるので、標準エラーに警告を出します。スマホをなくしたらすぐ `token revoke <名前>` で失効させ、`--sessions` で許可セッションを絞ってください。** `report`・`ops` 以外の値はエラーです（トークンは発行しません）。
 - `--sessions` は `token add` と同じです（省略すると `config.toml` の `sessions` 全部）。接続文字列の `sessions` は表示のヒントで、権限は発行したトークンが決めます。
 - `--name` は接続文字列の `name`（1〜100 文字）に入ります。省略すると付けません。
-- トークンの名前は自動で `viewer-<ホスト名>-<yyyymmdd>` になります。同じ名前があれば（失効済みも含む）、末尾に `-2`・`-3`… を付けます。名前は `token list` で分かります。
+- トークンの名前は自動で `viewer-<ホスト名>-<yyyymmdd>`（`ops` は `viewer-ops-<ホスト名>-<yyyymmdd>`）になります。同じ名前があれば（失効済みも含む）、末尾に `-2`・`-3`… を付けます。名前は `token list` で分かります。
 - `listen_addr` が tailnet の IP:48120 でないとき（ループバック・ホスト名など）は、トークンを発行せずにエラーで終わります。
-- 標準出力は接続文字列の 1 行だけで、案内は標準エラーに出ます。`ops` スコープは発行しません。
+- 標準出力は接続文字列の 1 行だけで、案内は標準エラーに出ます。`--scope` を省略したときの出力は従来と同じです。
 
 **注意**: 標準出力にトークンの平文が入ります。コマンド履歴・端末ログ・チャットに貼らないでください。平文は今回しか表示されず、使い回さないでください。なくしたときは `token revoke <名前>` で失効させ、`pair` をやり直します。
 
@@ -149,7 +150,7 @@ MCP（Streamable HTTP）の URL とトークンをクライアントに設定し
 | 窓口 | URL | できること | 使えるトークン |
 |------|-----|-----------|---------------|
 | `/report` | `http://<tailnet-ip>:48120/report` | 見るだけ（10 ツール：`report`・`sessions_list`・`panes_status`・`pane_tail`・`ask_card`・`report_read`・`host_status`・`agent_auth_status`・`note_get`・`note_history`） | `report` と `ops` のどちらでも |
-| `/ops` | `http://<tailnet-ip>:48120/ops` | 見る＋操作（上の 10 に、`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`・`file_get` の 9 を足した 19 ツール） | `ops` だけ |
+| `/ops` | `http://<tailnet-ip>:48120/ops` | 見る＋操作（上の 10 に、`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dispatch`・`note_set`・`note_log`・`file_get`・`dir_list` の 10 を足した 20 ツール） | `ops` だけ |
 
 - 定期レポートのように見るだけでよいクライアントは、`report` のトークンで `/report` につなぎます。`report` のトークンで `/ops` を呼ぶと 403（`forbidden_scope`）です
 - `POST` のみ受け付けます（ステートレス運用）。トークンなし・不一致は 401 です

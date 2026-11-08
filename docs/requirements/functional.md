@@ -55,7 +55,7 @@ graph TD
 | UC10 | 動いているバイナリより新しい版が GitHub Releases にあるかを確認し、あれば `serve` が自分で入れ替える（自己更新。§12） | `swarm-console version --check`（確認だけ）・`serve` の定期確認と自動更新・`host_status` の `update` | CLI、`/report` `/ops` |
 | UC11 | tmux セッションを分けた運用で、自分に許可されたセッション（例：セッション `0` は agent-a、`1` は agent-b）のペインだけを、同じ `T1` などの位置で見る・操作する。ほかのセッションのペインは読めも操作もできない（FR-SESS） | `session` 引数・`sessions_list` | `/report` `/ops` |
 | UC12 | トークンごとに許可セッションを決めて発行し、変えるときは無効化して発行し直す（FR-SESS-1〜3） | `swarm-console token add --sessions`・`token revoke` | CLI |
-| UC13 | swarm-viewer につなぐ接続文字列を 1 行で作る（`report` スコープのトークンを 1 つ発行する。FR-PAIR）。発行済みのトークンは一覧で確かめ、無効化できる | `swarm-console pair`・`token list`・`token revoke`（サーバー上） | CLI |
+| UC13 | swarm-viewer につなぐ接続文字列を 1 行で作る（既定は `report` スコープ、`--scope ops` なら `ops` スコープのトークンを 1 つ発行する。FR-PAIR）。発行済みのトークンは一覧で確かめ、無効化できる | `swarm-console pair`・`token list`・`token revoke`（サーバー上） | CLI |
 
 ## 2. ペイン位置の決め方（FR-POS）
 
@@ -191,6 +191,7 @@ stateDiagram-v2
 | FR-O7 | `note_set` | 渡した項目だけ書き換える。`null` でその項目を消す | — | `secret_detected`・`invalid_args` |
 | FR-O8 | `note_log` | 出来事を時刻つきで 1 行足す。直近 50 行を残す | — | `secret_detected`・`invalid_args` |
 | FR-O9 | `file_get` | サーバー上の画像・動画（png・jpg・jpeg・webp・gif・mp4）を 1 つ、`path`・`mime`・`size`・`sha256`・`data_base64` で返す（ompが撮ったスクショ・動画を scp なしで取る。ペインには何も送らない）。取れるのは、触れるセッションのペインの `cwd` の下・`report_dir` の下・`file_get_roots` の下の実パスだけ（ペインの `cwd` が `/` かホームそのものなら、その `cwd` は許可に入れない。`file_get_roots`・`report_dir` に明示したものはそのまま許可）。秘密に見えるファイル（`.env`・`*.pem`・`*.key`・`id_*`・`config.toml`・`tokens.toml` ほか）、中身が拡張子の形式と合わないもの、上限（`file_get_max_bytes` 既定 20 MiB）超えは断る。P-91。API 仕様 §5.2 | —（ペインの状態は見ない） | `path_forbidden`・`not_found`・`unsupported_type`・`too_large`・`invalid_args` |
+| FR-O10 | `dir_list` | `pane_start` の `cwd` に選べるディレクトリを、1 階層ずつ `path`・`entries`（`name`・`path`・`git`）・`truncated` で返す（swarm-viewer のフォルダ選択用。ペインには何も送らず、作成・削除・ファイルの一覧はしない）。`path`（絶対パス）を省略すると `allowed_roots` そのもの。返すのは `path` 直下のサブディレクトリだけで、名前順。`limit` は既定 200・1〜500 で、超えたら `truncated: true`。隠しディレクトリ（`.` 始まり）・ファイル・`denied_paths` の配下・実パスが `allowed_roots` の外へ出るリンク・秘密のファイル名と同じ名前は載せない。`git` は直下に `.git` があるか。`path` の検証は `file_get` と同じ判定（`not_absolute`・`dotdot`・`outside_roots`・`denied`・`secret`。根は `allowed_roots`）で、`pane_start` の `cwd` の判定と共通化し、`dir_list` に出たものは `pane_start` の `cwd` で `forbidden_path` にならない。`/ops` のみ（`/report` では `unknown_tool`）。API 仕様 §5.2 | —（ペインの状態は見ない） | `path_forbidden`・`not_found`・`invalid_args` |
 
 共通要件：
 
@@ -205,12 +206,12 @@ stateDiagram-v2
 
 | ID | 要件 |
 |----|------|
-| FR-PAIR-1 | `swarm-console pair [--sessions 0,1] [--name <表示名>] [--config <path>]` は、`report` スコープのトークンを 1 つ発行（`token add <自動名> --scope report [--sessions …]` と同じ処理）し、swarm-viewer の接続文字列を標準出力に **1 行だけ**出す。`ops` スコープは発行しない。案内（平文は今回しか表示されない・履歴・端末ログ・チャットに貼らない・使い回さない・なくしたら `token revoke <名前>` して `pair` をやり直す・発行した名前）は標準エラーに出し、トークンは標準エラーに出さない（P-92） |
+| FR-PAIR-1 | `swarm-console pair [--scope report\|ops] [--sessions 0,1] [--name <表示名>] [--config <path>]` は、`--scope`（既定 `report`。それ以外の値は使い方の誤りで、発行しない）のトークンを 1 つ発行（`token add <自動名> --scope <scope> [--sessions …]` と同じ処理）し、swarm-viewer の接続文字列を標準出力に **1 行だけ**出す。`--scope` を省略したときの出力は従来（`report` 固定）と同じ。案内（平文は今回しか表示されない・履歴・端末ログ・チャットに貼らない・使い回さない・なくしたら `token revoke <名前>` して `pair` をやり直す・発行した名前）は標準エラーに出し、トークンは標準エラーに出さない（P-92）。`--scope ops` のときは、標準エラーに強い警告（このトークンはペインへの送信・中断・起動・終了ができる・スマホをなくしたらすぐ `token revoke`・`--sessions` で絞ることを勧める。`--sessions` を付けても警告は出す）を足す（P-98） |
 | FR-PAIR-2 | 接続文字列は `swarm-viewer://pair?v=1&url=<URLエンコード>&token=<TOKEN>[&name=<表示名>][&sessions=0%2C1]`。パラメータの順は `v`・`url`・`token`・`name`・`sessions`、同じパラメータは 1 回だけ。全体は 4,096 バイト以内（超えるときは発行せずエラー）。空白は `%20`、カンマは `%2C` にエンコードする |
-| FR-PAIR-3 | `url` は `http://<IP>:48120/report`（IPv6 は `[ ]` で囲む。末尾スラッシュ・userinfo・クエリ・フラグメントなし）。IP は `listen_addr` の tailnet の IP リテラル（100.64.0.0/10・fd7a:115c:a1e0::/48）で、ポートは 48120 だけ。ループバック・それ以外・読めない・`listen_addr` がない場合は、トークンを発行せず（`tokens.toml` に触れず）エラーにする |
+| FR-PAIR-3 | `url` は `http://<IP>:48120/report`（`--scope ops` のときは `http://<IP>:48120/ops`。viewer は `url` の path で種類を見分け、`v=1` の形式は変えない。IPv6 は `[ ]` で囲む。末尾スラッシュ・userinfo・クエリ・フラグメントなし）。IP は `listen_addr` の tailnet の IP リテラル（100.64.0.0/10・fd7a:115c:a1e0::/48）で、ポートは 48120 だけ。ループバック・それ以外・読めない・`listen_addr` がない場合は、トークンを発行せず（`tokens.toml` に触れず）エラーにする |
 | FR-PAIR-4 | `--sessions` は `token add` と同じ（省略すると `allowed_sessions` を書かず `config.toml` の `sessions` 全部。指定は `config.toml` の `sessions` にあるものだけ）。接続文字列の `sessions` は実効の一覧（省略時は `config.toml` の `sessions` 全部）をカンマ区切りにした表示のヒントで、権限の正は発行したトークン。空なら付けない |
 | FR-PAIR-5 | `--name` は接続文字列の `name` にそのまま入る（1〜100 文字・制御文字なし。違えば発行せずエラー）。省略すると `name` は付けない |
-| FR-PAIR-6 | トークン名は自動で `viewer-<ホスト名>-<yyyymmdd>`（ホスト名は token 名の規則に合わせて小文字・英数字・`-`・`_` にし、12 文字まで。取れなければ `host`）。同じ名前があれば（失効済みを含む）末尾に `-2`・`-3`… を付けて、`-100` まで試し、それでも決まらなければエラー。重なりの判定は `auth.Add` が返す `auth.ErrNameInUse` による |
+| FR-PAIR-6 | トークン名は自動で `viewer-<ホスト名>-<yyyymmdd>`（`--scope ops` は区別できるように `viewer-ops-<ホスト名>-<yyyymmdd>`。ホスト名は token 名の規則に合わせて小文字・英数字・`-`・`_` にし、`-100` まで付けても token 名の上限 32 文字に収まるよう、report は 12 文字まで・ops は 8 文字まで。取れなければ `host`）。同じ名前があれば（失効済みを含む）末尾に `-2`・`-3`… を付けて、`-100` まで試し、それでも決まらなければエラー。重なりの判定は `auth.Add` が返す `auth.ErrNameInUse` による |
 | FR-PAIR-7 | `swarm-console token list [--config <path>]` は、`tokens.toml` のトークンを 1 件 1 行（名前・scope・許可セッション〔なしは `all`〕・発行日時・`active` か `revoked <日時>`）で標準出力に出す。ハッシュも平文も出さない。ファイルがなければ何も出さずに正常終了する |
 
 ## 改訂履歴
@@ -241,3 +242,4 @@ stateDiagram-v2
 | 1.21 | 2026-11-04 | FR-O9・functional-note.md FR-SAFE-11：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れない（明示した `file_get_roots`・`report_dir` はそのまま許可。P-91） | Issue #82 |
 | 1.22 | 2026-11-04 | UC13 と §4.3（FR-PAIR-1〜7）を追加：`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。`report` スコープのトークンを発行）と `token list`（P-92） | Issue #83 |
 | 1.23 | 2026-11-05 | functional-report.md FR-REP-10・13・17：メモリ `mem`（全体・使用量・使用率。`report` の `host` と `host_status`。P-93）を足す。FR-REP-12・17・18：使用状況のアカウントごとの `reason`（`without_usage`・`no_email`。JSON のみ。P-94）を足す | Issue #86・#87 |
+| 1.24 | 2026-11-08 | §4.2 に FR-O10 `dir_list`（`/ops` のみ。`pane_start` の `cwd` の候補を 1 階層ずつ返す。判定は `file_get`・`pane_start` と共通）を追加。§4.3 FR-PAIR-1・3・6・UC13：`pair --scope ops`（`ops` スコープ・`/ops` の `url`・`viewer-ops-…` の名前・標準エラーの強い警告）を追加し、「`ops` スコープは発行しない」を改める（P-98） | Issue #90 |
