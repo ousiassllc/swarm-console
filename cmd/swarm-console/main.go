@@ -5,7 +5,7 @@
 //	swarm-console token add <名前> --scope ops|report [--config <path>]
 //	swarm-console token revoke <名前> [--config <path>]
 //	swarm-console token list [--config <path>]
-//	swarm-console pair [--sessions 0,1] [--name <表示名>] [--config <path>]
+//	swarm-console pair [--scope report|ops] [--sessions 0,1] [--name <表示名>] [--config <path>]
 //	swarm-console version [--check]
 package main
 
@@ -31,7 +31,7 @@ const usage = `使い方:
   swarm-console token add <名前> --scope ops|report [--config <path>]
   swarm-console token revoke <名前> [--config <path>]
   swarm-console token list [--config <path>]
-  swarm-console pair [--sessions 0,1] [--name <表示名>] [--config <path>]   （swarm-viewer の接続文字列。token が標準出力に入る。pair --help 参照）
+  swarm-console pair [--scope report|ops] [--sessions 0,1] [--name <表示名>] [--config <path>]   （swarm-viewer の接続文字列。token が標準出力に入る。pair --help 参照）
   swarm-console version [--check]
 `
 

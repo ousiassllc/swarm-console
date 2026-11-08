@@ -9,6 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/config"
 )
 
@@ -16,7 +17,6 @@ import (
 const (
 	scheme   = "swarm-viewer://pair"
 	version  = "1"
-	endpoint = "/report"
 	maxBytes = 4096 // 接続文字列全体の上限（バイト）
 	maxName  = 100  // --name の上限（文字数）
 	// placeholderToken は大きさの事前確認用。実際の token（sc_ ＋ base64url 43 文字）と同じ長さ。
@@ -25,12 +25,13 @@ const (
 
 // urlFromListenAddr は listen_addr（config.Load が正規化済み）から viewer が使う url を作る。
 // tailnet の IP リテラルとポート 48120 だけを受け、ループバックなど決められないものはエラー（token の発行前に呼ぶ）。
-func urlFromListenAddr(listenAddr string) (string, error) {
+// path は scope の窓口（report なら /report、ops なら /ops。viewer は url の path で種類を判断する）。
+func urlFromListenAddr(listenAddr string, scope auth.Scope) (string, error) {
 	ap, err := netip.ParseAddrPort(listenAddr)
 	if err != nil || !config.IsTailnet(ap.Addr()) || ap.Port() != config.ListenPort {
 		return "", fmt.Errorf("listen_addr %q から tailnet の IP を決められません（pair は tailnet の IP:%d だけ使えます。config.toml の listen_addr を確かめてください）", listenAddr, config.ListenPort)
 	}
-	return "http://" + ap.String() + endpoint, nil
+	return "http://" + ap.String() + "/" + string(scope), nil
 }
 
 // checkName は --name（表示名）が 1〜100 文字で、不正な UTF-8・制御文字を含まないか確かめる。

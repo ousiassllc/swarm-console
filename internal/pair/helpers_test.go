@@ -73,6 +73,12 @@ func (e env) mustPair(t *testing.T, args ...string) (q url.Values, plain, stdout
 // parseOutput は接続文字列を net/url で読み、swarm-viewer が受け付ける条件を確かめて、パラメータと平文 token を返す。
 func parseOutput(t *testing.T, stdout, stderr string) (q url.Values, plain string) {
 	t.Helper()
+	return parseOutputPath(t, stdout, stderr, "/report")
+}
+
+// parseOutputPath は parseOutput で、url の path が wantPath（/report か /ops）であることも確かめる。
+func parseOutputPath(t *testing.T, stdout, stderr, wantPath string) (q url.Values, plain string) {
+	t.Helper()
 	if strings.Count(stdout, "\n") != 1 || !strings.HasSuffix(stdout, "\n") {
 		t.Fatalf("標準出力は 1 行だけのはず: %q", stdout)
 	}
@@ -105,8 +111,8 @@ func parseOutput(t *testing.T, stdout, stderr string) (q url.Values, plain strin
 		t.Error("標準エラーに token が出ています")
 	}
 	vu, err := url.Parse(q.Get("url"))
-	if err != nil || vu.Scheme != "http" || vu.Path != "/report" || vu.RawQuery != "" || vu.Fragment != "" || vu.User != nil || vu.Port() != "48120" {
-		t.Fatalf("url が http://<IP>:48120/report の形ではありません: %q", q.Get("url"))
+	if err != nil || vu.Scheme != "http" || vu.Path != wantPath || vu.RawQuery != "" || vu.Fragment != "" || vu.User != nil || vu.Port() != "48120" {
+		t.Fatalf("url が http://<IP>:48120%s の形ではありません: %q", wantPath, q.Get("url"))
 	}
 	return q, plain
 }

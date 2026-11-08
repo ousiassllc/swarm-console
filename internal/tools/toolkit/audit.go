@@ -2,7 +2,7 @@ package toolkit
 
 import "context"
 
-// Audit はツールが監査ログへ足す値（file_get の取得先とサイズ）。mcpapi が tools/call ごとに用意し、ハンドラが埋める。
+// Audit はツールが監査ログへ足す値（file_get・dir_list の取得先と file_get のサイズ）。mcpapi が tools/call ごとに用意し、ハンドラが埋める。
 // 本文（base64 など）は入れない。
 type Audit struct {
 	Path    string // 実パス（解決できたとき）。解決前に断ったときは入力のまま

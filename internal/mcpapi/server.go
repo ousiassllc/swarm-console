@@ -23,7 +23,7 @@ type Event struct {
 	Target   string        // ツール名・prompt 名・resource 名（report|pane|notes）。無ければ ""
 	Pane     string        // 引数・URI の pane（位置または ID）。無ければ ""
 	Session  string        // 引数の session（送られたまま）。無ければ ""
-	Path     string        // file_get の取得先（実パス。解決前に断ったときは入力のまま）。それ以外は ""
+	Path     string        // file_get・dir_list の対象（実パス。解決前に断ったときは入力のまま）。それ以外は ""
 	Size     int64         // file_get のファイルサイズ（バイト）。HasSize が true のときだけ意味がある
 	HasSize  bool          // Size が分かっているか
 	Code     string        // "ok" またはエラーコード
