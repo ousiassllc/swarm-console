@@ -20,4 +20,7 @@ const (
 	descFileGet = "サーバー上の画像・動画（png・jpg・jpeg・webp・gif・mp4）を 1 つ、base64 で返す（path・mime・size・sha256・data_base64）。" +
 		"取れるのは、いま見えているペインの cwd の下・レポート置き場・設定で足した根の下だけ。" +
 		"秘密に見えるファイル・中身が画像／動画でないもの・上限（既定 20 MiB）を超えるものは断る。"
+	descDirList = "pane_start の cwd に選べるディレクトリを 1 階層ずつ返す（path・entries（name・path・git）・truncated）。" +
+		"path を省略すると許可されたフォルダ（allowed_roots）そのもの。返すのは直下のサブディレクトリだけで、" +
+		"ファイル・隠しディレクトリ・denied_paths の配下・許可の外へ出るリンクは載せない。limit は既定 200、1〜500。"
 )

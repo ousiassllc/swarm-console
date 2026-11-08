@@ -113,7 +113,7 @@ func TestServeEndToEnd(t *testing.T) {
 	for _, c := range []struct {
 		path, token string
 		want        int
-	}{{"/report", repToken, 10}, {"/report", opsToken, 10}, {"/ops", opsToken, 19}} {
+	}{{"/report", repToken, 10}, {"/report", opsToken, 10}, {"/ops", opsToken, 20}} {
 		res, err := connect(c.path, c.token).ListTools(ctx, nil)
 		if err != nil || len(res.Tools) != c.want {
 			t.Errorf("%s の tools/list: %d 個 (%v), want %d", c.path, len(res.Tools), err, c.want)

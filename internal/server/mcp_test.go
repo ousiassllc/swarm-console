@@ -17,7 +17,7 @@ var viewTools = []string{
 	"report", "sessions_list", "panes_status", "pane_tail", "ask_card", "report_read", "host_status", "agent_auth_status", "note_get", "note_history",
 }
 
-var opsTools = []string{"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dispatch", "note_set", "note_log", "file_get"}
+var opsTools = []string{"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dispatch", "note_set", "note_log", "file_get", "dir_list"}
 
 func sorted(s []string) []string { s = slices.Clone(s); slices.Sort(s); return s }
 
@@ -34,7 +34,7 @@ func toolNames(t *testing.T, cs *mcp.ClientSession) []string {
 	return out
 }
 
-// /report の tools/list は 10 個で操作を含まず、/ops は 19 個（FR-SAFE-6・NFR-SEC-10）。
+// /report の tools/list は 10 個で操作を含まず、/ops は 20 個（FR-SAFE-6・NFR-SEC-10）。
 func TestToolsListPerEndpoint(t *testing.T) {
 	e := newEnv(t)
 	got := toolNames(t, e.connect(t, "/report", "viewer"))
@@ -50,7 +50,7 @@ func TestToolsListPerEndpoint(t *testing.T) {
 		t.Errorf("ops トークンの /report のツール数 = %d, want 10", len(got))
 	}
 	got = toolNames(t, e.connect(t, "/ops", "boss"))
-	if !slices.Equal(sorted(got), sorted(append(slices.Clone(viewTools), opsTools...))) || len(got) != 19 {
+	if !slices.Equal(sorted(got), sorted(append(slices.Clone(viewTools), opsTools...))) || len(got) != 20 {
 		t.Errorf("/ops のツール = %v", got)
 	}
 }

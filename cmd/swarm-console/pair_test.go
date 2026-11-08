@@ -12,7 +12,7 @@ func TestPairAndTokenListThroughRun(t *testing.T) {
 	if code, stdout, _ := runCLI(t, "pair", "--config", cfg); code != 1 || stdout != "" {
 		t.Errorf("pair: exit %d stdout=%q", code, stdout)
 	}
-	for args, want := range map[string]int{"pair --sessions ,": 2, "pair x": 2, "pair --help": 0, "token list x": 2, "token list --config " + cfg: 0} {
+	for args, want := range map[string]int{"pair --sessions ,": 2, "pair --scope admin": 2, "pair --scope": 2, "pair x": 2, "pair --help": 0, "token list x": 2, "token list --config " + cfg: 0} {
 		if code, stdout, _ := runCLI(t, strings.Fields(args)...); code != want || stdout != "" {
 			t.Errorf("%s: exit %d stdout=%q, want %d", args, code, stdout, want)
 		}
