@@ -31,7 +31,7 @@
 | NFR-SEC-9 | 送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。Esc は `send_escape`（`confirm: true` 必須・`/ops` のみ） |
 | NFR-SEC-10 | `/report` に操作のツールを出さない（`tools/list` にも載らない）。`/report` からは書き込み（メモを含む）ができない |
 | NFR-SEC-11 | メモに秘密に見える文字列（`ghp_`・`sk-`・`eyJ`・PEM など）が入る書き込みは拒否し、拒否した値をログ・応答に出さない |
-| NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・どの `session` 引数で（任意。40 字まで。FR-SESS-13）・結果コード」だけを記録する。`file_get` は取得先のパス（実パス。入力のままのこともある）とサイズも記録する。送った本文・トークン・メモの内容・`file_get` で返したファイルの中身（base64 を含む）は記録しない |
+| NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・どの `session` 引数で（任意。40 字まで。FR-SESS-13）・結果コード」だけを記録する。`file_get` は取得先のパス（実パス。入力のままのこともある）とサイズ、`dir_list` は対象のパス（同じ。省略したときは空。サイズは持たない）も記録する。送った本文・トークン・メモの内容・`file_get` で返したファイルの中身（base64 を含む）は記録しない |
 | NFR-SEC-13 | 受け付けるリクエスト本文は 256 KiB まで。超えたら 413 |
 | NFR-SEC-14 | 設定・メモ・トークン・バイナリの置き場以外へ書き込まない。書き込み先は `~/.config/swarm-console`・`~/.local/share/swarm-console`・`/tmp/swarm-console` と、自己更新のための `~/bin/swarm-console/` の決まった 5 ファイルだけ（`swarm-console`・`swarm-console.new`・`swarm-console.old`・`swarm-console.update-pending`・`swarm-console.update-failed`。NFR-SEC-16）。`~/dotfiles` には触らない |
 | NFR-SEC-15 | 新しい版の確認と自己更新（FR-UPD）のための外向き通信は、確認の `https://api.github.com/repos/ousiassllc/swarm-console/releases/latest` への認証なしの GET 1 本と、更新のダウンロード（`https://github.com/ousiassllc/swarm-console/releases/download/<tag>/…` の 2 ファイルと、そのリダイレクト先の `objects.githubusercontent.com`・`release-assets.githubusercontent.com`）だけ。どちらも認証なしで、トークン・設定の値・ペインの内容を送らない（送るのは `User-Agent: swarm-console/<版>` まで）。リダイレクトは許可リスト内の `https` だけ。待ち受け（NFR-SEC-1・2）の方針は変えない。GitHub が返した文字列は、`vX.Y.Z` の形に合うときだけ応答・表示・URL の組み立てに使う |
@@ -134,3 +134,4 @@
 | 1.14 | 2026-11-04 | NFR-SEC-17：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れないと追記（P-91） | Issue #82 |
 | 1.15 | 2026-11-04 | NFR-SEC-17：宛先が存在しないリンク・循環でも外のパスの存在を判別させない、先頭 12 バイトで種類を見分けて違えば残りを読まない、Linux の `/proc/self/fd` が必須（読めなければ `internal`）、同時実行は制限しないと追記 | Issue #82（PR #84 の独立レビューの指摘） |
 | 1.16 | 2026-11-04 | NFR-OPS-2：CLI に `token list`・`pair`（FR-PAIR）を追加。`pair` は平文のトークンを標準出力に出すので、履歴・ログ・チャットに貼らないことを `--help` と README に明記（NFR-SEC-5 のまま。トークンは標準エラーにもログにも出さない） | Issue #83 |
+| 1.17 | 2026-11-08 | NFR-SEC-12：`dir_list` の対象パスを監査ログに残すと追記（サイズは持たない） | Issue #90 |
