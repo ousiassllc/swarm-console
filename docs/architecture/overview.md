@@ -245,3 +245,4 @@ flowchart TD
 | 1.27 | 2026-11-05 | decisions.md P-95：メモリのエラーは `host.Status.MemErr` で返し、`internal/pane/build.go` が警告ログに残す（「記録しない」から改める）。`mem_free_gb`・`mem_total_gb` が 0 になることと、読み手は `mem.available` を見ることを明記。report-values.md §3 を改訂 | Issue #86 |
 | 1.28 | 2026-11-05 | decisions.md P-97（実機の `accountsWithoutUsage[]` はメールがトップレベルの `email` にある。読む位置だけを直し、無ければ `metadata.email`。名前の作り方は変えず、実機の出力ではこれまで空だった入力が入るため、名前と `reports` との重複の除去が変わる）を追加。report-values.md §2.1・§2.2・§7 を改訂 | Issue #87 |
 | 1.29 | 2026-11-08 | §1：ツール数 19→20（`dir_list`）。decisions.md P-98（`dir_list` の判定を `file_get`・`pane_start` と共通にする。`pair --scope ops`。P-92 の「`ops` は出さない」を改めた）を追加 | Issue #90 |
+| 1.30 | 2026-11-09 | decisions.md P-99（`pair --qr`。QR は標準エラー・PNG は書かない・発行前に QR にできるか確かめる）、P-41（確認の既定間隔を 24 時間→6 時間）の注記 | Issue #89・#79 |

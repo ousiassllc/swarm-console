@@ -213,6 +213,7 @@ stateDiagram-v2
 | FR-PAIR-5 | `--name` は接続文字列の `name` にそのまま入る（1〜100 文字・制御文字なし。違えば発行せずエラー）。省略すると `name` は付けない |
 | FR-PAIR-6 | トークン名は自動で `viewer-<ホスト名>-<yyyymmdd>`（`--scope ops` は区別できるように `viewer-ops-<ホスト名>-<yyyymmdd>`。ホスト名は token 名の規則に合わせて小文字・英数字・`-`・`_` にし、`-100` まで付けても token 名の上限 32 文字に収まるよう、report は 12 文字まで・ops は 8 文字まで。取れなければ `host`）。同じ名前があれば（失効済みを含む）末尾に `-2`・`-3`… を付けて、`-100` まで試し、それでも決まらなければエラー。重なりの判定は `auth.Add` が返す `auth.ErrNameInUse` による |
 | FR-PAIR-7 | `swarm-console token list [--config <path>]` は、`tokens.toml` のトークンを 1 件 1 行（名前・scope・許可セッション〔なしは `all`〕・発行日時・`active` か `revoked <日時>`）で標準出力に出す。ハッシュも平文も出さない。ファイルがなければ何も出さずに正常終了する |
+| FR-PAIR-8 | `swarm-console pair --qr`（`--scope`・`--sessions`・`--name` と併用できる）は、FR-PAIR-1 の出力（標準出力の接続文字列 1 行。変えない）に加えて、**同じ接続文字列**の QR を標準エラーに出す。中身は接続文字列そのまま（誤り訂正 M。4,096 バイト以内でも QR に入りきらない大きさ〔約 2,300 バイト超〕は、トークンを発行する前に仮のトークンで確かめて、発行せずエラー）。上下 2 モジュールを 1 文字（`▀`・`▄`・`█`・空白）にし、前景黒・背景白を ANSI で明示して、端末の配色によらず読めるようにする。外側に 4 モジュールの余白を付ける。`--qr` なしでは QR を出さない。QR にもトークンが入るので、画面の撮影・共有をしないよう `--help`・README・標準エラーに書く。swarm-viewer（Android）の「QR を読み取る」でペアリング確認画面に進めること（実機）は未確認で、自動テストでは別の実装（gozxing）で読み取った中身が接続文字列と一致することを確かめる |
 
 ## 改訂履歴
 
@@ -243,3 +244,4 @@ stateDiagram-v2
 | 1.22 | 2026-11-04 | UC13 と §4.3（FR-PAIR-1〜7）を追加：`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。`report` スコープのトークンを発行）と `token list`（P-92） | Issue #83 |
 | 1.23 | 2026-11-05 | functional-report.md FR-REP-10・13・17：メモリ `mem`（全体・使用量・使用率。`report` の `host` と `host_status`。P-93）を足す。FR-REP-12・17・18：使用状況のアカウントごとの `reason`（`without_usage`・`no_email`。JSON のみ。P-94）を足す | Issue #86・#87 |
 | 1.24 | 2026-11-08 | §4.2 に FR-O10 `dir_list`（`/ops` のみ。`pane_start` の `cwd` の候補を 1 階層ずつ返す。判定は `file_get`・`pane_start` と共通）を追加。§4.3 FR-PAIR-1・3・6・UC13：`pair --scope ops`（`ops` スコープ・`/ops` の `url`・`viewer-ops-…` の名前・標準エラーの強い警告）を追加し、「`ops` スコープは発行しない」を改める（P-98） | Issue #90 |
+| 1.25 | 2026-11-09 | §4.3 に FR-PAIR-8 `pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は 1 行のまま。QR に入りきらないときは発行前にエラー。P-99）を追加 | Issue #89 |

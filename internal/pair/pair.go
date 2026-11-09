@@ -21,11 +21,14 @@ var ErrUsage = errors.New("引数が正しくありません")
 
 // Help は `pair --help` の本文。
 const Help = `使い方:
-  swarm-console pair [--scope report|ops] [--sessions 0,1] [--name <表示名>] [--config <path>]
+  swarm-console pair [--scope report|ops] [--sessions 0,1] [--name <表示名>] [--qr] [--config <path>]
 
 swarm-viewer の接続文字列を 1 行だけ標準出力に出します（--scope の token を 1 つ発行します。既定は report）。
 
   swarm-viewer://pair?v=1&url=<URLエンコード>&token=<TOKEN>[&name=<表示名>][&sessions=0%2C1]
+
+--qr を付けると、同じ接続文字列の QR を標準エラーに出します（標準出力は接続文字列の 1 行のまま）。
+swarm-viewer（Android）の「QR を読み取る」で読む想定です。QR にも token が入っているので、画面を撮ったり共有したりしないでください。
 
 注意:
   - token（平文）が標準出力に入ります。コマンド履歴・端末ログ・チャットに貼らないでください。
@@ -35,6 +38,7 @@ swarm-viewer の接続文字列を 1 行だけ標準出力に出します（--sc
   - --scope ops は、ペインへの送信・中断・起動・終了もできる token を発行します（url の path は /ops）。
     スマホをなくしたらすぐ "swarm-console token revoke <token 名>" で失効させてください。--sessions で許可セッションを絞ることを勧めます。
   - url は listen_addr の tailnet の IP（ポート 48120）から作ります。決められないときは token を発行せずに終わります。
+  - --qr で QR にできない大きさ（--name・--sessions が長すぎるとき）は、token を発行せずに終わります。
 
 `
 
@@ -50,6 +54,7 @@ type Options struct {
 	Scope      auth.Scope // --scope。空は report
 	Sessions   []string   // --sessions。nil なら config.toml の sessions すべて
 	Name       string     // --name。空なら name パラメータを付けない
+	QR         bool       // --qr。接続文字列と同じ QR を stderr に出す
 }
 
 // Run は pair の引数（サブコマンド名を除く）を読んで実行する。
@@ -76,6 +81,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		opts.Sessions, err = parseSessions(s)
 		return err
 	})
+	fs.BoolVar(&opts.QR, "qr", false, "同じ接続文字列の QR を標準エラーに出す（標準出力は接続文字列の 1 行のまま）")
 	fs.Func("name", "接続文字列の name に入れる表示名（1〜100 文字。省略時は付けない）", func(s string) error {
 		opts.Name = s
 		return checkName(s)
@@ -137,6 +143,11 @@ func issue(opts Options, deps Deps, stdout, stderr io.Writer) error {
 	if n := len(connectionString(viewerURL, placeholderToken, opts.Name, hint)); n > maxBytes {
 		return fmt.Errorf("接続文字列が %d バイトになり、上限 %d バイトを超えます（--name・--sessions を短くしてください）", n, maxBytes)
 	}
+	if opts.QR { // QR に入りきるかも token の発行前に確かめる（仮の token は本物と同じ長さ）
+		if _, err := renderQR(connectionString(viewerURL, placeholderToken, opts.Name, hint)); err != nil {
+			return err
+		}
+	}
 	path, err := app.TokensPath(opts.ConfigPath)
 	if err != nil {
 		return err
@@ -155,6 +166,9 @@ func issue(opts Options, deps Deps, stdout, stderr io.Writer) error {
 `, scope, tokenName, tokenName)
 	if scope == auth.ScopeOps {
 		_, _ = io.WriteString(stderr, opsWarning(tokenName, opts.Sessions != nil))
+	}
+	if opts.QR {
+		return writeQR(connectionString(viewerURL, plain, opts.Name, hint), tokenName, stderr)
 	}
 	return nil
 }

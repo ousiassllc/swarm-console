@@ -95,12 +95,13 @@ sessions = ["0"]                  # 対象の tmux セッション（分けて�
 swarm-viewer につなぐための接続文字列を、1 行で出します。トークンを 1 つ発行して、`listen_addr` の tailnet の IP（ポート 48120）と組み合わせます。既定は `report` スコープ（`/report`。見るだけ）で、`--scope ops` なら `ops` スコープ（`/ops`。ペインへの送信・中断・起動・終了もできる）です。
 
 ```sh
-~/bin/swarm-console/swarm-console pair [--scope report|ops] [--sessions 0,1] [--name devbox]
+~/bin/swarm-console/swarm-console pair [--scope report|ops] [--sessions 0,1] [--name devbox] [--qr]
 # swarm-viewer://pair?v=1&url=http%3A%2F%2F100.64.0.5%3A48120%2Freport&token=<TOKEN>&name=devbox&sessions=0%2C1
 ```
 
 - `--scope` は `report`（既定）か `ops` です。`ops` は `url` の path が `/ops` になり、トークンの名前は `viewer-ops-<ホスト名>-<yyyymmdd>` です。**`ops` のトークンはペインを操作できるので、標準エラーに警告を出します。スマホをなくしたらすぐ `token revoke <名前>` で失効させ、`--sessions` で許可セッションを絞ってください。** `report`・`ops` 以外の値はエラーです（トークンは発行しません）。
 - `--sessions` は `token add` と同じです（省略すると `config.toml` の `sessions` 全部）。接続文字列の `sessions` は表示のヒントで、権限は発行したトークンが決めます。
+- `--qr` を付けると、同じ接続文字列の QR を標準エラーに出します（標準出力は 1 行のまま）。swarm-viewer（Android）の「QR を読み取る」で読む想定です（実機での読み取りは未確認）。QR にもトークンが入っているので、画面の撮影・共有をしないでください。`--name`・`--sessions` が長すぎて QR に入りきらないときは、トークンを発行せずにエラーで終わります。
 - `--name` は接続文字列の `name`（1〜100 文字）に入ります。省略すると付けません。
 - トークンの名前は自動で `viewer-<ホスト名>-<yyyymmdd>`（`ops` は `viewer-ops-<ホスト名>-<yyyymmdd>`）になります。同じ名前があれば（失効済みも含む）、末尾に `-2`・`-3`… を付けます。名前は `token list` で分かります。
 - `listen_addr` が tailnet の IP:48120 でないとき（ループバック・ホスト名など）は、トークンを発行せずにエラーで終わります。

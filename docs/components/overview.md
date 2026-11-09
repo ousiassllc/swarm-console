@@ -71,7 +71,7 @@ swarm-console/
 │   ├── setup/                `setup` の画面（huh）、tailnet 候補の列挙、入力 → 編集操作の変換、保存（競合・検査・原子的書き込み）
 │   ├── server/               HTTP サーバー、窓口ルーティング、リクエスト上限、監査ログ
 │   ├── auth/                 tokens.toml、Bearer 検証、スコープ、token CLI
-│   ├── pair/                 `pair`（swarm-viewer の接続文字列。`listen_addr` から url、4,096 バイトの事前確認、自動の token 名、`--scope report|ops` に応じた発行）
+│   ├── pair/                 `pair`（swarm-viewer の接続文字列。`listen_addr` から url、4,096 バイトの事前確認、自動の token 名、`--scope report|ops` に応じた発行、`--qr` の QR 描画〔`qr.go`〕）
 │   ├── session/              セッション ACL とセッション内のペイン解決（許可セッションの決定・`session` 引数の決め方・ペインの解決。状態を持たない純関数）
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
 │   ├── tools/                ツールの組み立て（`New`・`Registry`。resources 用の窓口）。Linterly のディレクトリ上限のため、ハンドラは下の 3 つに分ける
@@ -297,3 +297,4 @@ type Tool struct {
 | 2.9 | 2026-11-04 | §3 の `tools` の `file_get` の記述に、先頭 12 バイトを先に読むことを追記。`file_get` を試すための差し込み口（`toolkit.Deps.FileGet`。本番は nil）を追加。§2 のツリーに `test/integration/filegetintegration/` を追加 | Issue #82（PR #84 の独立レビューの指摘） |
 | 2.10 | 2026-11-04 | `cmd/swarm-console` に `token list` と `pair` を追加。新しいパッケージ `internal/pair`（`pair` の本体）、`app` に `TokenAdd`・`TokenRevoke`・`TokenList`（`cmd` から移した。linterly のディレクトリ行数のため）、`auth` に `ErrNameInUse`（`Add` の名前重複の判定）と `List`・`Info` を追加（P-92） | Issue #83 |
 | 2.11 | 2026-11-08 | `tools` を 19 個から 20 個に（`dir_list`。`ops/dir.go`）。`safety` に `CheckDirList`・`IsListableDir`（`dir_list` の `path` の検証と、一覧に載せる候補の判定。`file_get`・`pane_start` と共通）。`pair` に `--scope report\|ops`（`ops` は `/ops` の `url`・`viewer-ops-…` の名前・警告）（P-98） | Issue #90 |
+| 2.12 | 2026-11-09 | `pair` に `--qr`（`qr.go`。接続文字列の QR を標準エラーに出す。符号化は `skip2/go-qrcode`、テストの読み取りは `makiuchi-d/gozxing`）（P-99） | Issue #89 |
