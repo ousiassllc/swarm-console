@@ -12,6 +12,7 @@ const (
 	tailLines   = 12 // 作業中の行・入力欄を探す、画面の下からの行数
 	askRange    = 12 // 選択肢の上下で案内文（ask_re）を探す行数
 	maxActivity = 80 // 質問を活動行に出すときの最大文字数
+	cardWindow  = 30 // 質問文を探す、選択肢の上の行数（長いコマンドで離れる）
 )
 
 var (
@@ -28,6 +29,29 @@ func (a *adapter) card(lines []string) (agent.Choice, bool) {
 	}
 	lo, hi := max(0, ch.Start-askRange), min(len(lines), ch.End+askRange)
 	return ch, a.P.Ask.MatchString(strings.Join(lines[lo:hi], "\n"))
+}
+
+// questionRE は承認カードの質問文の書き出し（`Would you like to run the following command?`）。
+var questionRE = regexp.MustCompile(`(?i)^(?:Would you like to|Do you want to)\b`)
+
+// question は承認カードの質問文。選択肢の上の、履歴の行（`› `・`• `）より下にある最も上の質問文を取る。
+// 実画面は質問文の下に `Reason: …？`・`$ command` が続き、`?` を含む最も近い段落（QuestionAbove）だと理由の行を取ってしまうため。
+// 見つからなければ QuestionAbove。
+func question(lines []string, ch agent.Choice) string {
+	found := ""
+	for i := ch.Start - 1; i >= max(0, ch.Start-cardWindow); i-- {
+		t := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(t, "›") || strings.HasPrefix(t, "•") {
+			break
+		}
+		if questionRE.MatchString(t) {
+			found = t
+		}
+	}
+	if found == "" {
+		return agent.QuestionAbove(lines, ch.Start)
+	}
+	return found
 }
 
 // workingLine は画面の下のほうで作業中の目印（esc to interrupt）を含む行を返す。なければ ok=false。
@@ -57,7 +81,7 @@ func (a *adapter) inputIndex(lines []string) int {
 func (a *adapter) Detect(s agent.Screen) agent.Detection {
 	lines := agent.TrimScreen(s.Lines)
 	if ch, ok := a.card(lines); ok {
-		return agent.Detection{State: agent.StateAsking, Activity: agent.Shorten(agent.QuestionAbove(lines, ch.Start), maxActivity)}
+		return agent.Detection{State: agent.StateAsking, Activity: agent.Shorten(question(lines, ch), maxActivity)}
 	}
 	if w, ok := a.workingLine(lines); ok {
 		d := agent.Detection{State: agent.StateWorking, Elapsed: agent.FindElapsed(w)}

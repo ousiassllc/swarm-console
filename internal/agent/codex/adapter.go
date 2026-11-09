@@ -1,5 +1,5 @@
-// Package codex は Codex CLI の画面を読むアダプタ。この機に codex が無く実画面で確かめていないため、
-// 既定値は公開されている TUI の知識による推定（P-22 は未確定。docs/architecture/agent-patterns.md）。
+// Package codex は Codex CLI の画面を読むアダプタ。idle・作業中・コマンド実行の承認カードは実画面（codex-cli 0.167.0。Issue #4）で
+// 確かめた。ファイル編集の承認カードと `/quit` は推定のまま（P-22。docs/architecture/agent-patterns.md）。
 package codex
 
 import (
@@ -9,7 +9,7 @@ import (
 // Name はアダプタ名。
 const Name = "codex"
 
-// defaults は組み込みの既定値（すべて推定）。
+// defaults は組み込みの既定値（実画面で確かめた範囲は agent-patterns.md のとおり。残りは推定）。
 var defaults = agent.Spec{
 	Name:  Name,
 	Start: "codex",
@@ -21,7 +21,7 @@ var defaults = agent.Spec{
 		// 承認カードの案内文。番号つきの選択肢と一緒にあるときだけ質問とみなす。
 		Ask:          `(?i)(?:Press enter to confirm or esc to cancel|Would you like to|Do you want to)`,
 		Idle:         `^\s*›(?:[\s\x{a0}]|$)`,
-		StatusLine:   `^\s*(?:\d+% context left|\? for shortcuts|Ctrl\+C again to quit)`,
+		StatusLine:   `^\s*(?:\d+% context left|(?:←[^·]*·\s*)?\? for shortcuts|Ctrl\+C again to quit)`,
 		Border:       `^\s*[╭╰]─`,
 		SpinnerChars: "•◦",
 	},

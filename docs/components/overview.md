@@ -71,7 +71,7 @@ swarm-console/
 │   ├── setup/                `setup` の画面（huh）、tailnet 候補の列挙、入力 → 編集操作の変換、保存（競合・検査・原子的書き込み）
 │   ├── server/               HTTP サーバー、窓口ルーティング、リクエスト上限、監査ログ
 │   ├── auth/                 tokens.toml、Bearer 検証、スコープ、token CLI
-│   ├── pair/                 `pair`（swarm-viewer の接続文字列。`listen_addr` から url、4,096 バイトの事前確認、自動の token 名、`--scope report|ops` に応じた発行）
+│   ├── pair/                 `pair`（swarm-viewer の接続文字列。`listen_addr` から url、4,096 バイトの事前確認、自動の token 名、`--scope report|ops` に応じた発行、`--qr` の QR 描画〔`qr.go`〕）
 │   ├── session/              セッション ACL とセッション内のペイン解決（許可セッションの決定・`session` 引数の決め方・ペインの解決。状態を持たない純関数）
 │   ├── mcpapi/               MCP サーバー（/report・/ops）、ツール・prompts・resources の登録
 │   ├── tools/                ツールの組み立て（`New`・`Registry`。resources 用の窓口）。Linterly のディレクトリ上限のため、ハンドラは下の 3 つに分ける
@@ -180,13 +180,13 @@ type Adapter interface {
 
 - 各アダプタは、判定に使う正規表現を `Patterns`（`working`・`ask`・`idle`・`spinner`・`status_line`・`border`・`process_match`）として持つ。組み込みの既定値を `config.toml` の `[agents.<name>]` で上書きできる（FR-AD-2）。
 - 状態の決定（`pane` パッケージ）：①プロセス木で `Adapter` を特定（なければ `MatchScreen`。木が読めても読めなくても、前面コマンドがシェルでエージェントがいなければ画面は見ずエージェントなし。Issue #35）→ ②`Detect` が `Asking` なら `asking`、`Working` なら `working`、どちらでもなければエージェントありで `idle` → ③エージェントなしで前面コマンドがシェルなら `shell` → ④それ以外 `unknown` → ⑤`working` で画面無変化が `stalled_after` 以上なら `stalled`。
-- 質問カードの操作は、omp は ↑/↓＋Enter、Claude Code は ↑/↓ または数字＋Enter、Codex は数字＋Enter。具体的な画面の目印は [agent-patterns.md](../architecture/agent-patterns.md)（P-22。実画面サンプルは `testdata/screens/`）。
+- 質問カードの操作は、omp は ↑/↓＋Enter、Claude Code・Codex は ↑/↓＋Enter（カーソルが読めないときだけ数字キー。Codex の実画面では数字キーは押した時点で確定する。P-22）。具体的な画面の目印は [agent-patterns.md](../architecture/agent-patterns.md)（P-22。実画面サンプルは `testdata/screens/`）。
 
 | アダプタ | `PickKeys` | `CustomKeys` | 備考 |
 |----------|-----------|--------------|------|
 | `omp` | `Up`/`Down` を差分だけ | 「その他」の項へ `Down` | Ask カード |
-| `claude` | 数字キー、または `Up`/`Down` | 「その他」の項へ | 選択肢つき確認 |
-| `codex` | 数字キー | 対応する項があれば数字、なければ `custom_not_allowed` | 承認の確認 |
+| `claude` | `Up`/`Down` の差分（カーソルが読めないときだけ数字キー） | 「その他」の項へ | 選択肢つき確認 |
+| `codex` | `Up`/`Down` の差分（カーソルが読めないときだけ数字キー。数字キーは押した時点で確定する） | 常に `custom_not_allowed`（自由入力の項がない） | 承認の確認 |
 
 ## 5. 主要な型とフロー
 
@@ -297,3 +297,4 @@ type Tool struct {
 | 2.9 | 2026-11-04 | §3 の `tools` の `file_get` の記述に、先頭 12 バイトを先に読むことを追記。`file_get` を試すための差し込み口（`toolkit.Deps.FileGet`。本番は nil）を追加。§2 のツリーに `test/integration/filegetintegration/` を追加 | Issue #82（PR #84 の独立レビューの指摘） |
 | 2.10 | 2026-11-04 | `cmd/swarm-console` に `token list` と `pair` を追加。新しいパッケージ `internal/pair`（`pair` の本体）、`app` に `TokenAdd`・`TokenRevoke`・`TokenList`（`cmd` から移した。linterly のディレクトリ行数のため）、`auth` に `ErrNameInUse`（`Add` の名前重複の判定）と `List`・`Info` を追加（P-92） | Issue #83 |
 | 2.11 | 2026-11-08 | `tools` を 19 個から 20 個に（`dir_list`。`ops/dir.go`）。`safety` に `CheckDirList`・`IsListableDir`（`dir_list` の `path` の検証と、一覧に載せる候補の判定。`file_get`・`pane_start` と共通）。`pair` に `--scope report\|ops`（`ops` は `/ops` の `url`・`viewer-ops-…` の名前・警告）（P-98） | Issue #90 |
+| 2.12 | 2026-11-09 | `pair` に `--qr`（`qr.go`。接続文字列の QR を標準エラーに出す。符号化は `skip2/go-qrcode`、テストの読み取りは `makiuchi-d/gozxing`）（P-99）。§4：Codex の `PickKeys` を数字キーのみから「Up/Down の差分、カーソルが読めないときだけ数字キー」に改めた（実画面で数字キーは押した時点で確定するため。P-22）。`agent.FindChoice` は折り返した選択肢の続き行をまたいで上の選択肢へ続ける | Issue #89・#4 |

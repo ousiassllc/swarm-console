@@ -43,8 +43,8 @@
 # serve が GitHub Releases で新しい版を確認するか。false なら確認しに行かない（`version --check` の手動確認は動く）。既定 true
 # update_check = true
 
-# 確認の間隔（1h 以上）。既定 "24h"
-# update_check_interval = "24h"
+# 確認の間隔（1h 以上）。既定 "6h"
+# update_check_interval = "6h"
 
 # 新しい版が見つかったとき serve が自分で更新するか。false なら自己更新だけ止まる（確認は続く）。
 # update_check = false のときは無視される。既定 true

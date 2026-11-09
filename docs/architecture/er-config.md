@@ -34,7 +34,7 @@ erDiagram
         array disk_mounts "host_status が見るマウント"
         string report_dir
         bool update_check "true"
-        duration update_check_interval "24h（1h 以上）"
+        duration update_check_interval "6h（1h 以上）"
         bool usage_check "true"
         duration usage_interval "5m（1m 以上）"
         bool update_auto "true"

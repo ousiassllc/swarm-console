@@ -200,7 +200,7 @@ func TestRealTmuxAskPick(t *testing.T) {
 			for _, k := range keys {
 				s.must("send-keys", "-t", "t", k.Name)
 			}
-			// 数字キーも Up/Down も、カーソルを動かしてから Enter で確定する。
+			// Up/Down でカーソルを動かしてから Enter で確定する（数字キーはカーソルが読めないときだけ）。
 			s.waitFor("カーソルが 3 番へ", cursorAt(a, 3))
 			s.must("send-keys", "-t", "t", "Enter")
 			s.waitFor("working", inState(a, agent.StateWorking))

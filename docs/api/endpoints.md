@@ -79,6 +79,8 @@ sequenceDiagram
 
 swarm-viewer 向けの接続文字列は `swarm-console pair [--scope report|ops] [--sessions 0,1] [--name <表示名>]` で出す（FR-PAIR）。`--scope`（既定 `report`。それ以外の値は使い方の誤りで、トークンを発行しない）のトークンを自動の名前で 1 つ発行する。名前は `report` が `viewer-<ホスト名>-<yyyymmdd>`、`ops` が `viewer-ops-<ホスト名>-<yyyymmdd>`（どちらも重なれば `-2`・`-3`…）。`swarm-viewer://pair?v=1&url=<URLエンコード>&token=<TOKEN>[&name=<表示名>][&sessions=0%2C1]` を標準出力に 1 行だけ出す（形式は `--scope` によらず `v=1` のまま）。`url` は `listen_addr` の tailnet の IP・ポート 48120・窓口の path（`report` なら `/report`、`ops` なら `/ops`）から作る（決められなければトークンを発行せず終了）。viewer は `url` の path で `report`／`ops` を見分ける。全体は 4,096 バイト以内で、同じパラメータは 1 回だけ。平文のトークンが標準出力に入るので、履歴・ログ・チャットに貼らず、使い回さず、なくしたら `token revoke` して `pair` をやり直す。`--scope ops` のトークンはペインへの送信・中断・起動・終了ができるので、標準エラーに強い警告（スマホをなくしたらすぐ `token revoke` する・`--sessions` で絞ることを勧める）を出す（`--sessions` を付けたときも警告は出す）。発行済みのトークンは `swarm-console token list`（名前・scope・許可セッション・発行日時・失効日時。ハッシュと平文は出さない）で見られる。
 
+`pair --qr` は、標準出力の接続文字列（1 行のまま）に加えて、同じ文字列の QR を標準エラーに出す（FR-PAIR-8。QR にもトークンが入るので撮影・共有しない。QR に入りきらない大きさならトークンを発行せずエラー）。
+
 ## 3. エラー
 
 ### 3.1 形式
@@ -188,3 +190,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.19 | 2026-11-05 | endpoints-report.md §5.5：`host.mem` は `/proc/meminfo` を読めないときも `host` のほかの値（`load1` など）を残し、`available: false`・数値 `null`（`mem_free_gb` は 0。読み手は `mem.available` を見る。P-95） | Issue #86 |
 | 1.20 | 2026-11-05 | endpoints-pane.md §5.1・endpoints-state.md §5.3・endpoints-report.md §5.5：`/proc/meminfo` を読めないときは `panes_status` の `host.mem_free_gb`、`host_status` の `mem_free_gb`・`mem_total_gb` も 0 になると明記（`report`・`host_status` の `mem.available` で見分ける。`panes_status` には印がない。P-95） | Issue #86 |
 | 1.21 | 2026-11-08 | `dir_list`（`/ops` のみ。`pane_start` の `cwd` に選べるディレクトリを 1 階層ずつ返す読み取りツール）を追加（ツール数 /ops 19→20、/report は 10 のまま）。`path_forbidden`・`not_found` の対象に `dir_list` を追加（`not_directory` を追記。§3.2）。§2：`pair --scope report`・`pair --scope ops`（`ops` は `/ops` の接続文字列と強い警告。既定は従来どおり `report`）。endpoints-pane.md §5.2 も同じ | Issue #90 |
+| 1.22 | 2026-11-09 | §2：`pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は変えない） | Issue #89 |

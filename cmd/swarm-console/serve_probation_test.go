@@ -141,7 +141,7 @@ func TestServeProbationDoesNotStartApply(t *testing.T) {
 	}
 }
 
-// 試運転中に見送った入れ替えは、試運転の確定（60 秒）で次の周期（24 時間後）を待たずに再試行する（FR-UPD-12。Issue #15）。
+// 試運転中に見送った入れ替えは、試運転の確定（60 秒）で次の周期（6 時間後）を待たずに再試行する（FR-UPD-12。Issue #15）。
 func TestServeProbationRetriesDeferredApplyWhenConfirmed(t *testing.T) {
 	g := newServeRig(t, "v0.1.5", "")
 	env := updateEnv
@@ -158,7 +158,7 @@ func TestServeProbationRetriesDeferredApplyWhenConfirmed(t *testing.T) {
 	if g.read("swarm-console") != oldBin {
 		t.Fatalf("試運転中に入れ替わりました: %q", g.read("swarm-console"))
 	}
-	g.clk.Advance(30 * time.Second) // 試運転の確定（次の周期の 24 時間後ではなく）
+	g.clk.Advance(30 * time.Second) // 試運転の確定（次の周期の 6 時間後ではなく）
 	if code := g.wait(); code != 0 {
 		t.Fatalf("終了コード = %d\n%s", code, g.stderr.String())
 	}

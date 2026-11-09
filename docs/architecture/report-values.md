@@ -83,7 +83,7 @@
 | 項目 | 内容 |
 |------|------|
 | コマンド | `omp update --check`（引数固定。実行ファイルは §2.1 と同じ。打ち切り 30 秒） |
-| 間隔・設定 | swarm-console の確認と同じ `update_check`・`update_check_interval`（既定 24 時間、下限 1 時間）。`update_check = false` なら実行せず `status: disabled`。`serve` 起動の 90 秒後に 1 回目（FR-UPD-7 の 1 分後の確認と重ねない） |
+| 間隔・設定 | swarm-console の確認と同じ `update_check`・`update_check_interval`（既定 6 時間、下限 1 時間）。`update_check = false` なら実行せず `status: disabled`。`serve` 起動の 90 秒後に 1 回目（FR-UPD-7 の 1 分後の確認と重ねない） |
 | 読み方 | ANSI 制御文字を取り除いた出力から、`Current version: X.Y.Z` → `current`、`New version available: X.Y.Z` → `latest`、`Already up to date` を含む → 最新。この機で、最新のとき（`18.14.2`・`Already up to date`）と、更新ありのとき（`Current version: 18.14.2` ＋ `New version available: 18.15.0`）の両方の実出力を確認した（2026-11-02。P-64） |
 | 結果 | `up_to_date`（`Already up to date`）・`update_available`（`New version available` があり、`latest` が `current` と違う）・`unknown`（上のどちらでもない・実行できない。`reason`：`not_found`・`timeout`・`exec`・`parse`）・`pending`（起動後まだ確認していない）・`disabled` |
 | 版の形 | `X.Y.Z`（数字だけ。`^(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)\.(0\|[1-9][0-9]*)$`）に合うものだけ出す。合わなければその値は `null`（出力の文面をそのまま返さない。FR-UPD-5 と同じ考え方） |

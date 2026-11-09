@@ -28,7 +28,7 @@ const (
 	defaultTitlePrefix      = "agent: "
 	defaultReportDir        = "/tmp/swarm-console/reports"
 
-	defaultUpdateCheckInterval = 24 * time.Hour
+	defaultUpdateCheckInterval = 6 * time.Hour
 	defaultUsageInterval       = 5 * time.Minute
 
 	minPollInterval = time.Second

@@ -22,7 +22,7 @@ func TestLoadUpdateKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.UpdateCheck || cfg.UpdateAuto || cfg.UpdateCheckInterval != 24*time.Hour {
+	if !cfg.UpdateCheck || cfg.UpdateAuto || cfg.UpdateCheckInterval != 6*time.Hour {
 		t.Fatalf("update_auto だけ false: %v / %v / %v", cfg.UpdateCheck, cfg.UpdateCheckInterval, cfg.UpdateAuto)
 	}
 }

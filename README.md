@@ -95,12 +95,13 @@ sessions = ["0"]                  # 対象の tmux セッション（分けて�
 swarm-viewer につなぐための接続文字列を、1 行で出します。トークンを 1 つ発行して、`listen_addr` の tailnet の IP（ポート 48120）と組み合わせます。既定は `report` スコープ（`/report`。見るだけ）で、`--scope ops` なら `ops` スコープ（`/ops`。ペインへの送信・中断・起動・終了もできる）です。
 
 ```sh
-~/bin/swarm-console/swarm-console pair [--scope report|ops] [--sessions 0,1] [--name devbox]
+~/bin/swarm-console/swarm-console pair [--scope report|ops] [--sessions 0,1] [--name devbox] [--qr]
 # swarm-viewer://pair?v=1&url=http%3A%2F%2F100.64.0.5%3A48120%2Freport&token=<TOKEN>&name=devbox&sessions=0%2C1
 ```
 
 - `--scope` は `report`（既定）か `ops` です。`ops` は `url` の path が `/ops` になり、トークンの名前は `viewer-ops-<ホスト名>-<yyyymmdd>` です。**`ops` のトークンはペインを操作できるので、標準エラーに警告を出します。スマホをなくしたらすぐ `token revoke <名前>` で失効させ、`--sessions` で許可セッションを絞ってください。** `report`・`ops` 以外の値はエラーです（トークンは発行しません）。
 - `--sessions` は `token add` と同じです（省略すると `config.toml` の `sessions` 全部）。接続文字列の `sessions` は表示のヒントで、権限は発行したトークンが決めます。
+- `--qr` を付けると、同じ接続文字列の QR を標準エラーに出します（標準出力は 1 行のまま）。swarm-viewer（Android）の「QR を読み取る」で読む想定です（実機での読み取りは未確認）。QR にもトークンが入っているので、画面の撮影・共有をしないでください。`--name`・`--sessions` が長すぎて QR に入りきらないときは、トークンを発行せずにエラーで終わります。
 - `--name` は接続文字列の `name`（1〜100 文字）に入ります。省略すると付けません。
 - トークンの名前は自動で `viewer-<ホスト名>-<yyyymmdd>`（`ops` は `viewer-ops-<ホスト名>-<yyyymmdd>`）になります。同じ名前があれば（失効済みも含む）、末尾に `-2`・`-3`… を付けます。名前は `token list` で分かります。
 - `listen_addr` が tailnet の IP:48120 でないとき（ループバック・ホスト名など）は、トークンを発行せずにエラーで終わります。
@@ -121,7 +122,7 @@ swarm-viewer につなぐための接続文字列を、1 行で出します。�
 
 既定では、`serve` が自分で更新します（自己更新）。
 
-- `update_check`（既定 `true`）：`serve` が 24 時間ごとに GitHub Releases の最新版を確認します（間隔は `update_check_interval`）
+- `update_check`（既定 `true`）：`serve` が 6 時間ごとに GitHub Releases の最新版を確認します（間隔は `update_check_interval`。既定 `6h`、1 時間以上）
 - `update_auto`（既定 `true`）：新しい版を見つけたら、ダウンロード → `SHA256SUMS` で検証 → 入れ替え → 正常終了し、systemd が新しいバイナリを起動します。新しいバイナリが起動に失敗し続けても、3 回目の起動で自動的に `.old` に戻して終了します
 - 確認だけを手で行うときは `swarm-console version --check`（終了コード：最新 0、新しい版あり 10、確認できない 1）。状況は `host_status` の `update` でも見られます
 - 検証は `SHA256SUMS` のハッシュだけです（署名なし）。限界は [機能要件 §12.5](docs/requirements/functional-update.md#125-リスクと限界) を参照してください

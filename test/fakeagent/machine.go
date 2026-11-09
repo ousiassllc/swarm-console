@@ -210,11 +210,14 @@ func (m *machine) char(c []byte) {
 			m.typed = append(m.typed, c...)
 			return
 		}
-		// 数字キーは Claude Code と Codex でカーソルをその番号へ動かすだけで、確定は Enter
-		// （仕様: カーソルを n へ → 再読み取りで確認 → Enter。omp は ↑/↓ と Enter だけ）。
-		// Codex の実画面は未確認で、この動きは仮定（internal/agent/PATTERNS.md）。
+		// 数字キーは Claude Code ではカーソルをその番号へ動かすだけで、確定は Enter（推定のサンプル）。omp は ↑/↓ と Enter だけ。
+		// Codex は実画面（codex-cli 0.167.0）で、押した時点で選択が確定した（`3` で「No」が実行された）。
 		if n := int(c[0] - '0'); len(c) == 1 && n >= 1 && n <= m.lastRow() && m.agent != "omp" {
 			m.cursor = n
+			if m.agent == "codex" {
+				m.record(event{kind: "PICK", n: n})
+				m.mode = modeWorking
+			}
 		}
 	}
 }
