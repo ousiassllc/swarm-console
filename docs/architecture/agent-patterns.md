@@ -6,21 +6,21 @@
 
 | 確かさ | omp | claude | codex |
 |--------|-----|--------|-------|
-| 画面の出どころ | 実画面（omp v18.14.1、120×40） | idle・信頼確認・`/model` メニューは実画面（v2.1.316）。作業中・許可確認・質問は**推定**（ログイン切れで採れず） | **すべて推定**（この機に codex が無い）。**P-22 は実画面で未確定** |
-| サンプル | `testdata/screens/omp/` | `testdata/screens/claude/`（推定は先頭行に `# 実画面ではない（推定）`） | `testdata/screens/codex/`（全ファイルの先頭行に同じ注記） |
+| 画面の出どころ | 実画面（omp v18.14.1、120×40） | idle・信頼確認・`/model` メニューは実画面（v2.1.316）。作業中・許可確認・質問は**推定**（ログイン切れで採れず。Issue #4 で再度試したが同じ `Login expired` で採れなかった） | idle・作業中・コマンド実行の承認カード（`touch`）・承認後の idle は**実画面**（codex-cli 0.167.0、120×40。Issue #4）。ファイル編集の承認カード（`patch-1.txt`）・`/quit` は**推定のまま** |
+| サンプル | `testdata/screens/omp/` | `testdata/screens/claude/`（推定は先頭行に `# 実画面ではない（推定）`） | `testdata/screens/codex/`（`patch-1.txt` だけ先頭行に推定の注記。ほかは実画面） |
 
 ## 既定値（Patterns）
 
-| キー | omp（実画面で確定） | claude | codex（推定） |
+| キー | omp（実画面で確定） | claude | codex（実画面で確定。`patch-1` の編集カードと `/quit` は推定） |
 |------|--------------------|--------|---------------|
 | `process_match` | `(^|/)omp$`（実機の argv[0] は `omp`） | `(^|/)claude$`（実機の argv[0] は `claude`。実行ファイルは `~/.local/share/claude/versions/<ver>` へのリンクで、cmdline は `claude --permission-mode default`） | `(^|/)codex$` |
-| `working_re` | `^\x{e0b6}\s*[\x{2800}-\x{28ff}]`（ステータス行の左端の直後に点字スピナー） | `esc to interrupt`（推定） | `esc to interrupt`（推定） |
-| `ask_re` | `^╭─ (?:Ask\|Custom answer)\b` | `(?i)\b(?:Esc to cancel\|Enter to (?:select\|confirm\|set)\|Do you want to\|Would you like to)\b`。信頼確認・`/model` は実画面の `Enter to confirm`・`Enter to set as default`。許可確認・質問は推定 | `(?i)(?:Press enter to confirm or esc to cancel\|Would you like to\|Do you want to)`（推定） |
-| `idle_re` | `^\x{e0b6}`（ステータス行があり、作業中でも質問でもない） | `^\s*[❯>](?:[\s\x{a0}]\|$)`（入力欄。上下を罫線 `─` が挟む。実画面） | `^\s*›(?:[\s\x{a0}]\|$)`（入力欄。推定） |
-| `status_line_re` | `^\x{e0b6}`（ステータス行） | `^\s*(?:[⏵⏸]\|\? for shortcuts\|esc to interrupt\b\|Not logged in\b)`（実画面＋推定） | `^\s*(?:\d+% context left\|\? for shortcuts\|Ctrl\+C again to quit)`（推定） |
+| `working_re` | `^\x{e0b6}\s*[\x{2800}-\x{28ff}]`（ステータス行の左端の直後に点字スピナー） | `esc to interrupt`（推定） | `esc to interrupt`（実画面の `• Working (0s • esc to interrupt)`） |
+| `ask_re` | `^╭─ (?:Ask\|Custom answer)\b` | `(?i)\b(?:Esc to cancel\|Enter to (?:select\|confirm\|set)\|Do you want to\|Would you like to)\b`。信頼確認・`/model` は実画面の `Enter to confirm`・`Enter to set as default`。許可確認・質問は推定 | `(?i)(?:Press enter to confirm or esc to cancel\|Would you like to\|Do you want to)`（実画面の `Would you like to run the following command?`・`Press enter to confirm or esc to cancel`） |
+| `idle_re` | `^\x{e0b6}`（ステータス行があり、作業中でも質問でもない） | `^\s*[❯>](?:[\s\x{a0}]\|$)`（入力欄。上下を罫線 `─` が挟む。実画面） | `^\s*›(?:[\s\x{a0}]\|$)`（入力欄 `› Ask Codex to do anything`。実画面） |
+| `status_line_re` | `^\x{e0b6}`（ステータス行） | `^\s*(?:[⏵⏸]\|\? for shortcuts\|esc to interrupt\b\|Not logged in\b)`（実画面＋推定） | `^\s*(?:\d+% context left\|(?:←[^·]*·\s*)?\? for shortcuts\|Ctrl\+C again to quit)`（実画面の下端は `←  for agents · ? for shortcuts`。**`N% context left` は実画面に出なかった**ので推定のまま残す） |
 | `border_re` | `^\s*[╭├╰]─` | `^\s*(?:[─━▔]{3,}\|[╭├╰]─)` | `^\s*[╭╰]─` |
-| `spinner_chars` | `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`（実画面） | `✻✢✳✶✽✦·*`（`✻` は実画面の `Cogitated for` で確認、他は推定） | `•◦`（推定） |
-| 起動・終了 | `omp`・`/exit`（実機で `/exit` + Enter により `Closing session…` が出てプロセスが終わり、ペインがシェルに戻るのを確認。omp v18.15.0） | `claude`・`/exit`（実機で `/exit` + Enter によりプロセスが終わるのを確認） | `codex`・`/quit`（推定） |
+| `spinner_chars` | `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`（実画面） | `✻✢✳✶✽✦·*`（`✻` は実画面の `Cogitated for` で確認、他は推定） | `•◦`（`•` は実画面の `• Working`・`• Running` で確認。`◦` は推定） |
+| 起動・終了 | `omp`・`/exit`（実機で `/exit` + Enter により `Closing session…` が出てプロセスが終わり、ペインがシェルに戻るのを確認。omp v18.15.0） | `claude`・`/exit`（実機で `/exit` + Enter によりプロセスが終わるのを確認） | `codex`・`/quit`（`codex` は実機で起動を確認。`/quit` は推定） |
 
 omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左端、`U+E0B1` 区切り、`U+F054` カーソル、`U+F10C` など）を使う。
 `capture-pane -p` にはこれらがそのまま出る。ステータス行は `U+E0B6 <スピナー> <経過> U+E0B1 …`
@@ -62,12 +62,12 @@ omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左�
 
 | 判定 | 目印 | 誤判定しやすい点 |
 |------|------|------------------|
-| asking | 番号つき（`1.`）で `›` がカーソルの選択肢が 2 つ以上あり、近くに `ask_re` の案内文 | **番号のない `› Ask Codex to do anything`（入力欄）は選択肢にしない**（番号の有無で区別） |
-| working | 下から 12 行以内の `esc to interrupt`（`• Working (12s • esc to interrupt)`） | 推定 |
-| idle | 下から 12 行以内に `›` の入力欄（番号なし） | 推定 |
-| カード | 選択肢の末尾の `(y)`・`(a)`・`(esc)` を文言から外す。自由入力の項はないので AllowsCustom は常に false | 実際の承認カードの形が違えば `ask_re`・`idle_re` を上書きする |
-| キー | `PickKeys` は数字キー 1 つ（Enter は含めない）。`CustomKeys` は常に `custom_not_allowed` | 数字キーで確定するか／カーソル移動だけかは実画面で未確認。fakeagent は「カーソル移動＋Enter 確定」と仮定している |
-| Clean | 起動枠（`╭…╰`）・入力欄（画面の最後の `› `）・ステータス行（`N% context left`）・作業中の行を除く。履歴の `› <指示>` は残す | |
+| asking | 番号つき（`1.`）で `›` がカーソルの選択肢が 2 つ以上あり、近くに `ask_re` の案内文 | **番号のない `› Ask Codex to do anything`（入力欄）は選択肢にしない**（番号の有無で区別）。**2 番の文言が長いと折り返し、`(p)` だけの行が続く**（実画面）。選択肢の並びを上へたどるときに、この続き行をまたぐ（`FindChoice`）。またがないと、カーソルが 3 番のとき上の選択肢が見えず、承認カードを `unknown` にしてしまう（Issue #4 で直した） |
+| working | 下から 12 行以内の `esc to interrupt`（`• Working (0s • esc to interrupt)`） | 本文（`• 指定されたコマンドを実行します。`）が出ている間も、作業中の行が下にあれば作業中。実行中のコマンドの行（`• Running …`）は作業中の行ではない |
+| idle | 下から 12 行以内に `›` の入力欄（番号なし） | 実行後は `Worked for 6s • 19:54` の行が出るが、作業中ではない（`esc to interrupt` がない） |
+| カード | 選択肢の末尾の `(y)`・`(p)`・`(esc)` を文言から外す。自由入力の項はないので AllowsCustom は常に false。**質問文は `Would you like to …?` の行**（`Reason: …？` や `$ command` の行ではない） | 質問文の下に `Environment: local`・`Reason: …`・`$ <コマンド>` が続く。`QuestionAbove`（`?` を含む最も近い段落）だと、`?`・`？` を含む `Reason` の行を質問と取り違えるため、`Would you like to`・`Do you want to` で始まる行を優先する（Issue #4 で直した） |
+| キー | `PickKeys` はカーソルが読めれば Up/Down の差分、読めないときだけ数字キー 1 つ（Enter は含めない）。`CustomKeys` は常に `custom_not_allowed` | **実画面で数字キーは押した時点で確定する**（`3` を送ると「No」が実行され、`You canceled the request` になった）。Up/Down はカーソルが動くだけで、Enter で確定する。数字キーだと、送ったあとにカーソルの到達を確かめられず、続ける Enter が次の承認カードを承認しかねないので、Up/Down を優先する（Issue #4 で直した。以前は数字キーのみで、fakeagent は「カーソル移動＋Enter 確定」と仮定していた） |
+| Clean | 起動の見出し行（`>_ OpenAI Codex (v…)`）・起動枠（`╭…╰`）・入力欄（画面の最後の `› `）・ステータス行（`← for agents · ? for shortcuts`・`N% context left`）・作業中の行を除く。履歴の `› <指示>` は残す | 下端のモデルの行（`<モデル名> default · <cwd>[ · <タイトル>]`）は除かない（形が一定でないため）。タイトルは作業のあとに付くので `StableText` が変わることがある |
 
 ## 共通の取り決め
 
@@ -79,5 +79,5 @@ omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左�
 
 - omp: 専用ソケットの tmux（`-L <一意名> -f /dev/null new-session -d -x 120 -y 40`）で `omp` を起動し、`ask` ツールで質問カード・複数選択・「その他」入力中・回答後を採取。本番 tmux の稼働中ペインは `capture-pane -p` の読み取りだけ（`send-keys` なし）。サンプルの本文は無害な文に置き換え、ホスト名は `devbox` にした。
 - claude: 同様に `claude`（v2.1.316）を起動。信頼確認（`❯ No, exit` / `Yes, I trust this folder`）、`/model` のメニュー、idle（`--permission-mode default` と bypass）、ログイン切れの表示を採取。**ログイン切れ（`Login expired · Please run /login`）でモデル呼び出しができず、作業中スピナー・ツール許可確認・質問カードは採れなかった**。
-- codex: この機に無く、採取していない。
+- codex（Issue #4）: `npm install --prefix <一時フォルダ> @openai/codex`（codex-cli 0.167.0）で入れ、専用ソケットの tmux（`-L <一意名> -f /dev/null new-session -d -x 120 -y 40`）で `codex -a on-request -s read-only` を起動して採取した（`--ask-for-approval` は `on-request`・`never` だけ。読み取り専用サンドボックスの外に出る `touch` で承認カードが出る）。idle・作業中（0〜2 秒）・承認カード（カーソル 1〜3）・数字キー `3` を押した直後・実行後の idle を採った。Up/Down でカーソルが動くことと、Enter・数字キーで確定することを確かめた。ファイル編集の承認カード・`/quit` は採っていない。本番の tmux・コードには触れていない（採取用の作業フォルダは `/tmp` の下）。
 - 採取後は専用ソケットのサーバーを `kill-server` した。

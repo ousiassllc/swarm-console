@@ -50,10 +50,25 @@ func FindChoice(lines []string, cursors string, skip func(i int) bool) (Choice, 
 	}
 	first := cur
 	for first > 0 {
-		if _, ok := label(lines[first-1]); !ok {
+		if _, ok := label(lines[first-1]); ok {
+			first--
+			continue
+		}
+		// 上の選択肢が長くて折り返したとき、その続き行（実画面の Codex の `(p)` だけの行）をまたいで上の選択肢へ続ける。
+		j := first - 1
+		for ch.Numbered && j >= 0 && strings.TrimSpace(lines[j]) != "" && Indent(lines[j]) >= 5 {
+			if _, ok := label(lines[j]); ok {
+				break
+			}
+			j--
+		}
+		if j == first-1 || j < 0 {
 			break
 		}
-		first--
+		if _, ok := label(lines[j]); !ok {
+			break
+		}
+		first = j
 	}
 	end := cur + 1
 	for end < len(lines) {

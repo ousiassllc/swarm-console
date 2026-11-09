@@ -1,15 +1,20 @@
-# 実画面ではない（推定）: この機に codex が無く実画面を採取できなかった。公開されている Codex CLI の TUI の知識から組んだ（working.txt の経過時間と残量だけ変更）
-╭────────────────────────────────────────────╮
-│ >_ OpenAI Codex (v0.0.0)                   │
-│                                            │
-│ model:     gpt-5-codex   /model to change  │
-│ directory: /tmp/sc-probe/wd                │
-╰────────────────────────────────────────────╯
 
-› Run touch probe-file.txt
+  >_ OpenAI Codex (v0.167.0)
+     /tmp/swarm-console/T2-evidence/wd-codex
 
-• Working (13s • esc to interrupt)
+  To get started, describe a task or try one of these commands:
+
+  /init - create an AGENTS.md file with instructions for Codex
+  /status - show current session configuration
+  /permissions - choose what Codex is allowed to do
+  /model - choose what model and reasoning effort to use
+  /review - review any changes and find issues
+
+› Run this shell command exactly, nothing else: touch /tmp/swarm-console/T2-evidence/outside-probe.txt
+
+• Working (1s • esc to interrupt)
 
 › Ask Codex to do anything
 
-  97% context left · ? for shortcuts
+  GPT-6.1-Sol default · /tmp/swarm-console/T2-evidence/wd-codex
+  ← for agents · ? for shortcuts

@@ -31,7 +31,7 @@
 | P-19 | `pane_close` の許可状態 | `idle`・`shell` のみ。`working`・`stalled`・`asking`・`unknown` は拒否（元仕様は `working` のみ明記） | OK 時 |
 | P-20 | リリース | タグ `v*` の push で linux/amd64 バイナリを GitHub Releases に載せるワークフロー。P-48 で自動のタグ付けを足した | OK 時 |
 | P-21 | テスト用の tmux | `tmux_socket`（`-L`）で専用サーバーを使う | OK 時 |
-| P-22 | 状態判定・カードの正規表現の具体値 | [agent-patterns.md](agent-patterns.md) のとおり。既定値は組み込み、`[agents.<name>]` で上書き可。**omp は実画面で確定**。Claude Code は idle・信頼確認・`/model` が実画面、作業中・許可確認・質問は推定（ログイン切れで採れず）。**Codex は実画面で未確定**（この機に `codex` が無い。推定値） | **未完了**：Claude Code の作業中・許可確認・質問、Codex の全画面は、実画面で確かめて値を直す |
+| P-22 | 状態判定・カードの正規表現の具体値 | [agent-patterns.md](agent-patterns.md) のとおり。既定値は組み込み、`[agents.<name>]` で上書き可。**omp は実画面で確定**。**Codex は Issue #4 で実画面（codex-cli 0.167.0）により確定**（idle・作業中・コマンド実行の承認カード・承認後。`status_line_re` は実画面の下端 `← for agents · ? for shortcuts` に合わせて直し、承認カードの質問文は `Would you like to …?` の行にし、2 番の文言が折り返す選択肢の並びを正しく読むようにした。**数字キーは押した時点で確定する**ので `PickKeys` は Up/Down を優先する）。Claude Code は idle・信頼確認・`/model` が実画面、作業中・許可確認・質問は推定（ログイン切れで採れず。Issue #4 でも `Login expired` のままだった） | **未完了（残り）**：Claude Code の作業中・許可確認・質問は、ログインできる環境で実画面を採って値を直す。Codex のファイル編集の承認カード（`patch-1.txt`）・`/quit` も推定のまま。Issue #4 の AC-1〜AC-5（実クライアント接続）は未実施 |
 | P-23 | `dispatch` の `note` 保存 | 送信が行われた後に保存（拒否・事前検証失敗では保存しない）。受理に失敗しても保存し `note_saved: true` を返す | OK 時 |
 | P-24 | tmux のバージョン | **確定**：3.x を前提。実機は `tmux 3.2a`（`load-buffer -`・`paste-buffer -p` の実動作を専用ソケットのテストで確認）。`tmux -V` を起動時に読み、`tmux.CheckVersion` が 2.x 以下・判定不能なら警告（3.x・`next-`・`master` は警告なし） | 実機で確定済み |
 | P-25 | `report` の `format: json` と `pane` の併用 | `panes` と `attention` をその 1 ペインだけに絞る。`host`・`layout`・`warnings` は全体のまま | 実装時に決めた。OK 時に確認 |

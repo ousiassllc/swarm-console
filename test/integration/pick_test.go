@@ -62,8 +62,8 @@ func TestAskPickCustomText(t *testing.T) {
 	}
 }
 
-// Codex の数字キー。擬似エージェントは数字でカーソルを動かすだけ（確定は Enter。仕様の「n へ動かす → 再読み取り → Enter」）。
-func TestAskPickCodexDigit(t *testing.T) {
+// Codex は Up/Down でカーソルを n へ動かしてから Enter で確定する（PICK は 1 回だけ）。数字キーは実画面で押した時点で確定するので使わない。
+func TestAskPickCodexArrows(t *testing.T) {
 	h := harness.Start(t, harness.Options{})
 	for _, n := range []int{1, 3} {
 		id := h.NewAgent("codex", "ask")

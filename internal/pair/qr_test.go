@@ -58,10 +58,10 @@ func decodeQR(t *testing.T, stderr string) string {
 // --qr：標準出力は従来どおり接続文字列 1 行で、標準エラーの QR の中身がそれと 1 文字も違わない（Issue #89）。
 func TestPairQRMatchesConnectionString(t *testing.T) {
 	for name, args := range map[string][]string{
-		"既定":             {"--qr"},
+		"既定":              {"--qr"},
 		"sessions と name": {"--qr", "--sessions", "1,2", "--name", "my box 開発機"},
-		"ops":            {"--qr", "--scope", "ops"},
-		"name が最長":       {"--qr", "--name", strings.Repeat("あ", 100)},
+		"ops":             {"--qr", "--scope", "ops"},
+		"name が最長":        {"--qr", "--name", strings.Repeat("あ", 100)},
 	} {
 		t.Run(name, func(t *testing.T) {
 			e := newEnv(t, "100.64.0.5:48120", `["0", "1", "2"]`)
