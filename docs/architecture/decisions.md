@@ -50,7 +50,7 @@
 | P-38 | 既存ファイルが壊れているとき | TOML 構文エラー・未知キーは開かず終了（自動で直さない）。値の検証エラー・`listen_addr` 未設定は開いて直させる | 実装時に決めた |
 | P-39 | 新規作成のファイル権限 | 600（「644 以下」を満たす）。既存ファイルの権限は変えない | 実装時に決めた |
 | P-40 | 新しい版の確認の入口 | **確定（Issue #7 のヒアリングで選択）**：`swarm-console version --check`・`serve` の定期確認・`host_status` の `update` の 3 つ全部。`update` サブコマンドは作らない（入れ替えのきっかけは `serve` の自動だけ。P-46） | **確定** |
-| P-41 | 定期確認の既定 | **確定（Issue #7 のヒアリングで選択）**：既定オン・24 時間ごと。`config.toml` の `update_check = false` で止める。設定なしで GitHub へ外向き通信が出る（確認の `api.github.com` の GET 1 本と、自己更新のダウンロード。NFR-SEC-15） | **確定** |
+| P-41 | 定期確認の既定 | **確定（Issue #7 のヒアリングで選択。間隔は Issue #79 で 24 時間から 6 時間に変更）**：既定オン・6 時間ごと（`update_check_interval` の既定 `6h`、下限 1 時間は変えない）。`config.toml` の `update_check = false` で止める。設定なしで GitHub へ外向き通信が出る（確認の `api.github.com` の GET 1 本と、自己更新のダウンロード。NFR-SEC-15） | **確定** |
 | P-42 | 版の形・比較・プレリリース | タグは `vX.Y.Z` だけを受け付ける（Issue #8 が付ける形と同じ）。比較は `golang.org/x/mod/semver`。`/releases/latest` を使うのでプレリリース・ドラフトは通知しない。現在の版がプレリリース形でも semver どおりに比較する | 実装時に決めた。OK 時に確認 |
 | P-43 | `version --check` の終了コード | 最新 0・新しい版あり 10・確認できない 1。スクリプトで 3 つを区別できるようにする | 実装時に決めた |
 | P-44 | 確認の失敗の扱い | 失敗後の再試行は次の周期まで行わない（バックオフなし）。ログは新しい版を見つけたとき 1 回と、失敗の `reason` が変わったときの警告だけ（FR-UPD-8）。`serve` は止めない | 実装時に決めた |
@@ -68,7 +68,7 @@
 | P-56 | `update_auto` の既定 | 運用者の回答は「自動更新を止める設定は `update_auto` を新しく足す」。「止める設定」と読み、**既定 `true`（自動で入れ替わる）、`false` で確認だけ**とした。`update_check = false` なら無効。ハッシュだけの検証と自動の組み合わせなので、既定を `false` にして明示的に有効にする案もある | **OK 時に確認（既定値）** |
 | P-57 | ダウンロード先・アセット名・`SHA256SUMS` の書式 | アセット名は `swarm-console_vX.Y.Z_linux_amd64`（**確定**：版・OS・arch を含める）。`SHA256SUMS` は `sha256sum` の出力どおり（`<ハッシュ>␣␣<アセット名>`）の 1 行。ダウンロード URL は検証済みの `tag_name` から `releases/download/<tag>/…` を組み立て、API 応答の `assets[]` は使わない（応答の文字列を URL にしない）。許可ホストは `github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com`。サイズ上限：`SHA256SUMS` 64 KiB・バイナリ 64 MiB。生産側（`release.yml`）の改訂は Issue #8 | 実装時に決めた。OK 時に確認 |
 | P-58 | 置き場と入れ替えの方法 | 置き場は `~/bin/swarm-console/` に**固定**（**確定**。`os.Executable()` が違えば `not_managed`）。入れ替えは「`.new` に書く → `.old` へハードリンク → マーカー → `.new` を `rename`」で、本体の名前が一度も消えない（途中で落ちても `swarm-console` がある）。旧バイナリは 1 世代だけ | 実装時に決めた。OK 時に確認 |
-| P-59 | 試運転中に見送った入れ替えの再試行 | 試運転中（`apply = probation`）に当たった `update_available` は入れ替えず（FR-UPD-12。Issue #12）、見送った最新版を覚える。試運転が確定した時点で、次の周期（既定 24 時間後）を待たずに、その版へ入れ替えを試す（確認の通信はし直さない）。その後の確認が `up_to_date` なら取り下げる。確認と確定は別の goroutine なので、入れ替えは `serve` 内で 1 本ずつ行う | 実装時に決めた（Issue #15）。OK 時に確認 |
+| P-59 | 試運転中に見送った入れ替えの再試行 | 試運転中（`apply = probation`）に当たった `update_available` は入れ替えず（FR-UPD-12。Issue #12）、見送った最新版を覚える。試運転が確定した時点で、次の周期（既定 6 時間後）を待たずに、その版へ入れ替えを試す（確認の通信はし直さない）。その後の確認が `up_to_date` なら取り下げる。確認と確定は別の goroutine なので、入れ替えは `serve` 内で 1 本ずつ行う | 実装時に決めた（Issue #15）。OK 時に確認 |
 | P-60 | 使用状況・omp の版の取り方（Issue #21・#24） | **確定（Issue #21〜#25 のヒアリングで選択）**：`omp usage --json` と `omp update --check` を `serve` が引数固定で実行する（NFR-SEC-7 を 2 コマンドだけ許すよう改訂）。プロバイダの API を直接呼ぶ案（トークンファイルを読む）は秘密の扱いと NFR-SEC-15 を大きく変えるので採らない。取り方は [report-values.md](report-values.md) | OK 時に確認（`omp` の `--json` の形は omp の版で変わりうる） |
 | P-61 | Claude 5 アカウントの扱い（Issue #21） | 返ったアカウントを全部出す。枠が取れないアカウント（5 時間枠が返らないアカウント）は枠を `available: false` にして残す。`omp` の `accountsWithoutUsage` も同じ扱い | 実装時に決めた。OK 時に確認 |
 | P-62 | 使用状況の並び（Issue #21） | `account` の昇順。前のスクリプトは使用率の降順だったが、取得ごとに並びが入れ替わらないようにした（FR-REP-7 の出力を安定させる）。使用率の大きい順に見たいときは JSON を使う側で並べ替える | OK 時に確認 |

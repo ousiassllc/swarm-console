@@ -121,7 +121,7 @@ swarm-viewer につなぐための接続文字列を、1 行で出します。�
 
 既定では、`serve` が自分で更新します（自己更新）。
 
-- `update_check`（既定 `true`）：`serve` が 24 時間ごとに GitHub Releases の最新版を確認します（間隔は `update_check_interval`）
+- `update_check`（既定 `true`）：`serve` が 6 時間ごとに GitHub Releases の最新版を確認します（間隔は `update_check_interval`。既定 `6h`、1 時間以上）
 - `update_auto`（既定 `true`）：新しい版を見つけたら、ダウンロード → `SHA256SUMS` で検証 → 入れ替え → 正常終了し、systemd が新しいバイナリを起動します。新しいバイナリが起動に失敗し続けても、3 回目の起動で自動的に `.old` に戻して終了します
 - 確認だけを手で行うときは `swarm-console version --check`（終了コード：最新 0、新しい版あり 10、確認できない 1）。状況は `host_status` の `update` でも見られます
 - 検証は `SHA256SUMS` のハッシュだけです（署名なし）。限界は [機能要件 §12.5](docs/requirements/functional-update.md#125-リスクと限界) を参照してください

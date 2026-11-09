@@ -75,7 +75,7 @@
 | NFR-OPS-7 | 認証の期限情報（`agent_auth_status`）はファイルの場所を設定で変えられる。取れなければ「不明」を返し、エラーにしない |
 | NFR-OPS-8 | `config.toml` は手書きと `setup` のどちらでも作れ、`setup` は手で書いた内容（コメント・並び・書式・`setup` が聞かないキー）を壊さない（FR-SET-3）。`setup` が書くのは設定の置き場（`~/.config/swarm-console`）の `config.toml` と、発行したときの `tokens.toml` だけ（NFR-SEC-14）。`config.toml` がシンボリックリンクのときは書かず中止する（リンク先が置き場の外のため。P-35） |
 | NFR-OPS-9 | `setup` は `tmux`・`tailscale` などの外部コマンドを実行せず、ネットワークにも出ない。tailnet の候補はインターフェースの列挙だけで出す（NFR-SEC-7 と同じ方針。P-33） |
-| NFR-OPS-10 | 新しい版の確認と自己更新は `config.toml` の `update_check`（既定 `true`）・`update_check_interval`（既定 `24h`、`1h` 以上）・`update_auto`（既定 `true`）で切り替える。`version --check` は設定に依らず手動で動く（確認だけで入れ替えない。FR-UPD-10・19） |
+| NFR-OPS-10 | 新しい版の確認と自己更新は `config.toml` の `update_check`（既定 `true`）・`update_check_interval`（既定 `6h`、`1h` 以上）・`update_auto`（既定 `true`）で切り替える。`version --check` は設定に依らず手動で動く（確認だけで入れ替えない。FR-UPD-10・19） |
 | NFR-OPS-11 | リリースの権限：`release.yml` の既定は `contents: read`。書き込み（`contents: write`）を持つのはリリースを作るジョブだけで、ビルドのジョブは書き込みトークンを持たない。PR（フォーク含む）のコードではリリースのワークフローを動かさない。リリースは同時に 1 本だけ（`concurrency`）。タグの版は `vX.Y.Z` だけで、Issue #7 の版の確認が読む形と同じ |
 | NFR-OPS-12 | レポートの値の収集（`omp usage --json`・`omp update --check`）は `config.toml` の `usage_check`（既定 `true`）・`usage_interval`（既定 `5m`、`1m` 以上）と、`update_check`・`update_check_interval`（omp の確認。FR-REP-15）で切り替える。止めた値は `disabled`、起動直後は `pending` を返す |
 | NFR-OPS-13 | `make install` は `$HOME` 配下（`~/bin/swarm-console`・`~/.config/systemd/user`）だけを書き、`sudo` を使わず、`config.toml`・`tokens.toml` を作らない。動いているサービスを再起動しない。ネットワークに出るのは GitHub（`github.com` と、リリースの実体の転送先）だけで、最新版の確認とバイナリ・`SHA256SUMS` の取得に使う（FR-INS） |

@@ -118,6 +118,31 @@ func TestServeChecksEveryConfiguredInterval(t *testing.T) {
 	g.wait()
 }
 
+// update_check_interval を書かなければ 6 時間ごとに確認する（既定。Issue #79）。6 時間の 1 秒前までは通信しない。
+func TestServeChecksEverySixHoursByDefault(t *testing.T) {
+	g := newServeRig(t, "v0.1.5", "")
+	g.release("v0.1.5", newBin)
+	g.start()
+	g.untilWaiting(1)
+	g.clk.Advance(time.Minute)
+	g.untilUpdate("up_to_date")
+	g.untilWaiting(1)
+	g.clk.Advance(6*time.Hour - time.Second)
+	if n := len(g.origin.Requests()); n != 1 {
+		t.Fatalf("6 時間の前に通信しました（%d 件）", n)
+	}
+	g.clk.Advance(time.Second)
+	deadline := time.Now().Add(15 * time.Second)
+	for len(g.origin.Requests()) < 2 {
+		if time.Now().After(deadline) {
+			t.Fatal("6 時間後に再確認しません")
+		}
+		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
+	}
+	g.cancel()
+	g.wait()
+}
+
 // GitHub が応答しなくても、serve は応答し続け、SIGTERM（ctx のキャンセル）で 10 秒以内に終わる（FR-UPD-8・NFR-AVL-9）。
 func TestServeSurvivesHangingGitHubAndStopsPromptly(t *testing.T) {
 	g := newServeRig(t, "v0.1.4", "")
