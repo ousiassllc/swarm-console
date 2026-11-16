@@ -73,6 +73,15 @@ type Adapter interface {
 	StableText(lines []string) string
 }
 
+// PasteMenu は、大きな貼り付けの直後に確認メニューを開くエージェントのアダプタが、Adapter に加えて実装する（omp。Issue #99）。
+// メニューが開いている間に送った Enter はメニューの選択になり、依頼の送信にならない。
+type PasteMenu interface {
+	// PasteMenuOpen は画面が貼り付けの確認メニューを出しているか。
+	PasteMenuOpen(s Screen) bool
+	// PasteMenuClose はメニューを閉じるキー。貼った本文を 1 文字も変えずに入力欄へ載せる選択肢（omp は Esc の「Paste inline」）にする。
+	PasteMenuClose() Key
+}
+
 // Overrides は config.toml の [agents.<name>] による上書き。nil / 空は「上書きしない」。
 // 正規表現は Go の regexp 構文で、起動時にコンパイルできること。
 type Overrides struct {

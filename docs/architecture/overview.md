@@ -153,7 +153,7 @@ sequenceDiagram
         D->>X: idle を待つ（start_timeout）
     end
     D->>D: 古い最終報告をアーカイブへ移動
-    D->>X: load-buffer + paste-buffer -p → 1 秒待つ → Enter
+    D->>X: load-buffer + paste-buffer -p → 1 秒待つ → （貼り付けの確認メニューが開いていれば閉じる）→ Enter
     D->>X: 受理確認（working になる / 入力欄が空）
     D->>N: note を保存
     D-->>C: {ok, state, sent: 指示文全文, note_saved}

@@ -41,6 +41,8 @@ func (m *machine) frameFile() string {
 			return "custom-input.txt"
 		}
 		return m.askFile(m.rows.customRow)
+	case modePasteMenu:
+		return "paste-prompt.txt"
 	}
 	return "idle.txt"
 }

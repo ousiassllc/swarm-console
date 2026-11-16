@@ -118,7 +118,7 @@
 {"ok": true, "state": "working", "accepted": true, "chars": 412}
 ```
 
-tmux の bracketed paste で貼り付け、1 秒待って Enter。入力欄が空になって `working` になったら `accepted: true`。`accept_timeout` 内に受理されなければ `{"ok": false, "accepted": false, "state": "idle"}`。Ctrl-C などの特別なキーは送れない。
+tmux の bracketed paste で貼り付け、1 秒待って Enter。貼り付けの確認メニュー（omp が 100 行以上を受けたときに開く。開いている間の Enter は依頼の送信にならずメニューの選択になる）が開いていれば、先に閉じるキー（omp は `Escape` = 「Paste inline」。本文は変わらない）を 1 回送り、閉じたのを画面で確かめてから Enter を送る。メニューが `accept_timeout` 内に閉じなければ Enter は送らず `{"ok": false, "accepted": false}`（本文は入力欄に残る）。メニューが開いていないときは `Escape` を送らない（作業中のエージェントを中断しないため）。入力欄が空になって `working` になったら `accepted: true`。`accept_timeout` 内に受理されなければ `{"ok": false, "accepted": false, "state": "idle"}`。Ctrl-C などの特別なキーは送れない。
 
 #### `send_escape`
 

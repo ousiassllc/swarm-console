@@ -178,6 +178,12 @@ type Adapter interface {
     Clean(lines []string) []string        // 枠線・TODO 表示・ステータス行を除く
     StableText(lines []string) string     // 揮発部分（スピナー・経過）を除いた本文（ハッシュ用）
 }
+
+// 大きな貼り付けの直後に確認メニューを開くエージェント（omp）のアダプタだけが、Adapter に加えて実装する（Issue #99）。
+type PasteMenu interface {
+    PasteMenuOpen(s Screen) bool          // 画面が貼り付けの確認メニューを出しているか
+    PasteMenuClose() Key                  // メニューを閉じるキー（本文を変えない選択肢。omp は Escape）
+}
 ```
 
 - 各アダプタは、判定に使う正規表現を `Patterns`（`working`・`ask`・`idle`・`spinner`・`status_line`・`border`・`process_match`）として持つ。組み込みの既定値を `config.toml` の `[agents.<name>]` で上書きできる（FR-AD-2）。
@@ -220,7 +226,7 @@ type Registry interface {
 | 操作 | 主な手順 |
 |------|---------|
 | `PickAsk(ref, n, text)` | ロック → カード読み取り → `PickKeys` → キーのあと画面に反映されるまで（最大 1 秒）取り直して検証（合わなければ読めたカーソルから差分を送り直す。最大 3 回）→ Enter → 閉じ・`working` を待つ |
-| `SendText(ref, text)` | ロック → 検証 → `load-buffer -`（標準入力・一意なバッファ名）→ `paste-buffer -p -d`（失敗・中断したら `delete-buffer -b <一意名>` で本文を残さない）→ 1 秒 → Enter → 受理を待つ |
+| `SendText(ref, text)` | ロック → 検証 → `load-buffer -`（標準入力・一意なバッファ名）→ `paste-buffer -p -d`（失敗・中断したら `delete-buffer -b <一意名>` で本文を残さない）→ 1 秒 → 貼り付けの確認メニューが開いていれば閉じるキーを送って閉じるまで待つ（`agent.PasteMenu` を実装したアダプタだけ。閉じなければ Enter を送らず `ok:false`）→ Enter → 受理を待つ |
 | `Escape(ref)` | ロック → `send-keys Escape` → 状態遷移を待つ → `notes.Log` |
 | `Start(ref, agent, cwd, title)` | ロック → 検証 → `select-pane -T` → `cd <cwd>` → 起動コマンド → `idle` を待つ |
 | `Close(ref)` | ロック → 終了コマンドを「文字列 → 1 秒 → Enter → 1 秒」で送る → 状態が `shell` に戻るまで待つ（スナップショットを 500 ms ごとに取り直す。上限は `accept_timeout`。超えたら何も送らず `apperr.ExitTimeout`）→ `cd ~`・`clear` を同じ間隔で送る → タイトル消し → 画面確認 → `notes.Archive` |
