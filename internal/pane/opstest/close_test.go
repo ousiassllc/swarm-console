@@ -158,66 +158,85 @@ func readScreen(t *testing.T, name string) string {
 	return strings.TrimRight(string(b), "\n")
 }
 
+// 実機の画面（fish のプロンプト）。どれも片付いていれば ok: true・メモを履歴へ移す。
+//   - fish-multiline-prompt.txt: #19 の報告（枠は右が開いている）
+//   - tide-framed-prompt.txt: 2026-11 の実機（fish 4.9 + tide 6、tmux-256color で cd ~ → clear のあと capture-pane -p）。
+//     tide_{left,right}_prompt_frame_enabled が true で、枠が右端まで閉じる（行末が ─╮ ─╯）。記号は ❮（#97）
+//   - tide-framed-prompt-insert.txt: 同じ画面で記号だけ ❯（insert モード）。実機の T1・T3 の記号は未確認なので両方を持つ
+var closedScreens = []string{"fish-multiline-prompt.txt", "tide-framed-prompt.txt", "tide-framed-prompt-insert.txt"}
+
 // 枠付き複数行のプロンプト（fish）でも、片付いていれば ok: true・メモを履歴へ移す。
 func TestCloseMultilinePromptOK(t *testing.T) {
-	f := newFixture(t)
-	ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
-	f.env.Notes.SetSummary("%0", notes.Summary{From: "agent-b"})
-	f.closingAgentTo(readScreen(t, "fish-multiline-prompt.txt"))
-	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !res.OK || res.State != agent.StateShell || !res.NoteArchived {
-		t.Fatalf("res = %+v", res)
-	}
-	if len(f.env.Notes.Archives()) != 1 {
-		t.Fatalf("archives = %+v", f.env.Notes.Archives())
+	for _, name := range closedScreens {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
+			f.env.Notes.SetSummary("%0", notes.Summary{From: "agent-b"})
+			f.closingAgentTo(readScreen(t, name))
+			res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !res.OK || res.State != agent.StateShell || !res.NoteArchived {
+				t.Fatalf("res = %+v", res)
+			}
+			if len(f.env.Notes.Archives()) != 1 {
+				t.Fatalf("archives = %+v", f.env.Notes.Archives())
+			}
+		})
 	}
 }
 
 // 実際のアダプターでも、複数行プロンプトをエージェントの画面と取り違えない。
 func TestCloseMultilinePromptRealAdapters(t *testing.T) {
-	env := panetest.NewEnv()
-	env.Adapters = map[string]agent.Adapter{}
-	for name, newAdapter := range map[string]func(agent.Overrides) (agent.Adapter, error){
-		"omp": omp.New, "claude": claude.New, "codex": codex.New,
-	} {
-		ad, err := newAdapter(agent.Overrides{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		env.Adapters[name] = ad
-	}
-	reg, err := pane.NewRegistry(pane.Deps{
-		Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters,
-		Notes: env.Notes, Clock: env.Clock, FS: env.FS,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &fixture{env: env, reg: reg, op: ops.New(reg)}
-	ref := f.single(panetest.ScreenShell(), nil)
-	f.closingAgentTo(readScreen(t, "fish-multiline-prompt.txt"))
-	res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
-	if err != nil || !res.OK {
-		t.Fatalf("res=%+v err=%v", res, err)
+	for _, name := range closedScreens {
+		t.Run(name, func(t *testing.T) {
+			env := panetest.NewEnv()
+			env.Adapters = map[string]agent.Adapter{}
+			for agentName, newAdapter := range map[string]func(agent.Overrides) (agent.Adapter, error){
+				"omp": omp.New, "claude": claude.New, "codex": codex.New,
+			} {
+				ad, err := newAdapter(agent.Overrides{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				env.Adapters[agentName] = ad
+			}
+			reg, err := pane.NewRegistry(pane.Deps{
+				Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters,
+				Notes: env.Notes, Clock: env.Clock, FS: env.FS,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			f := &fixture{env: env, reg: reg, op: ops.New(reg)}
+			ref := f.single(panetest.ScreenShell(), nil)
+			f.closingAgentTo(readScreen(t, name))
+			res, err := run(t, f.env.Clock, func() (pane.CloseResult, error) { return f.op.Close(context.Background(), ref) })
+			if err != nil || !res.OK {
+				t.Fatalf("res=%+v err=%v", res, err)
+			}
+		})
 	}
 }
 
 // プロンプトの前に出力が残っている、枠が閉じていない、~ がない画面は片付いたとみなさない。
 func TestCloseNotCleanScreensStayFalse(t *testing.T) {
 	for name, screen := range map[string]string{
-		"出力が残る":      "エラー: 何かが残っている\n~ $",
-		"枠の中に出力が残る":  "╭─  ~ ─── 21:23:48\n何かの出力\n╰─❯",
-		"枠が閉じていない":   "╭─  ~ ─── 21:23:48\n何かの出力",
-		"~ がない":      "╭─  /tmp ─── 21:23:48\n╰─❯",
-		"プロンプトが 4 行": "╭─\n│\n│ ~\n╰─❯",
-		"閉じた箱":       "╭──────╮\n│ ~/x  │\n╰──────╯",
-		"閉じた箱の途中行":   "╭─  ~\n│ 出力 │\n╰─❯",
-		"右が開いた間の行":   "╭─  ~\n│ error: foo\n╰─❯",
-		"2 行で末尾が出力":  "╭─ ~/proj\n╰─ done: 3 files changed",
-		"~ が末尾行だけ":   "╭─ proj\n╰─❯ ~",
+		"出力が残る":       "エラー: 何かが残っている\n~ $",
+		"枠の中に出力が残る":   "╭─  ~ ─── 21:23:48\n何かの出力\n╰─❯",
+		"枠が閉じていない":    "╭─  ~ ─── 21:23:48\n何かの出力",
+		"~ がない":       "╭─  /tmp ─── 21:23:48\n╰─❯",
+		"プロンプトが 4 行":  "╭─\n│\n│ ~\n╰─❯",
+		"閉じた箱":        "╭──────╮\n│ ~/x  │\n╰──────╯",
+		"閉じた箱の途中行":    "╭─  ~\n│ 出力 │\n╰─❯",
+		"右が開いた間の行":    "╭─  ~\n│ error: foo\n╰─❯",
+		"2 行で末尾が出力":   "╭─ ~/proj\n╰─ done: 3 files changed",
+		"~ が末尾行だけ":    "╭─ proj\n╰─❯ ~",
+		"閉じた枠で末尾行が出力": "╭─  ~ ─── 21:23:48 ─╮\n╰─ done: 3 files changed ─╯",
+		"閉じた枠の中に出力":   "╭─  ~ ─── 21:23:48 ─╮\n│ 出力 │\n╰─❯ ─╯",
+		"閉じた枠で入力が残る":  "╭─  ~ ─── 21:23:48 ─╮\n╰─❯ rm -rf x ─╯",
+		"上だけ閉じた枠":     "╭─  ~ ─── 21:23:48 ─╮\n╰─❯",
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)

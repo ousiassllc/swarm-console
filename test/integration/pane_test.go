@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -142,5 +143,28 @@ func TestNotes(t *testing.T) {
 	}
 	if got := h.Report().Map("note_history", map[string]any{"repo": "なし"}); got["total"] != float64(0) || len(got["entries"].([]any)) != 0 {
 		t.Errorf("履歴なし: %v", got)
+	}
+}
+
+// #97: tide（fish）の枠付きプロンプトは右端まで閉じ（行末が ─╮ ─╯）、記号は ❮ になる。
+// 実 tmux（tmux-256color）の cd ~ → clear のあとの画面がそのプロンプトだけでも pane_close が ok: true・メモを履歴へ移す。
+func TestPaneCloseTideFramedPrompt(t *testing.T) {
+	h := harness.Start(t, harness.Options{})
+	id := h.NewShell()
+	// 1 行目は上枠から右端の ─╮、2 行目は ╰─❮ のあとカーソルを右端へ送って ─╯ を置き、入力位置へ戻す（tide の右プロンプトと同じ画面）。
+	h.Type(id, `PS1="$(printf '╭─ ~ ─────── 20:54:05 ─╮\n╰─❮ \033[119G─╯\033[5G')"`)
+	h.TM.WaitFor(id, func(screen string) bool {
+		return slices.ContainsFunc(strings.Split(screen, "\n"), func(l string) bool { return strings.HasPrefix(l, "╰─❮") })
+	})
+	h.Ops().Must("pane_start", map[string]any{"pane": id, "agent": "omp", "cwd": h.Work, "title": "閉じる"})
+	h.Ops().Must("note_set", map[string]any{"pane": id, "set": map[string]any{"from": "agent-b", "repo": "ousiassllc/funid"}})
+
+	res := h.Ops().Map("pane_close", map[string]any{"pane": id})
+	if res["ok"] != true || res["state"] != "shell" || res["note_archived"] != true {
+		t.Fatalf("pane_close = %v\n画面:\n%s", res, h.TM.Capture(id))
+	}
+	hist := h.Report().Map("note_history", map[string]any{"repo": "ousiassllc/funid"})
+	if hist["total"] != float64(1) {
+		t.Fatalf("note_history = %v", hist)
 	}
 }
