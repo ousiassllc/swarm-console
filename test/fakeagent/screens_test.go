@@ -49,7 +49,7 @@ func TestEveryEmbeddedFrameIsUsed(t *testing.T) {
 				continue
 			}
 			m := newMachine(a, sc, func(event) {})
-			for _, md := range []mode{modeIdle, modeWorking, modeAsk, modeCustom} {
+			for _, md := range []mode{modeIdle, modeWorking, modeAsk, modeCustom, modePasteMenu} {
 				m.mode = md
 				for cur := 1; cur <= 4; cur++ {
 					m.cursor = cur
@@ -58,6 +58,9 @@ func TestEveryEmbeddedFrameIsUsed(t *testing.T) {
 						if _, err := sample(a, m.frameFile()); err != nil {
 							if md == modeCustom && m.rows.customRow == 0 {
 								continue // 自由入力の項がないカードは modeCustom にならない
+							}
+							if md == modePasteMenu && a != "omp" {
+								continue // 貼り付けの確認メニューは omp だけ
 							}
 							if md == modeAsk && cur > m.lastRow() {
 								continue

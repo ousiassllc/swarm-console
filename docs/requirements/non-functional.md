@@ -9,7 +9,7 @@
 | NFR-PERF-1 | `panes_status` の応答時間 | 8 ペインで p95 500 ms 以内（スナップショットが新しい場合は 50 ms 以内） | tmux 呼び出しはペイン並列。P-05 |
 | NFR-PERF-2 | `report` の応答時間 | `panes_status` と同等 + 描画 20 ms 以内 | 同じスナップショットを使う |
 | NFR-PERF-3 | 応答サイズ（文字量削減） | **よくある入力での目標**。単位は **バイト**（UTF-8。日本語 1 字は 3 バイト。KB は 1,024 バイト）。`panes_status` 8 ペインで 8 KB 以内、`report`（markdown）で 6 KB 以内、`ask_card` で 2 KB 以内。前提：`panes_status` と `report` は 8 ペインで、メモの `next` は数十字・`items` は数件・`activity` は 1 行（120 字以内）。`ask_card` は `question` が 1〜2 文・選択肢が数個（`label` は数十字）。API 仕様 §7 の上限いっぱいの入力（メモの文字列 2,000 字、選択肢 20 個×300 字など）までは保証しない | 元仕様の目的 1。画面全文は返さない。テスト（`rendertest/size_test.go`・`tooltests/size_test.go`）は上の前提の入力を表す |
-| NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着。ただし `pane_close` は待ちが 2 つあるので、上限は 仕様で定めた待ち ＋ `shell` に戻るまでの待ち（`accept_timeout`）＋ 画面確認の待ち（`accept_timeout`） | 超えたら `ok: false` と現在の `state`。例外：`pane_close` で最初の待ち（終了コマンドのあと `shell` に戻るまで）を超えたときは `ok: false` ではなく `exit_timeout` のエラーを返す（機能要件 FR-O5・FR-O-C2） |
+| NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒。omp の貼り付け確認メニューを閉じる待ちは受理確認の待ちと 1 つの期限を分け合う（P-100）、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着。ただし `pane_close` は待ちが 2 つあるので、上限は 仕様で定めた待ち ＋ `shell` に戻るまでの待ち（`accept_timeout`）＋ 画面確認の待ち（`accept_timeout`） | 超えたら `ok: false` と現在の `state`。例外：`pane_close` で最初の待ち（終了コマンドのあと `shell` に戻るまで）を超えたときは `ok: false` ではなく `exit_timeout` のエラーを返す（機能要件 FR-O5・FR-O-C2） |
 | NFR-PERF-5 | 常駐時の負荷 | ホスト負荷が高い状態（load average が CPU 数を大きく上回る状態）でも劣化しない。サンプラーの CPU は 1 コア未満の数 % | 負荷が高い開発機で確認する |
 | NFR-PERF-6 | メモリ | 常駐 100 MB 以内 | ペインのハッシュ・直近画面のみ保持 |
 | NFR-PERF-7 | 取得量の上限 | `pane_tail` は最大 200 行・20,000 字。`report_read` は 20,000 字 | 上限を超えたら `truncated: true` |
@@ -28,7 +28,7 @@
 | NFR-SEC-6 | トークンを 1 つだけ無効にできる（`token revoke <名前>`）。再起動なしで次のリクエストから効く（P-04） |
 | NFR-SEC-7 | 任意のシェルコマンドは実行しない。許可するのは決まった tmux サブコマンド（`capture-pane`・`send-keys`・`load-buffer`・`paste-buffer`・`delete-buffer`（`Paste` が自分で作った一意名のバッファを、貼り付けの失敗時・中断時に消すときだけ。`-b <その名前>` を必ず付け、ほかのバッファは消さない）・`select-pane -T`・`display -p`・`list-panes`）と、決まったファイル・`/proc` の読み取りだけ。例外は、レポートの値のための **引数固定の 2 コマンド** `omp usage --json` と `omp update --check` だけ（FR-REP-12・15。`[agents.omp] command` の先頭の語の実行ファイルを、ほかの引数なしで、標準入力 `/dev/null`・打ち切り付きで実行する。`omp update` など、ほかの `omp` のサブコマンド・引数は実行しない）。引数は `exec` の引数配列で渡し、シェルを経由しない。`omp` のコマンドが行う通信は `omp` の仕様で、`swarm-console` 自身は通信しない（NFR-SEC-15 は変えない） |
 | NFR-SEC-8 | `pane_start` の `cwd` は `/mnt/nvme/` の下と `~/projects/` の下だけ許可。`denied_paths` に書いたパスは拒否（既定は `~/dotfiles` だけ。オーナーの checkout も拒否したいなら `denied_paths` に書く。P-29）。シンボリックリンクは解決後のパスで判定する |
-| NFR-SEC-9 | 送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。Esc は `send_escape`（`confirm: true` 必須・`/ops` のみ） |
+| NFR-SEC-9 | クライアントが送れる文字は通常の文字と Enter だけ。ESC を含む制御文字（bracketed paste の終端を偽装できるもの）を拒否する。クライアントが Esc を送れるのは `send_escape`（`confirm: true` 必須・`/ops` のみ） |
 | NFR-SEC-10 | `/report` に操作のツールを出さない（`tools/list` にも載らない）。`/report` からは書き込み（メモを含む）ができない |
 | NFR-SEC-11 | メモに秘密に見える文字列（`ghp_`・`sk-`・`eyJ`・PEM など）が入る書き込みは拒否し、拒否した値をログ・応答に出さない |
 | NFR-SEC-12 | ログには「誰が（トークン名）・いつ・どのツールを・どのペインに使ったか・どの `session` 引数で（任意。40 字まで。FR-SESS-13）・結果コード」だけを記録する。`file_get` は取得先のパス（実パス。入力のままのこともある）とサイズ、`dir_list` は対象のパス（同じ。省略したときは空。サイズは持たない）も記録する。送った本文・トークン・メモの内容・`file_get` で返したファイルの中身（base64 を含む）は記録しない |
@@ -139,3 +139,4 @@
 | 1.17 | 2026-11-08 | NFR-SEC-12：`dir_list` の対象パスを監査ログに残すと追記（サイズは持たない） | Issue #90 |
 | 1.18 | 2026-11-16 | NFR-SEC-18（webhook の送信先・秘密の値・本文）と NFR-TEST-19 を追加。NFR-SEC-14・15 の範囲・内容は変えない | Issue #93 |
 | 1.19 | 2026-11-16 | NFR-SEC-18・NFR-TEST-19：セッションごとの送り先（FR-STATE-8）に広げる。セッションごとの `url`・`secret`・`token` も値を出さない。2 つのセッションが別々の `httptest` の受け手に 1 回ずつ届くこと、`[webhook]` だけの設定が今までどおり動くことを確かめる | Issue #95 |
+| 1.20 | 2026-11-16 | NFR-PERF-4：メニューを閉じる待ちと受理確認の待ちは 1 つの期限を分け合う。NFR-SEC-9：クライアントが送れる Esc は `send_escape` だけ（サーバーが内部で送る Esc は別。P-100） | Issue #99 |

@@ -42,6 +42,23 @@ func TestSendText(t *testing.T) {
 	}
 }
 
+// send_text: 100 行以上の依頼文（omp が貼り付けの確認メニューを開く長さ）でも、メニューを閉じてから Enter が届いて受理される（Issue #99）。
+// メニューが開いたまま Enter を送ると PASTE_MENU_ENTER になって送信（SUBMIT）されない。
+func TestSendTextLongMenu(t *testing.T) {
+	h := harness.Start(t, harness.Options{})
+	text := strings.TrimSuffix(strings.Repeat("長い依頼文の 1 行です\n", 120), "\n")
+	id := h.NewAgent("omp", "idle")
+	h.WaitState(id, "idle")
+	res := h.Ops().Map("send_text", map[string]any{"pane": id, "text": text})
+	if res["ok"] != true || res["accepted"] != true || res["state"] != "working" {
+		t.Errorf("send_text = %v", res)
+	}
+	ev := h.WaitEvents(id, "貼り付けと Enter が届く", func(ev []fakeEvent) bool { return len(ev) >= 2 })
+	if !reflect.DeepEqual(harness.Kinds(ev), []string{"PASTE", "SUBMIT"}) || ev[0].Text != text {
+		t.Errorf("--log = %+v", harness.Kinds(ev))
+	}
+}
+
 // send_escape: 作業中のペインへ Esc を送って idle に戻し、実行を note_log に自動で残す。
 func TestSendEscape(t *testing.T) {
 	h := harness.Start(t, harness.Options{})

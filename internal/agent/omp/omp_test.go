@@ -60,6 +60,9 @@ func TestScreens(t *testing.T) {
 		// 自由入力中の枠は asking のままだが、選ぶ対象がないのでカードは読めない。
 		{File: "custom-input.txt", State: agent.StateAsking, Activity: ask},
 		{File: "custom-typed.txt", State: agent.StateAsking, Activity: ask},
+		// 貼り付けの確認メニューが開いている間はステータス行が見えない。閉じて印が入力欄に残った画面は idle。
+		{File: "paste-prompt.txt", State: agent.StateUnknown},
+		{File: "paste-pending.txt", State: agent.StateIdle},
 	})
 }
 
@@ -134,5 +137,29 @@ func TestMatchScreen(t *testing.T) {
 	}
 	if a.MatchScreen(agent.NewScreen([]string{"$ ls", "file.txt", "$"})) {
 		t.Error("シェルの画面を omp と判別しました")
+	}
+}
+
+// 貼り付けの確認メニュー（実画面）は開いていると読める。閉じたあとの画面・質問カード・ふつうの画面では読まない（Issue #99）。
+func TestPasteMenu(t *testing.T) {
+	a := agenttest.New(t, "omp")
+	pm, ok := a.(agent.PasteMenu)
+	if !ok {
+		t.Fatal("omp のアダプタが agent.PasteMenu を実装していません")
+	}
+	for file, want := range map[string]bool{
+		"paste-prompt.txt":  true,
+		"paste-pending.txt": false,
+		"idle.txt":          false,
+		"working.txt":       false,
+		"ask-1.txt":         false,
+		"custom-input.txt":  false,
+	} {
+		if got := pm.PasteMenuOpen(agenttest.Load(t, "omp", file)); got != want {
+			t.Errorf("%s: PasteMenuOpen = %v, want %v", file, got, want)
+		}
+	}
+	if pm.PasteMenuClose().Name != "Escape" {
+		t.Errorf("PasteMenuClose = %q", pm.PasteMenuClose().Name)
 	}
 }

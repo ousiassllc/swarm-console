@@ -10,11 +10,15 @@ import (
 type mode int
 
 const (
-	modeIdle    mode = iota // 入力待ち
-	modeWorking             // 作業中（スピナーのコマが tick ごとに変わる）
-	modeAsk                 // 質問カード
-	modeCustom              // 「その他」の自由入力中
+	modeIdle      mode = iota // 入力待ち
+	modeWorking               // 作業中（スピナーのコマが tick ごとに変わる）
+	modeAsk                   // 質問カード
+	modeCustom                // 「その他」の自由入力中
+	modePasteMenu             // omp の貼り付けの確認メニュー（pasteMenuLines 行以上を貼った直後）
 )
+
+// pasteMenuLines は omp が貼り付けの確認メニューを開く行数（設定 paste.largeMenuThreshold の既定）。
+const pasteMenuLines = 100
 
 var (
 	pasteStart = []byte("\x1b[200~")
@@ -177,6 +181,8 @@ func (m *machine) interrupt() {
 	case modeWorking, modeAsk, modeCustom:
 		m.record(event{kind: "ESCAPE"})
 		m.mode, m.typed = modeIdle, nil
+	case modePasteMenu: // Esc は「Paste inline」。貼った本文はそのまま入力欄に載る
+		m.mode = modeIdle
 	}
 }
 
@@ -249,6 +255,10 @@ func (m *machine) enter() {
 		}
 		m.record(event{kind: "PICK", n: m.cursor})
 		m.mode = modeWorking
+	case modePasteMenu:
+		// 開いている間の Enter は「Attach as a wrapped block」の選択になり、送信にならない（実機の omp、Issue #99）。
+		m.record(event{kind: "PASTE_MENU_ENTER"})
+		m.mode = modeIdle
 	case modeCustom:
 		m.record(event{kind: "CUSTOM", text: string(m.typed)})
 		m.mode, m.typed = modeWorking, nil
@@ -256,7 +266,7 @@ func (m *machine) enter() {
 }
 
 // finishPaste は貼り付けの本文（CR は LF にそろえる）を記録する。画面には反映しない。
-// 自由入力中だけは入力欄の本文にも足す。
+// 自由入力中だけは入力欄の本文にも足す。omp が pasteMenuLines 行以上を入力待ちで受けたときは、確認メニューを開く。
 func (m *machine) finishPaste() {
 	m.inPaste = false
 	body := strings.ReplaceAll(strings.ReplaceAll(string(m.paste), "\r\n", "\n"), "\r", "\n")
@@ -265,5 +275,8 @@ func (m *machine) finishPaste() {
 	m.pasted = true
 	if m.mode == modeCustom || m.inlineCustom() {
 		m.typed = append(m.typed, body...)
+	}
+	if m.mode == modeIdle && m.agent == "omp" && strings.Count(body, "\n")+1 >= pasteMenuLines {
+		m.mode = modePasteMenu
 	}
 }

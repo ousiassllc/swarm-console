@@ -198,7 +198,7 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | ID | ツール | 内容 | 許可する状態 | 拒否 |
 |----|--------|------|------------|------|
 | FR-O1 | `ask_pick` | `n` 番を選ぶ。カーソルを n に動かし、合っているか確かめてから Enter。`text` があれば「その他」を選んで文字を入れて確定（§6.1）。選んだあと、カードが閉じて `working` になったかを返す | `asking` | `not_asking`・`option_out_of_range`・`custom_not_allowed`・`cursor_mismatch`（Enter を送らずに中止） |
-| FR-O2 | `send_text` | `text`（上限 8000 字）または `file`（サーバー上のパス）を、bracketed paste で貼り付け、1 秒待って Enter。入力欄が空になって `working` になったかを返す。制御キーは送れない | `idle`・`working`・`stalled`（エージェントが動いているとき）| `invalid_state`（`shell`・`asking`・`unknown`）・`forbidden_control_char`・`text_too_long`・`forbidden_path`・`file_unreadable` |
+| FR-O2 | `send_text` | `text`（上限 8000 字）または `file`（サーバー上のパス）を、bracketed paste で貼り付け、1 秒待って Enter（omp が長い貼り付けの確認メニューを開いていれば、先に閉じてから Enter。閉じなければ Enter は送らず `ok: false`。Issue #99）。入力欄が空になって `working` になったかを返す。制御キーは送れない | `idle`・`working`・`stalled`（エージェントが動いているとき）| `invalid_state`（`shell`・`asking`・`unknown`）・`forbidden_control_char`・`text_too_long`・`forbidden_path`・`file_unreadable` |
 | FR-O3 | `send_escape` | `confirm: true` が必須。作業中のエージェントを中断する。使ったことをメモの履歴（`log`）に自動で残す。**オーナーの OK があるときだけ使う**（ツールの説明にも書く）。ツールごとのクライアント別の許可設定は持たない（トークンに付くのは許可セッションだけ。FR-SESS-1） | `working`・`stalled`・`asking`・`idle` | `confirm_required`・`invalid_state`（`shell`・`unknown`）|
 | FR-O4 | `pane_start` | `shell` のペインで `cwd` に cd し、エージェントを起動、タイトルを `agent: <title>` にして、`idle` になったかを返す | `shell` | `invalid_state`・`forbidden_path`・`invalid_args`（`agent` が未設定のもの）|
 | FR-O5 | `pane_close` | 終了コマンド → `cd ~` → `clear` → タイトル消し、を 1 つずつ「文字列 → 1 秒 → Enter → 1 秒」で送る。終了コマンドのあとは、ペインの状態が `shell` に戻るまで、スナップショットを 500 ms ごとに取り直して待ち（上限は `accept_timeout`、既定 10 秒。P-70）、戻ってから `cd ~` 以降を送る。`shell` に戻ったかは `panes_status` と同じ状態の判定（前面コマンド・プロセス木 `/proc`、取れなければ画面で補う。FR-AD-5）で見る。`/proc` が読めないときは、前面コマンドが shell なら戻ったとみなし、終了後も画面に残ったエージェントの表示では判定しない（正常に終了したのに `exit_timeout` にならない）。上限までに戻らなければ `cd ~` 以降を送らずに、エラー `exit_timeout` だけを返す（`ok`・`steps`・`note_archived` などの結果の項目は返らない）。メモも最終報告も移さない。終了コマンドはすでに送ってあるので、呼び出し側は `pane_close` を呼び直してよい（そのときペインが `shell` なら終了コマンドは飛ばす）。終了が遅れた画面へ `cd ~` が入力されるのを防ぐ。最後に画面が `~` のプロンプトだけになったかを確かめて返す。確かめられたら、そのペインのメモを履歴に移す | `idle`・`shell` | `invalid_state`（`working`・`stalled`・`asking`・`unknown`。P-19）・`exit_timeout`（終了コマンドのあと上限までに `shell` へ戻らない）|
@@ -215,7 +215,7 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | FR-O-C1 | 同じペインへの操作は前の操作が終わるまで待たせる（同時に 2 つ送らない）。待ち時間が `lock_timeout`（既定 60 秒）を超えたら `busy_timeout` |
 | FR-O-C2 | 事前条件（状態・パス・引数）を満たさないものは何も送らずに拒否する。送信後に期待した状態にならなかった場合は例外にせず `ok: false` と現在の `state` を返す（例外：`pane_close` で終了コマンドのあと `shell` に戻らないときは、次を送らずに `exit_timeout` のエラーで止める。FR-O5） |
 | FR-O-C3 | 画面の確認は上限付きのポーリング（`accept_timeout` 既定 10 秒、`start_timeout` 既定 30 秒）で行い、固定時間の待ちに頼らない（ただし仕様で定めた「1 秒待って Enter」を除く） |
-| FR-O-C4 | 送れる文字は通常の文字と Enter だけ。Esc は `send_escape` だけ。その他の制御キーは拒否する（`text` の ESC・NUL・CR などを含む制御文字は `forbidden_control_char`。`\n`・`\t` は許可） |
+| FR-O-C4 | クライアントが送れる文字は通常の文字と Enter だけ。クライアントが Esc を送れるのは `send_escape` だけ（`send_text`・`dispatch` が omp の貼り付け確認メニューを閉じるためにサーバーが内部で送る Esc は別。FR-O2・P-100）。その他の制御キーは拒否する（`text` の ESC・NUL・CR などを含む制御文字は `forbidden_control_char`。`\n`・`\t` は許可） |
 
 ### 4.3 swarm-viewer のペアリング（FR-PAIR）
 
@@ -257,8 +257,9 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | 1.20 | 2026-11-03 | §4.2 に FR-O9 `file_get`（`/ops` のみ。許可リスト内の画像・動画を base64 で返す。P-91）を追加。FR-SAFE-6（`/report` に出さない）は変えない | Issue #82 |
 | 1.21 | 2026-11-04 | FR-O9・functional-note.md FR-SAFE-11：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れない（明示した `file_get_roots`・`report_dir` はそのまま許可。P-91） | Issue #82 |
 | 1.22 | 2026-11-04 | UC13 と §4.3（FR-PAIR-1〜7）を追加：`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。`report` スコープのトークンを発行）と `token list`（P-92） | Issue #83 |
-| 1.23 | 2026-11-05 | functional-report.md FR-REP-10・13・17：メモリ `mem`（全体・使用量・使用率。`report` の `host` と `host_status`。P-93）を足す。FR-REP-12・17・18：使用状況のアカウントごとの `reason`（`without_usage`・`no_email`。JSON のみ。P-94）を足す | Issue #86・#87 |
+| 1.23 | 2026-11-05 | functional-report.md FR-REP-10・13・17：メモリ `mem`（全体・使用量・使用率。`report` の `host` と `host_status`。P-100）を足す。FR-REP-12・17・18：使用状況のアカウントごとの `reason`（`without_usage`・`no_email`。JSON のみ。P-94）を足す | Issue #86・#87 |
 | 1.24 | 2026-11-08 | §4.2 に FR-O10 `dir_list`（`/ops` のみ。`pane_start` の `cwd` の候補を 1 階層ずつ返す。判定は `file_get`・`pane_start` と共通）を追加。§4.3 FR-PAIR-1・3・6・UC13：`pair --scope ops`（`ops` スコープ・`/ops` の `url`・`viewer-ops-…` の名前・標準エラーの強い警告）を追加し、「`ops` スコープは発行しない」を改める（P-98） | Issue #90 |
 | 1.25 | 2026-11-09 | §4.3 に FR-PAIR-8 `pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は 1 行のまま。QR に入りきらないときは発行前にエラー。P-99）を追加 | Issue #89 |
 | 1.26 | 2026-11-16 | §3.3 に FR-STATE-1〜7（ペインが working → idle になりレポートが書けたときの webhook。`config.toml` の `[webhook]`。既定オフ）を追加。FR-REP・FR-NOTE・既存のツールの挙動は変えない | Issue #93 |
 | 1.27 | 2026-11-16 | §3.3 に FR-STATE-8（webhook の送り先をセッションごとに分ける `[webhook.sessions."<名>"]`。無いセッションは `[webhook]`、どちらも無ければ送らない。`[webhook]` だけの設定は今までどおり）を追加。FR-STATE-1〜7 の決まりは変えない | Issue #95 |
+| 1.28 | 2026-11-16 | FR-O2：omp の貼り付け確認メニューが開いていれば、閉じてから Enter を送る（閉じなければ Enter を送らず `ok: false`）。FR-O-C4：クライアントが送れる Esc は `send_escape` だけ（サーバーが内部で送る Esc は別） | Issue #99 |

@@ -1,0 +1,16 @@
+# 実画面（omp v18.20.3。100 行以上を貼った直後の確認枠。幅だけ 120 桁に詰めた）
+
+
+╭─ Pasted 159 lines ─────────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                                            │
+│                                                                                                            │
+│  ❯ Attach as a wrapped block                                                                               │
+│      Wrap the text in <attachment> tags, collapsed to a marker                                             │
+│    Attach as local file                                                                                    │
+│      Save the text to a local://paste file                                                                 │
+│    Paste inline                                                                                            │
+│      Collapse the text to an inline paste marker                                                           │
+│                                                                                                            │
+│ ⎋ to paste inline                                                                                          │
+│                                                                                                            │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
