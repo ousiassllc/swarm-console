@@ -38,6 +38,7 @@ erDiagram
         bool usage_check "true"
         duration usage_interval "5m（1m 以上）"
         bool update_auto "true"
+        table webhook "[webhook]（FR-STATE-4）。url が空ならオフ（既定）"
     }
     SESSION {
         string name
@@ -80,6 +81,7 @@ erDiagram
 | `file_get_roots` | 絶対パスの配列。省略は空（追加の根なし）。`file_get` の許可リストは、触れるセッションのペインの `cwd`・`report_dir` と、このキーの根の和（P-91）。ペインの `cwd` が `/` やホームそのもの（実パスで一致）のときは、その `cwd` だけを和から除く。このキーと `report_dir` に書いたものは `/` やホームでもそのまま許可する。`file_roots` とは別（`send_text` の `file` には効かない） |
 | `file_get_max_bytes` | 整数（バイト）。省略は `20971520`（20 MiB）。1 以上 `104857600`（100 MiB）以下。範囲外・整数でない値は起動拒否。`file_get` が返す 1 ファイルの上限（超えたら `too_large`） |
 | `agents.<name>` | `<name>` は `omp`・`claude`・`codex` だけ。書かれたキーだけ組み込みの既定を上書きする。正規表現（`working_re`・`ask_re`・`idle_re`・`status_line_re`・`border_re`・`process_match` の各要素）は起動時にコンパイルできること。`command`・`exit_command` は空文字不可で、改行・制御文字を含まない 1 行。`auth_file` は空文字不可（設定エラー）で、絶対パス（`~` 展開） |
+| `webhook` | 表 `[webhook]`（FR-STATE-1〜7。既定オフ）。`url`：文字列、省略か空文字ならオフ（何も作らず何も送らない）。`https://` だけ（`http://` は `127.0.0.1`・`localhost`・`::1` だけ）で、ユーザー名・パスワードを含まない。`secret`・`token`：文字列、省略か空ならそのヘッダー（`X-Swarm-Console-Signature`・`Authorization: Bearer`）を付けない。改行・制御文字を含まない 1 行。`max_attempts`：整数、既定 `5`、1〜10（最初の 1 回を含む）。`retry_interval`：期間、既定 `30s`、1s〜1h（最初の再送までの間隔。以後は倍々で 1h まで）。`timeout`：期間、既定 `10s`、1s〜1m（1 回の送信の上限）。違反は起動拒否で、エラー文に `url`・`secret`・`token` の値は入れない（NFR-SEC-18）。台帳は `~/.local/share/swarm-console/webhook-state.json`（600。ペイン ID ごとの回の段階・`event_id`・`state_changed_at`・`working` を見たときの最終報告ファイルの有無・更新時刻・サイズ。秘密の値は入らない） |
 | 未知のキー | 起動拒否（打ち間違いを検知する） |
 
 ### 5.1 `setup` による書き戻し
@@ -102,7 +104,7 @@ erDiagram
 | 競合 | 読み込み時の内容のハッシュを持ち、書く直前にファイルを読み直して違えば中止する（`serve` や手書きとの競合。上書きしない） |
 | 書き込み | `store.WriteFileAtomic`（一時ファイル → fsync → rename）。既存ファイルの権限は変えない。新規は 600（「644 以下」を満たす） |
 | シンボリックリンク | `config.toml` がシンボリックリンクなら書かずに中止する（rename でリンクが普通のファイルに変わる、リンク先が設定の置き場の外・`~/dotfiles` のことがあるため。NFR-SEC-14）。手で編集してもらう |
-| 手書き専用のキー | 下記が手で書かれていても、`setup` は何も変えずに残す：`tmux_socket`・`default_lang`・期間のキー・`title_prefix`・`file_roots`・`file_get_roots`・`file_get_max_bytes`・`disk_mounts`・`report_dir`・`[pane_names]`・`[agents.<name>]` の `command`・`exit_command`・`auth_file` 以外のキー |
+| 手書き専用のキー | 下記が手で書かれていても、`setup` は何も変えずに残す：`tmux_socket`・`default_lang`・期間のキー・`title_prefix`・`file_roots`・`file_get_roots`・`file_get_max_bytes`・`disk_mounts`・`report_dir`・`[webhook]`・`[pane_names]`・`[agents.<name>]` の `command`・`exit_command`・`auth_file` 以外のキー |
 
 ## 6. profiles.toml
 

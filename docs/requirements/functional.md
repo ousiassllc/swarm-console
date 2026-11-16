@@ -155,6 +155,20 @@ stateDiagram-v2
 
 具体的な正規表現の値は [agent-patterns.md](../architecture/agent-patterns.md)（P-22。実画面サンプルは `testdata/screens/`）。
 
+### 3.3 idle になってレポートが書けたときの webhook（FR-STATE）
+
+box 側のウォッチャーだけでは、ペインが終わってレポートが書けたことに気づけず、ペインが長く止まったままになる。`serve` が、ペインが `working` から `idle` になり、最終報告ファイルが書けた回ごとに 1 回だけ、設定した URL へ POST する。**既定はオフ**（`[webhook] url` を書かなければ、何も作らず何も送らず、台帳も作らない。今の動きは変えない）。設定は [ER §5](../architecture/er-config.md#5-configtoml)・[README](../../README.md#idle-になったときの-webhook)。
+
+| ID | 要件 |
+|----|------|
+| FR-STATE-1 | **トリガー**：ペインが `working`（または `stalled`）から `idle` になり、かつそのペインの最終報告ファイル（`<report_dir>/<位置>.md`。[ER §7](../architecture/er-config.md#7-最終報告ファイル)）が書かれた・更新されたとき。「書けた」は、その回の `working` を最初に見たときの最終報告ファイル（有無・更新時刻・サイズ）から変わったこと。前の回の残りのファイルだけでは送らない。`idle` になったあとに書かれる順でも、書かれた時点で送る。`asking`・`unknown` をはさんでも同じ回。`shell` に戻る・ペインが消える（`pane_close` や tmux の再起動を含む）と、その回は捨てる。`working` を見ていない `idle`（起動直後から `idle` のペインなど）は回にならず、送らない |
+| FR-STATE-2 | **重複なし**：同じペイン・同じ回（`idle` になった 1 回）につき、成功しても失敗しても送るのは 1 回だけ（再送は FR-STATE-6 の上限内の同じ本文）。回の状態は `~/.local/share/swarm-console/webhook-state.json`（600）に書き、`serve` が再起動しても同じ回を二重に送らない。`idle` になったがレポートがまだの待ち、送信の途中で止めた回（終了による中断）は、再起動後に続きから送る（`event_id` は同じ）。台帳が壊れていれば警告のログを出して空から始める |
+| FR-STATE-3 | **本文（JSON）**：`event`（`pane.idle_report`）・`event_id`（同じ回で同じ値。受け手が重複を見分ける）・`session`・`pane`（セッション内の位置。`T1` など）・`pane_id`（`%12`）・`note`（`from`・`repo`・`items`・`next`。メモが無くても空の値で出す）・`report_path`・`state_changed_at`（`working` から `idle` に変わったのを見た時刻。RFC3339・UTC）。レポートの中身・画面の内容・トークンは送らない。再送でも本文は同じ。`X-Swarm-Console-Event-Id` ヘッダーにも `event_id` を付ける |
+| FR-STATE-4 | **設定**：`[webhook]`。`url`（空・未設定ならオフ）、`secret`（空でなければ本文の HMAC-SHA256 を `X-Swarm-Console-Signature: sha256=<hex>` に付ける）、`token`（空でなければ `Authorization: Bearer`）、`max_attempts`（既定 5、1〜10）、`retry_interval`（既定 `30s`、1s〜1h）、`timeout`（1 回の上限。既定 `10s`、1s〜1m）。`url` は `https://` だけ（`http://` は `127.0.0.1`・`localhost`・`::1` だけ）で、ユーザー名・パスワードを含まない。違反・範囲外・未知のキーは起動拒否（エラー文に値は入れない） |
+| FR-STATE-5 | **秘密の値**：`url`（トークンが入る受け手がある）・`secret`・`token` の値は、ログ・`report`・エラー文・台帳・画面のどこにも出さない（NFR-SEC-18）。ログに出すのは `event_id`・`session`・`pane`・回数・間隔・応答コード・固定の理由の語だけ |
+| FR-STATE-6 | **再送と失敗**：通信の失敗・タイムアウト・408・425・429・5xx は、最初の 1 回を含めて `max_attempts` 回まで試し、間隔は `retry_interval` から倍々（上限 1h）。そのほかの 4xx・リダイレクト（追わない）は設定の誤りなので再送しない。上限まで（または再送しても無駄で）送れなかったら、`error` のログ 1 行（`event_id`・回数・理由・応答コード）を残し、その回は送り直さない。再送の間も、ペインの監視・MCP の応答は止まらない。`serve` の終了で再送の待ち・通信は中断する（FR-STATE-2） |
+| FR-STATE-7 | **送信先**：設定した URL だけ（リダイレクトは追わず、`Authorization`・署名を別の宛先へ送らない）。tailnet の外への送信になるので、`url` は利用者が明示したときだけ使う（NFR-SEC-18） |
+
 ## 4. 機能一覧
 
 返り値はすべて JSON（`report` の markdown 形式を除く）。長い文字列は上限で切り、切ったら `truncated: true` を付ける（上限値は API 仕様 §7）。
@@ -245,3 +259,4 @@ stateDiagram-v2
 | 1.23 | 2026-11-05 | functional-report.md FR-REP-10・13・17：メモリ `mem`（全体・使用量・使用率。`report` の `host` と `host_status`。P-93）を足す。FR-REP-12・17・18：使用状況のアカウントごとの `reason`（`without_usage`・`no_email`。JSON のみ。P-94）を足す | Issue #86・#87 |
 | 1.24 | 2026-11-08 | §4.2 に FR-O10 `dir_list`（`/ops` のみ。`pane_start` の `cwd` の候補を 1 階層ずつ返す。判定は `file_get`・`pane_start` と共通）を追加。§4.3 FR-PAIR-1・3・6・UC13：`pair --scope ops`（`ops` スコープ・`/ops` の `url`・`viewer-ops-…` の名前・標準エラーの強い警告）を追加し、「`ops` スコープは発行しない」を改める（P-98） | Issue #90 |
 | 1.25 | 2026-11-09 | §4.3 に FR-PAIR-8 `pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は 1 行のまま。QR に入りきらないときは発行前にエラー。P-99）を追加 | Issue #89 |
+| 1.26 | 2026-11-16 | §3.3 に FR-STATE-1〜7（ペインが working → idle になりレポートが書けたときの webhook。`config.toml` の `[webhook]`。既定オフ）を追加。FR-REP・FR-NOTE・既存のツールの挙動は変えない | Issue #93 |

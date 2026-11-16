@@ -118,6 +118,26 @@ swarm-viewer につなぐための接続文字列を、1 行で出します。�
 - `serve` が実行する外部コマンドは、この引数固定の 2 つだけです（`[agents.omp] command` の先頭の語の実行ファイル。標準入力は `/dev/null`、シェルなし、打ち切り付き。`omp update` は実行しません）
 - メール・`accountId` は出力に出ません。アカウントは名前（メールの `@` 以降の最初のラベル）だけで示します。取れない値は消さずに「取得できず」と出します
 
+## idle になったときの webhook
+
+ペインが `working` から `idle` になり、そのペインの最終報告ファイル（`report_dir` の `<位置>.md`）が書かれた（更新された）回ごとに、`serve` が設定した URL へ JSON を **1 回だけ** POST します（Issue #93。受け手は Grok Bot のルーティンの webhook トリガーなどを想定しています）。**既定はオフ**です。`[webhook] url` を書かなければ何も送らず、今までどおり動きます。
+
+```toml
+[webhook]
+url = "https://hooks.example.com/<受け手が決めた経路>"   # 書いたときだけ有効。https のみ（http は 127.0.0.1・localhost・::1 だけ）
+secret = "<署名の鍵>"                                    # 省略可。本文の HMAC-SHA256 を X-Swarm-Console-Signature: sha256=<hex> に付ける
+token = "<受け手のトークン>"                              # 省略可。Authorization: Bearer <token> を付ける
+max_attempts = 5          # 最初の 1 回を含む送信の上限回数（1〜10）
+retry_interval = "30s"    # 最初の再送までの間隔（1s〜1h）。以後は倍々で、1h を超えない
+timeout = "10s"           # 1 回の送信の上限（1s〜1m）
+```
+
+- 送る JSON：`event`（`pane.idle_report`）・`event_id`（同じ回で同じ値。受け手でも重複を見分けられます）・`session`・`pane`（`T1` など）・`pane_id`（`%12`）・`note`（`from`・`repo`・`items`・`next`）・`report_path`・`state_changed_at`（RFC3339・UTC）。レポートの中身・画面は送りません。`X-Swarm-Console-Event-Id` ヘッダーにも `event_id` が入ります
+- 同じペイン・同じ回では 1 回だけです。`serve` を再起動しても、`~/.local/share/swarm-console/webhook-state.json`（600）に回を覚えているので二重に送りません。`idle` になったあとにレポートが書かれる順でも、書かれたときに送ります。前の回の残りのレポートだけでは送りません
+- 失敗（通信の失敗・タイムアウト・408・425・429・5xx）は `max_attempts` 回まで、`retry_interval` から倍々の間隔で再送します。それでも送れなければ `error` のログ（`webhook を送れませんでした`。`event_id`・回数・理由・応答コード）を残し、その回は送り直しません。404 など設定の誤りに見える応答は再送しません。リダイレクトは追いません
+- `url`（トークンが入る受け手があります）・`secret`・`token` の値は、ログ・`report`・エラー文に出ません。`config.toml` の権限は 600 を勧めます。**tailnet の外へ送ることになる**ので、送り先は自分で決めたものだけを書いてください
+- 設定は `serve` の再起動で反映します。`setup` は `[webhook]` に触れません
+
 ## 更新
 
 既定では、`serve` が自分で更新します（自己更新）。
