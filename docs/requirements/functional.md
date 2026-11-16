@@ -215,7 +215,7 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | FR-O-C1 | 同じペインへの操作は前の操作が終わるまで待たせる（同時に 2 つ送らない）。待ち時間が `lock_timeout`（既定 60 秒）を超えたら `busy_timeout` |
 | FR-O-C2 | 事前条件（状態・パス・引数）を満たさないものは何も送らずに拒否する。送信後に期待した状態にならなかった場合は例外にせず `ok: false` と現在の `state` を返す（例外：`pane_close` で終了コマンドのあと `shell` に戻らないときは、次を送らずに `exit_timeout` のエラーで止める。FR-O5） |
 | FR-O-C3 | 画面の確認は上限付きのポーリング（`accept_timeout` 既定 10 秒、`start_timeout` 既定 30 秒）で行い、固定時間の待ちに頼らない（ただし仕様で定めた「1 秒待って Enter」を除く） |
-| FR-O-C4 | クライアントが送れる文字は通常の文字と Enter だけ。クライアントが Esc を送れるのは `send_escape` だけ（`send_text`・`dispatch` が omp の貼り付け確認メニューを閉じるためにサーバーが内部で送る Esc は別。FR-O2・P-93）。その他の制御キーは拒否する（`text` の ESC・NUL・CR などを含む制御文字は `forbidden_control_char`。`\n`・`\t` は許可） |
+| FR-O-C4 | クライアントが送れる文字は通常の文字と Enter だけ。クライアントが Esc を送れるのは `send_escape` だけ（`send_text`・`dispatch` が omp の貼り付け確認メニューを閉じるためにサーバーが内部で送る Esc は別。FR-O2・P-100）。その他の制御キーは拒否する（`text` の ESC・NUL・CR などを含む制御文字は `forbidden_control_char`。`\n`・`\t` は許可） |
 
 ### 4.3 swarm-viewer のペアリング（FR-PAIR）
 
@@ -257,7 +257,7 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | 1.20 | 2026-11-03 | §4.2 に FR-O9 `file_get`（`/ops` のみ。許可リスト内の画像・動画を base64 で返す。P-91）を追加。FR-SAFE-6（`/report` に出さない）は変えない | Issue #82 |
 | 1.21 | 2026-11-04 | FR-O9・functional-note.md FR-SAFE-11：ペインの `cwd` が `/` やホームそのものなら、その `cwd` は `file_get` の許可に入れない（明示した `file_get_roots`・`report_dir` はそのまま許可。P-91） | Issue #82 |
 | 1.22 | 2026-11-04 | UC13 と §4.3（FR-PAIR-1〜7）を追加：`swarm-console pair`（swarm-viewer の接続文字列を 1 行出す。`report` スコープのトークンを発行）と `token list`（P-92） | Issue #83 |
-| 1.23 | 2026-11-05 | functional-report.md FR-REP-10・13・17：メモリ `mem`（全体・使用量・使用率。`report` の `host` と `host_status`。P-93）を足す。FR-REP-12・17・18：使用状況のアカウントごとの `reason`（`without_usage`・`no_email`。JSON のみ。P-94）を足す | Issue #86・#87 |
+| 1.23 | 2026-11-05 | functional-report.md FR-REP-10・13・17：メモリ `mem`（全体・使用量・使用率。`report` の `host` と `host_status`。P-100）を足す。FR-REP-12・17・18：使用状況のアカウントごとの `reason`（`without_usage`・`no_email`。JSON のみ。P-94）を足す | Issue #86・#87 |
 | 1.24 | 2026-11-08 | §4.2 に FR-O10 `dir_list`（`/ops` のみ。`pane_start` の `cwd` の候補を 1 階層ずつ返す。判定は `file_get`・`pane_start` と共通）を追加。§4.3 FR-PAIR-1・3・6・UC13：`pair --scope ops`（`ops` スコープ・`/ops` の `url`・`viewer-ops-…` の名前・標準エラーの強い警告）を追加し、「`ops` スコープは発行しない」を改める（P-98） | Issue #90 |
 | 1.25 | 2026-11-09 | §4.3 に FR-PAIR-8 `pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は 1 行のまま。QR に入りきらないときは発行前にエラー。P-99）を追加 | Issue #89 |
 | 1.26 | 2026-11-16 | §3.3 に FR-STATE-1〜7（ペインが working → idle になりレポートが書けたときの webhook。`config.toml` の `[webhook]`。既定オフ）を追加。FR-REP・FR-NOTE・既存のツールの挙動は変えない | Issue #93 |

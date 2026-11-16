@@ -247,3 +247,4 @@ flowchart TD
 | 1.29 | 2026-11-08 | §1：ツール数 19→20（`dir_list`）。decisions.md P-98（`dir_list` の判定を `file_get`・`pane_start` と共通にする。`pair --scope ops`。P-92 の「`ops` は出さない」を改めた）を追加 | Issue #90 |
 | 1.30 | 2026-11-09 | decisions.md P-99（`pair --qr`。QR は標準エラー・PNG は書かない・発行前に QR にできるか確かめる）、P-41（確認の既定間隔を 24 時間→6 時間）の注記 | Issue #89・#79 |
 | 1.31 | 2026-11-09 | decisions.md P-22：Codex を実画面（codex-cli 0.167.0）で確定（Claude Code の作業中・許可確認・質問は、ログイン切れのため推定のまま）。agent-patterns.md の codex 列・判定規則・採取手順を実画面に合わせて改訂（`status_line_re`・承認カードの質問文・折り返した選択肢・数字キーは押した時点で確定するので `PickKeys` は Up/Down を優先） | Issue #4 |
+| 1.32 | 2026-11-16 | シーケンス図（dispatch）：貼り付けの 1 秒後に、omp の貼り付け確認メニューが開いていれば閉じてから Enter を送る。decisions.md P-100（Issue #99） |
