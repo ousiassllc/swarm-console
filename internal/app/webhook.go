@@ -8,7 +8,8 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 )
 
-// newWebhook は [webhook] の url があるときだけ通知を作る。無ければ nil（何も作らず、何も送らない。FR-STATE-1〜7）。
+// newWebhook は送り先（[webhook] の url か、[webhook.sessions."<名前>"] の url）が 1 つでもあるときだけ通知を作る。
+// 無ければ nil（何も作らず、何も送らない。FR-STATE-1〜8）。
 // 戻り値の型を *webhook.Notifier にして、nil を pane.SnapshotObserver に入れたとき nil 判定が効かなくなるのを避ける。
 func newWebhook(cfg *config.Config, version string, logger *slog.Logger) (*webhook.Notifier, error) {
 	if !cfg.Webhook.Enabled() {
@@ -20,7 +21,22 @@ func newWebhook(cfg *config.Config, version string, logger *slog.Logger) (*webho
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("webhook の通知を有効にしました", "max_attempts", cfg.Webhook.MaxAttempts, "retry_interval", cfg.Webhook.RetryInterval.String())
+	// 送り先は、どのセッションが [webhook] を使い、どのセッションが自分の表を使うか・送らないか（値は出さない）。
+	var own, off []string
+	for _, s := range cfg.Sessions {
+		if t, ok := cfg.Webhook.Sessions[s]; ok {
+			if t.Enabled() {
+				own = append(own, s)
+			} else {
+				off = append(off, s)
+			}
+		}
+	}
+	attrs := []any{"default_url", cfg.Webhook.URL != "", "session_urls", own, "session_off", off}
+	if cfg.Webhook.URL != "" { // 再送の設定は [webhook] の送り先のものだけを出す（セッションの表の値は、表ごとに違うので出さない）
+		attrs = append(attrs, "max_attempts", cfg.Webhook.MaxAttempts, "retry_interval", cfg.Webhook.RetryInterval.String())
+	}
+	logger.Info("webhook の通知を有効にしました", attrs...)
 	return n, nil
 }
 

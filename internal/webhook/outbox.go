@@ -30,14 +30,14 @@ func (n *Notifier) finish(it *item, err error) {
 }
 
 // beginAttempt は次の送信（1 回）を始める前に、回数を増やして台帳に書く。再起動しても上限は引き継がれる。
-// 上限まで使い切っていれば errGaveUp、ctx が終わっていればそのエラー（回数は増やさない）。
-func (n *Notifier) beginAttempt(ctx context.Context, it *item) (attempt int, err error) {
+// 上限（その項目のセッションの送り先の max_attempts）まで使い切っていれば errGaveUp、ctx が終わっていればそのエラー（回数は増やさない）。
+func (n *Notifier) beginAttempt(ctx context.Context, it *item, maxAttempts int) (attempt int, err error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return it.Attempts, err
 	}
-	if it.Attempts >= n.o.Config.MaxAttempts {
+	if it.Attempts >= maxAttempts {
 		return it.Attempts, errGaveUp
 	}
 	it.Attempts++

@@ -35,7 +35,7 @@ type Config struct {
 	UsageCheck    bool
 	UsageInterval time.Duration
 
-	// Webhook は [webhook]（FR-STATE-1〜7）。URL が空ならオフ（既定）。
+	// Webhook は [webhook] と [webhook.sessions."<名前>"]（FR-STATE-1〜8）。送り先が 1 つも無ければオフ（既定）。
 	Webhook Webhook
 
 	TitlePrefix  string

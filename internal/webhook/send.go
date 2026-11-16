@@ -28,6 +28,8 @@ const (
 	reasonRequest  = "request"
 	// reasonExhausted は、読み込んだ項目がすでに上限まで送っていたので、送らずに諦めたこと。
 	reasonExhausted = "attempts_exhausted"
+	// reasonNoTarget は、台帳から読んだ項目のセッションに、今の設定では送り先が無いので、送らずに諦めたこと。
+	reasonNoTarget = "no_destination"
 )
 
 // 署名・認証のヘッダー名。値はログに出さない。
@@ -57,7 +59,11 @@ func (n *Notifier) send(ctx context.Context, it *item) error {
 		n.o.Logger.Error("webhook の本文を読めませんでした", "event_id", it.EventID)
 		return errGaveUp
 	}
-	cfg := n.o.Config
+	cfg, ok := n.o.Config.Target(pl.Session)
+	if !ok { // 再起動で設定が変わり、台帳の件のセッションに送り先が無くなった
+		n.o.Logger.Error("webhook を送れませんでした", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane, "reason", reasonNoTarget)
+		return errGaveUp
+	}
 	// 再起動で引き継いだ件は、送った回数に応じた間隔をあけてから続ける（再送の待ちの途中で止まったときの続き）。
 	if it.Attempts > 0 && it.Attempts < cfg.MaxAttempts {
 		if err := n.o.Sleep(ctx, retryDelay(cfg.RetryInterval, it.Attempts)); err != nil {
@@ -65,7 +71,7 @@ func (n *Notifier) send(ctx context.Context, it *item) error {
 		}
 	}
 	for {
-		attempt, err := n.beginAttempt(ctx, it)
+		attempt, err := n.beginAttempt(ctx, it, cfg.MaxAttempts)
 		if errors.Is(err, errGaveUp) {
 			n.o.Logger.Error("webhook を送れませんでした", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane,
 				"attempts", attempt, "reason", reasonExhausted)
@@ -74,7 +80,7 @@ func (n *Notifier) send(ctx context.Context, it *item) error {
 		if err != nil {
 			return err
 		}
-		status, reason := n.post(ctx, it.EventID, it.Payload)
+		status, reason := n.post(ctx, cfg, it.EventID, it.Payload)
 		if reason == "" {
 			n.o.Logger.Info("webhook を送りました", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane, "attempt", attempt, "status", status)
 			return nil
@@ -108,8 +114,7 @@ func retryDelay(base time.Duration, attempt int) time.Duration {
 }
 
 // post は 1 回送る。成功なら reason は ""。失敗の理由は固定の語で返し、err の文面は使わない。
-func (n *Notifier) post(ctx context.Context, id string, body []byte) (status int, reason string) {
-	cfg := n.o.Config
+func (n *Notifier) post(ctx context.Context, cfg config.Webhook, id string, body []byte) (status int, reason string) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.URL.Reveal(), bytes.NewReader(body))
 	if err != nil {
 		return 0, reasonRequest
@@ -125,7 +130,11 @@ func (n *Notifier) post(ctx context.Context, id string, body []byte) (status int
 	if cfg.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+cfg.Token.Reveal())
 	}
-	resp, err := n.o.Client.Do(req)
+	client := n.o.Client
+	if client == nil {
+		client = newClient(cfg.Timeout) // Transport は共通（http.DefaultTransport）なので、接続は使い回される
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, classify(err)
 	}

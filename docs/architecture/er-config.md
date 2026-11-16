@@ -38,7 +38,7 @@ erDiagram
         bool usage_check "true"
         duration usage_interval "5m（1m 以上）"
         bool update_auto "true"
-        table webhook "[webhook]（FR-STATE-4）。url が空ならオフ（既定）"
+        table webhook "[webhook] と [webhook.sessions.名前]（FR-STATE-4・8）。送り先が無ければオフ（既定）"
     }
     SESSION {
         string name
@@ -81,7 +81,7 @@ erDiagram
 | `file_get_roots` | 絶対パスの配列。省略は空（追加の根なし）。`file_get` の許可リストは、触れるセッションのペインの `cwd`・`report_dir` と、このキーの根の和（P-91）。ペインの `cwd` が `/` やホームそのもの（実パスで一致）のときは、その `cwd` だけを和から除く。このキーと `report_dir` に書いたものは `/` やホームでもそのまま許可する。`file_roots` とは別（`send_text` の `file` には効かない） |
 | `file_get_max_bytes` | 整数（バイト）。省略は `20971520`（20 MiB）。1 以上 `104857600`（100 MiB）以下。範囲外・整数でない値は起動拒否。`file_get` が返す 1 ファイルの上限（超えたら `too_large`） |
 | `agents.<name>` | `<name>` は `omp`・`claude`・`codex` だけ。書かれたキーだけ組み込みの既定を上書きする。正規表現（`working_re`・`ask_re`・`idle_re`・`status_line_re`・`border_re`・`process_match` の各要素）は起動時にコンパイルできること。`command`・`exit_command` は空文字不可で、改行・制御文字を含まない 1 行。`auth_file` は空文字不可（設定エラー）で、絶対パス（`~` 展開） |
-| `webhook` | 表 `[webhook]`（FR-STATE-1〜7。既定オフ）。`url`：文字列、省略か空文字ならオフ（何も作らず何も送らない）。`https://` だけ（`http://` はループバックのアドレス（127.0.0.0/8・::1）と `localhost` だけ）で、ユーザー名・パスワードを含まない。`https` はどのホストでも受け付ける（ループバック・リンクローカル・プライベートのアドレスを指す URL は利用者の責任。NFR-SEC-18）。`secret`・`token`：文字列、省略か空ならそのヘッダー（`X-Swarm-Console-Signature`・`Authorization: Bearer`）を付けない。改行・制御文字を含まない 1 行。`max_attempts`：整数、既定 `5`、1〜10（最初の 1 回を含む）。`retry_interval`：期間、既定 `30s`、1s〜1h（最初の再送までの間隔。以後は倍々で 1h まで）。`timeout`：期間、既定 `10s`、1s〜1m（1 回の送信の上限）。違反は起動拒否で、エラー文に `url`・`secret`・`token` の値は入れない（NFR-SEC-18）。台帳は `~/.local/share/swarm-console/webhook-state.json`（600。形は §9。秘密の値は入らない） |
+| `webhook` | 表 `[webhook]`（FR-STATE-1〜8。既定オフ）。`url`：文字列、省略か空文字ならオフ（何も作らず何も送らない）。`https://` だけ（`http://` はループバックのアドレス（127.0.0.0/8・::1）と `localhost` だけ）で、ユーザー名・パスワードを含まない。`https` はどのホストでも受け付ける（ループバック・リンクローカル・プライベートのアドレスを指す URL は利用者の責任。NFR-SEC-18）。`secret`・`token`：文字列、省略か空ならそのヘッダー（`X-Swarm-Console-Signature`・`Authorization: Bearer`）を付けない。改行・制御文字を含まない 1 行。`max_attempts`：整数、既定 `5`、1〜10（最初の 1 回を含む）。`retry_interval`：期間、既定 `30s`、1s〜1h（最初の再送までの間隔。以後は倍々で 1h まで）。`timeout`：期間、既定 `10s`、1s〜1m（1 回の送信の上限）。違反は起動拒否で、エラー文に `url`・`secret`・`token` の値は入れない（NFR-SEC-18）。台帳は `~/.local/share/swarm-console/webhook-state.json`（600。形は §9。秘密の値は入らない） **セッションごとの送り先**（FR-STATE-8）：`[webhook.sessions."<セッション名>"]`（表の表。キーは `url`・`secret`・`token`・`max_attempts`・`retry_interval`・`timeout` で、検証も `[webhook]` と同じ）。名前は `sessions` にあるものだけ（無ければ起動拒否。エラー文は名前だけで値を出さない）。件を作る・送るときに、ペインのセッションの表があればそれ（`url` が空ならそのセッションは送らない）、無ければ `[webhook]`（`url` が空なら送らない）を使う。`max_attempts`・`retry_interval`・`timeout` は書かなければ `[webhook]` の値を受け継ぎ、`url`・`secret`・`token` は受け継がない。台帳は 1 つで、形は変わらない（`event_id` にセッション名が入るのでセッションをまたいで衝突しない） |
 | 未知のキー | 起動拒否（打ち間違いを検知する） |
 
 ### 5.1 `setup` による書き戻し
@@ -195,7 +195,7 @@ rules = [
 
 ## 9. webhook の台帳
 
-`[webhook] url` を書いたときだけ、`~/.local/share/swarm-console/webhook-state.json`（権限 600。`store.WriteFileAtomic`）を作る（FR-STATE-2。書かなければ作らない）。ペインごとの「回」と、送る約束をした「件」（outbox）を持つ。件は回と独立で、ペインが `working` に戻る・消える・tmux が再起動しても影響を受けない。
+`[webhook] url`（または `[webhook.sessions."<名>"] url`）を書いたときだけ、`~/.local/share/swarm-console/webhook-state.json`（権限 600。`store.WriteFileAtomic`）を作る（FR-STATE-2。書かなければ作らない）。ペインごとの「回」と、送る約束をした「件」（outbox）を持つ。件は回と独立で、ペインが `working` に戻る・消える・tmux が再起動しても影響を受けない。
 
 ```json
 {

@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -55,13 +56,16 @@ type receiver struct {
 	hits []webhook.Payload
 }
 
-func newReceiver(t *testing.T, code int) *receiver {
+func newReceiver(t *testing.T, code int) *receiver { return newReceiverToken(t, code, e2eToken) }
+
+// newReceiverToken は、Authorization: Bearer <token> と署名のヘッダーが付いた POST だけを溜める受け手。
+func newReceiverToken(t *testing.T, code int, token string) *receiver {
 	t.Helper()
 	r := &receiver{}
 	r.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		body, _ := io.ReadAll(req.Body)
 		var pl webhook.Payload
-		if json.Unmarshal(body, &pl) == nil && req.Header.Get("Authorization") == "Bearer "+e2eToken && req.Header.Get("X-Swarm-Console-Signature") != "" {
+		if json.Unmarshal(body, &pl) == nil && req.Header.Get("Authorization") == "Bearer "+token && req.Header.Get("X-Swarm-Console-Signature") != "" {
 			r.mu.Lock()
 			r.hits = append(r.hits, pl)
 			r.mu.Unlock()
@@ -83,14 +87,19 @@ type rig struct {
 	t      *testing.T
 	app    *App
 	tm     *tmuxtest.Server
-	pane   string
+	pane   string            // 最初のセッションのペイン
+	panes  map[string]string // セッション名 → ペイン ID
 	home   string
 	logs   *syncBuf
 	cancel context.CancelFunc
 	done   chan error
 }
 
-func startRig(t *testing.T, webhookCfg string) *rig {
+func startRig(t *testing.T, webhookCfg string) *rig { return startRigSessions(t, webhookCfg, "0") }
+
+// startRigSessions は sessions の名前ごとに tmux のセッションと擬似エージェントのペインを立てて、App を動かす。
+// セッションが 2 つ以上のときは、設定にも sessions を書く（最終報告のファイル名は <セッション>_<位置>.md になる）。
+func startRigSessions(t *testing.T, webhookCfg string, sessions ...string) *rig {
 	t.Helper()
 	bin := fakeagenttest.Install(t, t.TempDir()) // HOME を替える前に go build する
 	tm := tmuxtest.New(t)
@@ -104,13 +113,26 @@ func startRig(t *testing.T, webhookCfg string) *rig {
 	addr := ln.Addr().String()
 	_ = ln.Close()
 	cfgPath := filepath.Join(home, "config.toml")
-	body := fmt.Sprintf("listen_addr = %q\ntmux_socket = %q\nreport_dir = %q\nupdate_check = false\nusage_check = false\n%s",
-		addr, tm.Socket, filepath.Join(home, "reports"), webhookCfg)
+	sessionsCfg := ""
+	if len(sessions) > 1 {
+		quoted := make([]string, len(sessions))
+		for i, s := range sessions {
+			quoted[i] = strconv.Quote(s)
+		}
+		sessionsCfg = "sessions = [" + strings.Join(quoted, ", ") + "]\n"
+	}
+	body := fmt.Sprintf("listen_addr = %q\ntmux_socket = %q\nreport_dir = %q\nupdate_check = false\nusage_check = false\n%s%s",
+		addr, tm.Socket, filepath.Join(home, "reports"), sessionsCfg, webhookCfg)
 	if err := os.WriteFile(cfgPath, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	pane := tm.NewSession("0", 120, 40, fmt.Sprintf("PATH=%s:$PATH exec omp working", bin))
-	tm.WaitForText(pane, "READY")
+	panes := map[string]string{}
+	for _, name := range sessions {
+		id := tm.NewSession(name, 120, 40, fmt.Sprintf("PATH=%s:$PATH exec omp working", bin))
+		tm.WaitForText(id, "READY")
+		panes[name] = id
+	}
+	pane := panes[sessions[0]]
 
 	logs := &syncBuf{}
 	a, err := New(cfgPath, "test", slog.New(slog.NewJSONHandler(logs, nil)))
@@ -118,7 +140,7 @@ func startRig(t *testing.T, webhookCfg string) *rig {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	g := &rig{t: t, app: a, tm: tm, pane: pane, home: home, logs: logs, cancel: cancel, done: make(chan error, 1)}
+	g := &rig{t: t, app: a, tm: tm, pane: pane, panes: panes, home: home, logs: logs, cancel: cancel, done: make(chan error, 1)}
 	go func() { g.done <- a.Run(ctx) }()
 	t.Cleanup(g.stop)
 	return g

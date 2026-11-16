@@ -172,7 +172,7 @@ func build(r *rawConfig, home string) (*Config, error) {
 	c.UpdateCheck = boolOr(r.UpdateCheck, true)
 	c.UpdateAuto = boolOr(r.UpdateAuto, true)
 	c.UsageCheck = boolOr(r.UsageCheck, true)
-	if c.Webhook, err = buildWebhook(r.Webhook); err != nil {
+	if c.Webhook, err = buildWebhook(r.Webhook, c.Sessions); err != nil {
 		return nil, err
 	}
 	return c, nil
