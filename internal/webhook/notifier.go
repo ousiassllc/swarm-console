@@ -15,13 +15,13 @@ import (
 
 // Options は Notifier の依存。Config・ReportDir・StatePath は必須で、残りは空なら既定。
 type Options struct {
-	Config    config.Webhook
+	Config    config.Webhook // 送り先は Config.Target(セッション名) で引く（[webhook] とセッションごとの表）
 	ReportDir string
 	StatePath string // 台帳（回と、送る約束をした項目）の保存先
 	Version   string // User-Agent に入れる
 	Logger    *slog.Logger
 	FS        pane.ReportFS // 最終報告ファイルの様子（Lstat だけ使う）。nil なら OSReportFS
-	Client    *http.Client  // nil なら Config.Timeout のクライアント（リダイレクトは追わない）
+	Client    *http.Client  // nil なら送り先の Timeout のクライアント（リダイレクトは追わない）
 	// Sleep は再送の間隔の待ち。ctx が終わったらそのエラーで戻る。テストは待たずに間隔を記録する実装に替える。
 	Sleep func(ctx context.Context, d time.Duration) error
 }
@@ -50,11 +50,11 @@ var (
 )
 
 // New は台帳を読んで Notifier を作る。台帳が壊れていても、空から始める（警告のログだけ）。
-// 呼び出し側は Config.Enabled() のときだけ作る（URL が無ければ何も作らない）。
+// 呼び出し側は Config.Enabled() のときだけ作る（送り先が 1 つも無ければ何も作らない）。
 func New(o Options) (*Notifier, error) {
 	switch {
 	case !o.Config.Enabled():
-		return nil, errors.New("webhook: url が設定されていません")
+		return nil, errors.New("webhook: 送り先の url が設定されていません")
 	case o.ReportDir == "" || o.StatePath == "":
 		return nil, errors.New("webhook: ReportDir と StatePath が必要です")
 	}
@@ -63,9 +63,6 @@ func New(o Options) (*Notifier, error) {
 	}
 	if o.FS == nil {
 		o.FS = pane.OSReportFS{}
-	}
-	if o.Client == nil {
-		o.Client = newClient(o.Config.Timeout)
 	}
 	if o.Sleep == nil {
 		o.Sleep = sleepCtx

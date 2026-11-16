@@ -71,6 +71,6 @@ WantedBy=default.target
 | `usage_check` | `true` | `serve` が `omp usage --json` で使用状況を取る（FR-REP-12）。`omp` の確認（FR-REP-15）は `update_check` に従う |
 | `usage_interval` | `5m`（1m 以上） | 使用状況の取得の間隔 |
 | `update_auto` | `true` | 新しい版を見つけたら `serve` が自分で入れ替える（FR-UPD-19。`update_check = false` なら無効） |
-| `[webhook]` | なし（オフ） | ペインが `working` → `idle` になり最終報告が書けた回ごとに 1 件、`url` へ POST する（止まったときだけ再起動後に同じ件を送り直す。受け手は `event_id` で重複を捨てる）（FR-STATE-1〜7）。`url`（空ならオフ）・`secret`・`token`・`max_attempts`（`5`、1〜10）・`retry_interval`（`30s`、1s〜1h）・`timeout`（`10s`、1s〜1m） |
+| `[webhook]`・`[webhook.sessions."<名>"]` | なし（オフ） | ペインが `working` → `idle` になり最終報告が書けた回ごとに 1 件、そのセッションの送り先（セッションの表の `url`、無ければ `[webhook] url`。FR-STATE-8）へ POST する（止まったときだけ再起動後に同じ件を送り直す。受け手は `event_id` で重複を捨てる）（FR-STATE-1〜7）。`url`（空ならオフ）・`secret`・`token`・`max_attempts`（`5`、1〜10）・`retry_interval`（`30s`、1s〜1h）・`timeout`（`10s`、1s〜1m） |
 | `[pane_names]` | なし | 位置の固定名 |
 | `[agents.<name>]` | 組み込み | アダプタの上書き（コマンド・正規表現・認証ファイル） |

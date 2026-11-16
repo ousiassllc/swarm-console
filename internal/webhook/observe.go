@@ -133,6 +133,9 @@ func (n *Notifier) rebaseLocked(p *pane.PaneState, e *entry) bool {
 // （同じ idle の回では二度と作らない。次の working で新しい回）。台帳へは Observe が書いてから、送りが始まる。
 func (n *Notifier) completeRoundLocked(p *pane.PaneState, e *entry) {
 	e.Phase = phaseDone
+	if _, ok := n.o.Config.Target(p.Session); !ok {
+		return // このセッションには送り先が無い（[webhook] もセッションの表も無い、または url が空）。何も作らず、何も送らない
+	}
 	body, err := json.Marshal(newPayload(n.o.ReportDir, p, e))
 	if err != nil {
 		n.o.Logger.Error("webhook の本文を作れませんでした", "event_id", e.EventID)
