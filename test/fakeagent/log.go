@@ -12,6 +12,7 @@ import (
 //	PICK <番号>\n
 //	SUBMIT\n
 //	ESCAPE\n
+//	PASTE_MENU_ENTER\n   （omp の貼り付け確認メニューが開いている間に Enter が届いた。送信にならない）
 func appendLog(path string, e event) error {
 	if path == "" {
 		return nil

@@ -118,7 +118,7 @@
 {"ok": true, "state": "working", "accepted": true, "chars": 412}
 ```
 
-tmux の bracketed paste で貼り付け、1 秒待って Enter。貼り付けの確認メニュー（omp が 100 行以上を受けたときに開く。開いている間の Enter は依頼の送信にならずメニューの選択になる）が開いていれば、先に閉じるキー（omp は `Escape` = 「Paste inline」。本文は変わらない）を 1 回送り、閉じたのを画面で確かめてから Enter を送る。メニューが `accept_timeout` 内に閉じなければ Enter は送らず `{"ok": false, "accepted": false}`（本文は入力欄に残る）。メニューが開いていないときは `Escape` を送らない（作業中のエージェントを中断しないため）。入力欄が空になって `working` になったら `accepted: true`。`accept_timeout` 内に受理されなければ `{"ok": false, "accepted": false, "state": "idle"}`。Ctrl-C などの特別なキーは送れない。
+tmux の bracketed paste で貼り付け、1 秒待って Enter。貼り付けの確認メニュー（omp が設定 `paste.largeMenuThreshold`（既定 100）行以上を受けたときに開く。開いている間の Enter は依頼の送信にならずメニューの選択になる）が開いていれば、先に閉じるキー（omp は `Escape` = 「Paste inline」。本文は変わらない）を 1 回送り、閉じたのを画面で確かめてから Enter を送る。メニューを閉じる待ちと受理の待ちは 1 つの期限（1 秒のあと `accept_timeout`）を分け合う。画面が読めずメニューの有無が分からないとき、またはメニューが期限までに閉じなかったときは、Enter を送らず `{"ok": false, "accepted": false, "state": "unknown"}`（メニューが開いたままの画面は `unknown`。本文はメニューの中にあり、ツールからは復旧できないので、人が画面で閉じる）。メニューが開いていないときは `Escape` を送らない（作業中のエージェントを中断しないため）。入力欄が空になって `working` になったら `accepted: true`。`accept_timeout` 内に受理されなければ `{"ok": false, "accepted": false, "state": "idle"}`。Ctrl-C などの特別なキーは送れない。
 
 #### `send_escape`
 

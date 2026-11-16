@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -72,6 +73,7 @@ func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pan
 
 // pasteAndAccept は Paste → 1 秒 → （貼り付けの確認メニューが開いていれば閉じる）→ Enter → 受理待ち。prior は送る前の状態。
 // 受理 = working になった。すでに working・stalled だったペインは、貼った本文の末尾が画面から消えたことも条件にする。
+// メニューを閉じる待ちと受理待ちは 1 つの期限（固定の 1 秒のあと accept_timeout）を分け合う（NFR-PERF-4: 決着は 1 秒 + accept_timeout 以内）。
 // 貼り付けに成功した後は、クライアントの切断・キャンセルで途中にならないよう ctx から切り離して Enter まで送る
 // （入力欄に半端な本文を残さない。NFR-AVL-7）。sent は貼り付けに成功したか。
 func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapter, text string, prior agent.State) (sent, accepted bool, err error) {
@@ -82,40 +84,54 @@ func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapt
 	if err := o.sleep(ctx, fixedWait); err != nil {
 		return true, false, err
 	}
-	if closed, err := o.closePasteMenu(ctx, id, ad); err != nil || !closed {
+	deadline := o.deps.Clock.Now().Add(o.deps.Cfg.AcceptTimeout)
+	if closed, err := o.closePasteMenu(ctx, id, ad, deadline); err != nil || !closed {
 		return true, false, err
 	}
 	if err := o.sendKeys(ctx, id, "Enter"); err != nil {
 		return true, false, err
 	}
 	wasWorking := prior == agent.StateWorking || prior == agent.StateStalled
-	accepted, err = o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, pollStep, func(ctx context.Context) bool {
+	accepted, err = o.waitFor(ctx, max(deadline.Sub(o.deps.Clock.Now()), 0), pollStep, func(ctx context.Context) bool {
 		st, lines := o.look(ctx, id, ad)
 		return st == agent.StateWorking && (!wasWorking || !onScreen(lines, text))
 	})
 	return true, accepted, err
 }
 
-// closePasteMenu は、貼り付けの確認メニューが開いていれば閉じるキーを 1 回送り、閉じるまで画面を取り直して待つ。
+// closePasteMenu は、貼り付けの確認メニューが開いていれば閉じるキーを 1 回送り、閉じるまで deadline まで画面を取り直して待つ。
 // 開いたまま Enter を送ると、メニューの選択になって依頼が送信されない（Issue #99）。
-// メニューがなかった・閉じたら true。accept_timeout 内に閉じなければ false（Enter は送らない）。
+// メニューがなかった・閉じたら true。deadline までに閉じなければ false（Enter は送らない）。
 // 閉じるキーはメニューが開いていると読めたときだけ送る（作業中のエージェントを Esc で中断しないため）。
-func (o *Operator) closePasteMenu(ctx context.Context, id string, ad agent.Adapter) (bool, error) {
+// 画面が取れなかったときは開閉を判定できないので、メニューなしとも閉じたとも見なさない
+// （最初の確認なら何も送らず false、待ちの途中なら取れるまで待つ）。
+func (o *Operator) closePasteMenu(ctx context.Context, id string, ad agent.Adapter, deadline time.Time) (bool, error) {
 	pm, ok := ad.(agent.PasteMenu)
 	if !ok {
 		return true, nil
 	}
-	open := func(ctx context.Context) bool {
+	// open は (メニューが開いているか, 画面が読めたか)。
+	open := func(ctx context.Context) (isOpen, known bool) {
 		text, err := o.deps.Tmux.Capture(ctx, id, pane.CaptureLines)
-		return err == nil && pm.PasteMenuOpen(agent.NewScreen(pane.SplitLines(text)))
+		if err != nil {
+			return false, false
+		}
+		return pm.PasteMenuOpen(agent.NewScreen(pane.SplitLines(text))), true
 	}
-	if !open(ctx) {
+	isOpen, known := open(ctx)
+	if !known {
+		return false, nil
+	}
+	if !isOpen {
 		return true, nil
 	}
 	if err := o.sendKeys(ctx, id, pm.PasteMenuClose().Name); err != nil {
 		return false, err
 	}
-	return o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, pollStep, func(ctx context.Context) bool { return !open(ctx) })
+	return o.waitFor(ctx, max(deadline.Sub(o.deps.Clock.Now()), 0), pollStep, func(ctx context.Context) bool {
+		isOpen, known := open(ctx)
+		return known && !isOpen
+	})
 }
 
 // onScreen は text の最後の非空行の末尾（30 字）が画面の下側（入力欄）にまだ残っているか。

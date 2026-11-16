@@ -215,7 +215,7 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | FR-O-C1 | 同じペインへの操作は前の操作が終わるまで待たせる（同時に 2 つ送らない）。待ち時間が `lock_timeout`（既定 60 秒）を超えたら `busy_timeout` |
 | FR-O-C2 | 事前条件（状態・パス・引数）を満たさないものは何も送らずに拒否する。送信後に期待した状態にならなかった場合は例外にせず `ok: false` と現在の `state` を返す（例外：`pane_close` で終了コマンドのあと `shell` に戻らないときは、次を送らずに `exit_timeout` のエラーで止める。FR-O5） |
 | FR-O-C3 | 画面の確認は上限付きのポーリング（`accept_timeout` 既定 10 秒、`start_timeout` 既定 30 秒）で行い、固定時間の待ちに頼らない（ただし仕様で定めた「1 秒待って Enter」を除く） |
-| FR-O-C4 | 送れる文字は通常の文字と Enter だけ。Esc は `send_escape` だけ。その他の制御キーは拒否する（`text` の ESC・NUL・CR などを含む制御文字は `forbidden_control_char`。`\n`・`\t` は許可） |
+| FR-O-C4 | クライアントが送れる文字は通常の文字と Enter だけ。クライアントが Esc を送れるのは `send_escape` だけ（`send_text`・`dispatch` が omp の貼り付け確認メニューを閉じるためにサーバーが内部で送る Esc は別。FR-O2・P-93）。その他の制御キーは拒否する（`text` の ESC・NUL・CR などを含む制御文字は `forbidden_control_char`。`\n`・`\t` は許可） |
 
 ### 4.3 swarm-viewer のペアリング（FR-PAIR）
 
@@ -262,3 +262,4 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | 1.25 | 2026-11-09 | §4.3 に FR-PAIR-8 `pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は 1 行のまま。QR に入りきらないときは発行前にエラー。P-99）を追加 | Issue #89 |
 | 1.26 | 2026-11-16 | §3.3 に FR-STATE-1〜7（ペインが working → idle になりレポートが書けたときの webhook。`config.toml` の `[webhook]`。既定オフ）を追加。FR-REP・FR-NOTE・既存のツールの挙動は変えない | Issue #93 |
 | 1.27 | 2026-11-16 | §3.3 に FR-STATE-8（webhook の送り先をセッションごとに分ける `[webhook.sessions."<名>"]`。無いセッションは `[webhook]`、どちらも無ければ送らない。`[webhook]` だけの設定は今までどおり）を追加。FR-STATE-1〜7 の決まりは変えない | Issue #95 |
+| 1.28 | 2026-11-16 | FR-O2：omp の貼り付け確認メニューが開いていれば、閉じてから Enter を送る（閉じなければ Enter を送らず `ok: false`）。FR-O-C4：クライアントが送れる Esc は `send_escape` だけ（サーバーが内部で送る Esc は別） | Issue #99 |

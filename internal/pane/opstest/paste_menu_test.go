@@ -2,9 +2,11 @@ package opstest
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/agent/agenttest"
@@ -28,6 +30,8 @@ type ompLargePaste struct {
 	t            *testing.T
 	f            *fixture
 	closeIgnored bool
+	// closeAfter は Esc からメニューが消えるまでの偽の時計の経過（0 なら即）。
+	closeAfter time.Duration
 
 	mu    sync.Mutex
 	menu  bool
@@ -66,8 +70,7 @@ func (p *ompLargePaste) onOp(o panetest.Op) {
 			switch {
 			case p.menu && (k == "Enter" || k == "Escape"):
 				if !p.closeIgnored {
-					p.menu, p.typed = false, true
-					p.show("paste-pending.txt")
+					p.closeMenu()
 				}
 			case !p.menu && k == "Enter" && p.typed:
 				p.typed = false
@@ -75,6 +78,24 @@ func (p *ompLargePaste) onOp(o panetest.Op) {
 			}
 		}
 	}
+}
+
+// closeMenu はメニューを閉じて、本文を入力欄の印にする。closeAfter があれば、その時間が過ぎたあとの最初の画面取得で。
+func (p *ompLargePaste) closeMenu() {
+	if p.closeAfter <= 0 {
+		p.menu, p.typed = false, true
+		p.show("paste-pending.txt")
+		return
+	}
+	closeAt := p.f.env.Clock.Now().Add(p.closeAfter)
+	p.f.env.Tmux.OnCapture(func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		if p.menu && !p.f.env.Clock.Now().Before(closeAt) {
+			p.menu, p.typed = false, true
+			p.show("paste-pending.txt")
+		}
+	})
 }
 
 // 100 行以上の依頼文: 確認メニューが開いたまま Enter を送ると送信されない。メニューを閉じてから Enter を送って受理される。
@@ -128,6 +149,55 @@ func TestSendTextLargePasteMenuStaysOpen(t *testing.T) {
 	}
 	if got := f.env.Clock.Now().Sub(panetest.T0); got < f.env.Cfg.AcceptTimeout {
 		t.Fatalf("accept_timeout より前に諦めた: %v", got)
+	} else if got > time.Second+f.env.Cfg.AcceptTimeout+time.Second {
+		t.Fatalf("決着が 1 秒 + accept_timeout を超えた: %v（NFR-PERF-4）", got)
+	}
+}
+
+// メニューを閉じる待ちと受理待ちは 1 つの期限を分け合う: accept_timeout の終わり際にメニューが閉じ、
+// Enter で受理されなくても、決着は 1 秒 + accept_timeout（+ 偽の時計の刻み）以内。
+func TestSendTextLargePasteMenuClosingLateKeepsDeadline(t *testing.T) {
+	f := newFixture(t)
+	ref, p := f.ompLargePaste(t, false)
+	p.closeAfter = f.env.Cfg.AcceptTimeout - time.Second
+	f.env.Tmux.OnOp(func(o panetest.Op) {
+		p.onOp(o)
+		if o.Kind == "keys" && len(o.Keys) > 0 && o.Keys[0] == "Enter" {
+			p.show("paste-pending.txt") // Enter を送っても受理されない（working にならない）
+		}
+	})
+	text := strings.TrimSuffix(strings.Repeat("これは長い依頼文の 1 行です。\n", largePasteLines+50), "\n")
+	res, err := run(t, f.env.Clock, func() (pane.SendResult, error) { return f.op.SendText(context.Background(), ref, text) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK || res.Accepted {
+		t.Fatalf("受理されないのに成功にした: %+v", res)
+	}
+	if got := f.env.Clock.Now().Sub(panetest.T0); got > time.Second+f.env.Cfg.AcceptTimeout+time.Second {
+		t.Fatalf("決着が 1 秒 + accept_timeout を超えた: %v（NFR-PERF-4）", got)
+	}
+}
+
+// 画面が読めないときは、メニューの有無が分からないので Enter を送らず ok:false を返す（メニューの選択に化けさせない）。
+func TestSendTextPasteMenuUnreadableScreenSendsNoEnter(t *testing.T) {
+	f := newFixture(t)
+	ref, _ := f.ompLargePaste(t, false)
+	f.env.Tmux.OnOp(func(o panetest.Op) {
+		if o.Kind == "paste" {
+			f.env.Tmux.SetCaptureErr("%0", errors.New("capture failed"))
+		}
+	})
+	text := strings.TrimSuffix(strings.Repeat("これは長い依頼文の 1 行です。\n", largePasteLines+50), "\n")
+	res, err := run(t, f.env.Clock, func() (pane.SendResult, error) { return f.op.SendText(context.Background(), ref, text) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.OK || res.Accepted {
+		t.Fatalf("画面が読めないのに成功にした: %+v", res)
+	}
+	if n := f.env.Tmux.CountKeys("Enter"); n != 0 {
+		t.Fatalf("メニューの有無が分からないのに Enter を %d 回送った", n)
 	}
 }
 

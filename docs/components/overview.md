@@ -230,7 +230,7 @@ type Registry interface {
 | `Escape(ref)` | ロック → `send-keys Escape` → 状態遷移を待つ → `notes.Log` |
 | `Start(ref, agent, cwd, title)` | ロック → 検証 → `select-pane -T` → `cd <cwd>` → 起動コマンド → `idle` を待つ |
 | `Close(ref)` | ロック → 終了コマンドを「文字列 → 1 秒 → Enter → 1 秒」で送る → 状態が `shell` に戻るまで待つ（スナップショットを 500 ms ごとに取り直す。上限は `accept_timeout`。超えたら何も送らず `apperr.ExitTimeout`）→ `cd ~`・`clear` を同じ間隔で送る → タイトル消し → 画面確認 → `notes.Archive` |
-| `Dispatch(ref, args)` | ロック → 状態確認 → `render.Dispatch` → 検証 → （`Start`）→ 古い報告を移動 → `SendText` → `notes.Set` |
+| `Dispatch(ref, args)` | ロック → 状態確認 → `render.Dispatch` → 検証 → （`Start`）→ 古い報告を移動 → `SendText` と同じ貼り付け・メニューを閉じる・Enter・受理待ち（閉じなければ `sent: true`・`ok: false`）→ `notes.Set` |
 
 固定時間の待ち（1 秒）は元仕様の手順どおり。それ以外の待ちは上限付きの条件待ち（ポーリング）で、`clock` を通す。
 
@@ -269,7 +269,7 @@ type Tool struct {
 ### 6.1 擬似エージェント `test/fakeagent`
 
 - 引数でアダプタ種別（`omp`・`claude`・`codex`）とシナリオ（`idle`・`working`・`ask`・`ask-custom`）を取り、サンプル画面を出力する。
-- 標準入力のキー（↑/↓・数字・Enter・bracketed paste）に反応して画面を書き換える（`ask` で ↑/↓ → カーソル移動、Enter → 閉じて `working` へ）。`/exit`・`/quit` でシェルに戻る。
+- 標準入力のキー（↑/↓・数字・Enter・bracketed paste）に反応して画面を書き換える（`ask` で ↑/↓ → カーソル移動、Enter → 閉じて `working` へ）。omp は 100 行以上の bracketed paste を `idle` で受けると貼り付けの確認メニューを出す（Esc → `idle` に戻る。Enter → ログに `PASTE_MENU_ENTER` を残して `idle` に戻り、送信にならない）。`/exit`・`/quit` でシェルに戻る。
 - 起動待ち・受理待ちはすべて準備完了の出力（標準出力の `READY` 行など）で同期し、固定時間の `sleep` を使わない（NFR-TEST-7）。
 
 ## 7. CI・リリース
