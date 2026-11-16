@@ -208,7 +208,11 @@ func TestAppWebhookPostsOnceAndKeepsSecretsOutOfLogs(t *testing.T) {
 		pl.ReportPath != filepath.Join(g.home, "reports", "T1.md") || pl.StateChangedAt == "" {
 		t.Errorf("payload = %+v", pl)
 	}
-	tmuxtest.Eventually(t, "台帳が送信済みになる", func() bool { return strings.Contains(g.ledger(), `"phase":"sent"`) })
+	// 送り終えた項目は outbox から消え、回は done になる（再起動しても二重に送らない）。
+	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+		l := g.ledger()
+		return strings.Contains(l, `"phase":"done"`) && strings.Contains(l, `"outbox":{}`)
+	})
 	g.stop()
 	assertNoSecrets(t, "ログ", g.logs.String())
 	assertNoSecrets(t, "台帳", g.ledger())
@@ -227,9 +231,11 @@ func TestAppWebhookFailureIsLoggedWithoutSecrets(t *testing.T) {
 	if !strings.Contains(logs, `"attempts":2`) {
 		t.Errorf("回数がログにありません:\n%s", logs)
 	}
-	if !strings.Contains(g.ledger(), `"phase":"failed"`) {
-		t.Errorf("台帳に失敗が残っていません: %s", g.ledger())
-	}
+	// 諦めた項目は outbox から消え、回は done のまま残る（二度と送らない）。
+	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+		l := g.ledger()
+		return strings.Contains(l, `"phase":"done"`) && strings.Contains(l, `"outbox":{}`)
+	})
 }
 
 // [webhook] を書かなければ（既定）、何も送らず、台帳も作らず、webhook のログも出さない。今までどおり動く。

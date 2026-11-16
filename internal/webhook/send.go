@@ -26,6 +26,8 @@ const (
 	reasonDNS      = "dns"
 	reasonConnect  = "connect"
 	reasonRequest  = "request"
+	// reasonExhausted は、読み込んだ項目がすでに上限まで送っていたので、送らずに諦めたこと。
+	reasonExhausted = "attempts_exhausted"
 )
 
 // 署名・認証のヘッダー名。値はログに出さない。
@@ -46,37 +48,56 @@ func newClient(timeout time.Duration) *http.Client {
 	}
 }
 
-// send は pl を POST する。成功（2xx）で nil。再送は最大 MaxAttempts 回（最初の 1 回を含む）で、間隔は
-// RetryInterval から倍々（上限 config.MaxWebhookRetryInterval）。ctx が終わったら、そこで止めて ctx のエラーを返す。
-func (n *Notifier) send(ctx context.Context, pl Payload) error {
-	body, err := json.Marshal(pl)
-	if err != nil {
-		n.o.Logger.Error("webhook の本文を作れませんでした", "event_id", pl.EventID)
+// send は項目の本文を、送れる（2xx）か諦めるまで POST する。送った回数の上限は MaxAttempts（最初の 1 回を含み、
+// 再起動をまたいで数える）で、間隔は RetryInterval から倍々（上限 config.MaxWebhookRetryInterval）。
+// 送れたら nil、諦めたら errGaveUp（理由はログに残す）、ctx が終わったらそのエラー。
+func (n *Notifier) send(ctx context.Context, it *item) error {
+	var pl Payload
+	if err := json.Unmarshal(it.Payload, &pl); err != nil {
+		n.o.Logger.Error("webhook の本文を読めませんでした", "event_id", it.EventID)
 		return errGaveUp
 	}
 	cfg := n.o.Config
-	delay := cfg.RetryInterval
-	for attempt := 1; ; attempt++ {
-		status, reason := n.post(ctx, pl.EventID, body)
+	for {
+		attempt, err := n.beginAttempt(ctx, it)
+		if errors.Is(err, errGaveUp) {
+			n.o.Logger.Error("webhook を送れませんでした", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane,
+				"attempts", attempt, "reason", reasonExhausted)
+			return errGaveUp
+		}
+		if err != nil {
+			return err
+		}
+		status, reason := n.post(ctx, it.EventID, it.Payload)
 		if reason == "" {
-			n.o.Logger.Info("webhook を送りました", "event_id", pl.EventID, "session", pl.Session, "pane", pl.Pane, "attempt", attempt, "status", status)
+			n.o.Logger.Info("webhook を送りました", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane, "attempt", attempt, "status", status)
 			return nil
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		if attempt >= cfg.MaxAttempts || !retryable(status, reason) {
-			n.o.Logger.Error("webhook を送れませんでした", "event_id", pl.EventID, "session", pl.Session, "pane", pl.Pane,
+			n.o.Logger.Error("webhook を送れませんでした", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane,
 				"attempts", attempt, "reason", reason, "status", status)
 			return errGaveUp
 		}
-		n.o.Logger.Warn("webhook の送信に失敗しました。あとで再送します", "event_id", pl.EventID, "session", pl.Session, "pane", pl.Pane,
+		delay := retryDelay(cfg.RetryInterval, attempt)
+		n.o.Logger.Warn("webhook の送信に失敗しました。あとで再送します", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane,
 			"attempt", attempt, "max_attempts", cfg.MaxAttempts, "retry_in", delay.String(), "reason", reason, "status", status)
 		if err := n.o.Sleep(ctx, delay); err != nil {
 			return err
 		}
-		delay = min(delay*2, config.MaxWebhookRetryInterval)
 	}
+}
+
+// retryDelay は attempt 回目の失敗のあとの待ち。RetryInterval から倍々で、上限は config.MaxWebhookRetryInterval。
+// 再起動後に続けるときも、送った回数から同じ値になる。
+func retryDelay(base time.Duration, attempt int) time.Duration {
+	d := base
+	for i := 1; i < attempt && d < config.MaxWebhookRetryInterval; i++ {
+		d *= 2
+	}
+	return min(d, config.MaxWebhookRetryInterval)
 }
 
 // post は 1 回送る。成功なら reason は ""。失敗の理由は固定の語で返し、err の文面は使わない。
@@ -109,17 +130,21 @@ func (n *Notifier) post(ctx context.Context, id string, body []byte) (status int
 	return resp.StatusCode, reasonStatus
 }
 
-// retryable は再送して意味がある失敗か。通信の失敗・タイムアウト・408・425・429・5xx は再送し、
-// そのほかの 4xx・3xx（リダイレクトは追わない）は設定の誤りなので再送しない。
+// retryable は再送して意味がある失敗か。接続・名前解決・TLS・タイムアウトの失敗と、応答の 408・425・429・5xx は再送する。
+// そのほかの 4xx・3xx（リダイレクトは追わない）と、リクエストを作れない失敗（reasonRequest。URL の誤りなど）は、
+// 設定の誤りなので再送しない。
 func retryable(status int, reason string) bool {
-	if reason != reasonStatus {
+	switch reason {
+	case reasonConnect, reasonDNS, reasonTimeout, reasonTLS:
 		return true
+	case reasonStatus:
+		switch status {
+		case http.StatusRequestTimeout, http.StatusTooEarly, http.StatusTooManyRequests:
+			return true
+		}
+		return status >= 500
 	}
-	switch status {
-	case http.StatusRequestTimeout, http.StatusTooEarly, http.StatusTooManyRequests:
-		return true
-	}
-	return status >= 500
+	return false
 }
 
 // classify はエラーを、URL・ホスト名を含まない固定の理由にする。

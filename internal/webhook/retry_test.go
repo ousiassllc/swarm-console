@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"bytes"
 	"net/http"
 	"os"
 	"reflect"
@@ -40,12 +41,19 @@ func TestRetriesUpToLimitThenLogsAndStops(t *testing.T) {
 	if !strings.Contains(logs, `"attempts":3`) || !strings.Contains(logs, `"reason":"http_status"`) || !strings.Contains(logs, `"status":503`) {
 		t.Errorf("回数・理由・応答がログにありません:\n%s", logs)
 	}
-	// 同じ回は、そのあと何度見ても、レポートを更新しても、再起動しても送り直さない。
+	// 諦めた回は、そのあと何度見ても、レポートを更新しても、再起動しても送り直さない（項目は消え、回は done）。
 	h.report(2000)
 	h.observe(agent.StateIdle)
 	h.observe(agent.StateIdle)
+	h.restart()
+	h.observe(agent.StateIdle)
+	h.report(3000)
+	h.observe(agent.StateIdle)
 	if got := len(h.received()); got != h.cfg.MaxAttempts {
 		t.Fatalf("上限のあとに送り直しました: %d 回", got)
+	}
+	if len(h.n.outbox) != 0 {
+		t.Errorf("諦めた項目が outbox に残っています: %d 件", len(h.n.outbox))
 	}
 }
 
@@ -116,8 +124,8 @@ func TestRetryDelayIsCapped(t *testing.T) {
 	}
 }
 
-// 終了（ctx の取り消し）で再送の待ちを止める。中断した回は失敗にせず、再起動後に続きから送る。
-func TestShutdownDuringRetryKeepsRoundForNextStart(t *testing.T) {
+// 終了（ctx の取り消し）で再送の待ちを止める。中断した項目は失敗にせず、再起動後に同じ本文で続きから送る。
+func TestShutdownDuringRetryKeepsItemForNextStart(t *testing.T) {
 	h := newHarness(t)
 	h.setStatus(http.StatusServiceUnavailable)
 	cancel := h.start()
@@ -131,10 +139,16 @@ func TestShutdownDuringRetryKeepsRoundForNextStart(t *testing.T) {
 	}
 
 	h.setStatus(http.StatusOK)
-	h.start() // 再起動
-	h.observe(agent.StateIdle)
-	if got := len(h.received()); got != 2 {
-		t.Fatalf("再起動後に続きから送っていません: %d 回", got)
+	h.restart() // 再起動。台帳の項目をここから送る
+	hits := h.received()
+	if len(hits) != 2 {
+		t.Fatalf("再起動後に続きから送っていません: %d 回", len(hits))
+	}
+	if !bytes.Equal(hits[0].body, hits[1].body) || hits[0].header.Get(headerEventID) != hits[1].header.Get(headerEventID) {
+		t.Error("再起動の前後で本文・event_id が変わっています")
+	}
+	if len(h.n.outbox) != 0 {
+		t.Errorf("送れた項目が outbox に残っています: %d 件", len(h.n.outbox))
 	}
 }
 

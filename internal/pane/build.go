@@ -40,7 +40,7 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 		r.built = true
 		return snap, nil
 	}
-	r.reconcileServer(ctx)
+	snap.ServerStart = r.reconcileServer(ctx)
 	infos = SortPanes(infos, cfg)
 	snap.TmuxSession = len(infos) > 0
 	snap.Warnings = append(snap.Warnings, missingSessions(infos, cfg.Sessions)...)
@@ -117,19 +117,21 @@ func missingSessions(infos []tmux.PaneInfo, sessions []string) []Warning {
 	return out
 }
 
-// reconcileServer は tmux サーバーの起動時刻を読んでメモ側に渡す（P-15）。サーバーが無い（空）ときは渡さない。
-func (r *SnapshotRegistry) reconcileServer(ctx context.Context) {
+// reconcileServer は tmux サーバーの起動時刻を読んでメモ側に渡し、その値を返す（P-15）。
+// サーバーが無い（空）・読めないときは渡さず、"" を返す（Snapshot.ServerStart も空になる）。
+func (r *SnapshotRegistry) reconcileServer(ctx context.Context) string {
 	start, err := r.deps.Tmux.ServerStart(ctx)
 	if err != nil {
 		r.log.Warn("tmux サーバーの起動時刻を読めませんでした", "err", err)
-		return
+		return ""
 	}
 	if start == "" {
-		return
+		return ""
 	}
 	if _, err := r.deps.Notes.ReconcileServer(ctx, start); err != nil {
 		r.log.Warn("tmux 再起動後のメモの整理に失敗しました", "err", err)
 	}
+	return start
 }
 
 // checkVersionOnce は最初の 1 回だけ tmux -V を読み、警告をログへ出す（P-24）。

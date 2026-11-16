@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 )
@@ -18,7 +17,7 @@ import (
 type Options struct {
 	Config    config.Webhook
 	ReportDir string
-	StatePath string // 台帳（送信済みの回）の保存先
+	StatePath string // 台帳（回と、送る約束をした項目）の保存先
 	Version   string // User-Agent に入れる
 	Logger    *slog.Logger
 	FS        pane.ReportFS // 最終報告ファイルの様子（Lstat だけ使う）。nil なら OSReportFS
@@ -27,19 +26,28 @@ type Options struct {
 	Sleep func(ctx context.Context, d time.Duration) error
 }
 
-// Notifier はスナップショットを見て、ペインが working → idle になり最終報告が書かれた回ごとに 1 回だけ webhook を送る。
-// pane.SnapshotObserver として registry に渡し、Start で送信を始める。
+// Notifier はスナップショットを見て、ペインが working → idle になり最終報告が書かれた回ごとに 1 件の送信（outbox の項目）を作り、
+// 送り終える（または諦める）まで届ける。pane.SnapshotObserver として registry に渡し、Start で送信を始める。
+//
+// 回（ペインごとの entries）と送信（outbox）は独立している。回は「いつ項目を作るか」だけを決め、項目を作ったら回は done になる。
+// 項目はペインの状態に左右されず、本文も回数の上限も再起動をまたいで引き継ぐ。
 type Notifier struct {
 	o Options
 
-	mu      sync.Mutex
-	entries map[string]*entry // キーは tmux のペイン ID
-	ctx     context.Context   // Start が決める。nil の間は送らず、待ちのままにする
-	closed  bool              // wait が呼ばれた。以後は新しく送らない
-	wg      sync.WaitGroup
+	mu          sync.Mutex
+	entries     map[string]*entry // キーは tmux のペイン ID
+	outbox      map[string]*item  // キーは event_id
+	serverStart string            // 台帳に書いた tmux サーバーの起動時刻
+	absent      map[string]int    // ペイン ID → 続けてスナップショットに無かった回数（保存しない）
+	ctx         context.Context   // Start が決める。nil の間は送らず、待ちのままにする
+	closed      bool              // wait が呼ばれた。以後は新しく送らない
+	wg          sync.WaitGroup
 }
 
-var _ pane.SnapshotObserver = (*Notifier)(nil)
+var (
+	_ pane.SnapshotObserver = (*Notifier)(nil)
+	_ slog.LogValuer        = (*Notifier)(nil)
+)
 
 // New は台帳を読んで Notifier を作る。台帳が壊れていても、空から始める（警告のログだけ）。
 // 呼び出し側は Config.Enabled() のときだけ作る（URL が無ければ何も作らない）。
@@ -62,18 +70,21 @@ func New(o Options) (*Notifier, error) {
 	if o.Sleep == nil {
 		o.Sleep = sleepCtx
 	}
-	entries, err := loadLedger(o.StatePath)
+	led, err := loadLedger(o.StatePath)
 	if err != nil {
 		o.Logger.Warn("webhook の台帳を読めませんでした。空から始めます", "path", o.StatePath, "err", err)
 	}
-	return &Notifier{o: o, entries: entries}, nil
+	return &Notifier{o: o, entries: led.Panes, outbox: led.Outbox, serverStart: led.ServerStart, absent: map[string]int{}}, nil
 }
 
-// Start は送信を始める（これ以前に作った回の待ちは、ここから送れる）。ctx が終わると再送の待ち・通信を中断し、
-// 返した関数が進行中の送信の終了を待つ。中断した回は台帳に残るので、再起動後に続きから送る。
+// Start は送信を始める。台帳から読んだ項目と、これ以前に作った項目の送信がここから動く。ctx が終わると再送の待ち・通信を中断し、
+// 返した関数が進行中の送信の終了を待つ。中断した項目は台帳に残るので、再起動後に同じ本文で続きから送る。
 func (n *Notifier) Start(ctx context.Context) (wait func()) {
 	n.mu.Lock()
 	n.ctx = ctx
+	for _, it := range n.outbox {
+		n.startItemLocked(it)
+	}
 	n.mu.Unlock()
 	return func() {
 		n.mu.Lock()
@@ -83,118 +94,19 @@ func (n *Notifier) Start(ctx context.Context) (wait func()) {
 	}
 }
 
-// Observe はスナップショット 1 つ分を処理する。pane.SnapshotObserver。通信は別 goroutine で行い、すぐ戻る。
-// ペインが 1 つも無いスナップショット（tmux に接続できない・一覧が空）は、状態の判定に使わない。
-func (n *Notifier) Observe(snap *pane.Snapshot) {
-	if snap == nil || len(snap.Panes) == 0 {
-		return
-	}
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	dirty := false
-	present := make(map[string]bool, len(snap.Panes))
-	for i := range snap.Panes {
-		p := &snap.Panes[i]
-		present[p.ID] = true
-		if n.step(snap, p) {
-			dirty = true
-		}
-	}
-	for id := range n.entries {
-		if !present[id] {
-			delete(n.entries, id) // 消えたペイン（tmux の ID は再起動で使い回されるので、残さない）
-			dirty = true
-		}
-	}
-	if dirty {
-		n.saveLocked()
-	}
-}
+// String・GoString・LogValue は、設定（URL・鍵・トークン）を持つ Notifier を fmt・slog に渡しても何も出さないための固定の文。
+// Options は unexported のフィールドに入っているので、fmt は Secret の String を呼ばず、値をそのまま出してしまう。
+func (*Notifier) String() string { return "webhook.Notifier" }
 
-// step は 1 ペインの回を進める。台帳が変わったら true。
-//
-//	working・stalled → 回を始める（そのときの最終報告を Base に覚える）
-//	idle（回あり）   → 待ちに移る。最終報告が Base から変わっていれば送る
-//	shell            → 回を捨てる
-//	asking・unknown  → 変えない（質問や一時的な判定不能をはさんでも、同じ回）
-func (n *Notifier) step(snap *pane.Snapshot, p *pane.PaneState) bool {
-	e := n.entries[p.ID]
-	switch p.State {
-	case agent.StateWorking, agent.StateStalled:
-		if e != nil && e.Phase == phaseWorking {
-			return false
-		}
-		n.entries[p.ID] = &entry{Phase: phaseWorking, Base: n.stat(p)}
-		return true
-	case agent.StateShell:
-		if e == nil {
-			return false
-		}
-		delete(n.entries, p.ID)
-		return true
-	case agent.StateIdle:
-		if e == nil {
-			return false
-		}
-		dirty := false
-		if e.Phase == phaseWorking {
-			e.Phase, e.ChangedAt, e.EventID = phaseWaiting, snap.At, eventID(p.Session, p.ID, snap.At)
-			dirty = true
-		}
-		if e.Phase == phaseWaiting && !e.sending {
-			if cur := n.stat(p); cur.Exists && cur != e.Base {
-				n.deliverLocked(p, e)
-			}
-		}
-		return dirty
-	}
-	return false
-}
+// GoString は fmt の %#v に使われる。
+func (*Notifier) GoString() string { return "webhook.Notifier" }
 
-// stat は最終報告ファイルの今の様子。無い・通常のファイルでない（リンク）なら「無し」。
-func (n *Notifier) stat(p *pane.PaneState) reportStat {
-	fi, err := n.o.FS.Lstat(pane.ReportPath(n.o.ReportDir, p.ReportPos()))
-	if err != nil || !fi.Mode().IsRegular() {
-		return reportStat{}
-	}
-	return reportStat{Exists: true, ModNS: fi.ModTime().UnixNano(), Size: fi.Size()}
-}
-
-// deliverLocked は e の回を別 goroutine で送る（n.mu を持って呼ぶ）。終わったら台帳を sent・failed にする。
-func (n *Notifier) deliverLocked(p *pane.PaneState, e *entry) {
-	ctx := n.ctx
-	if ctx == nil || n.closed || ctx.Err() != nil {
-		return
-	}
-	e.sending = true
-	pl := newPayload(n.o.ReportDir, p, e)
-	paneID := p.ID
-	n.wg.Go(func() { n.finish(paneID, pl.EventID, n.send(ctx, pl)) })
-}
-
-// finish は送信の結果を台帳に反映する。中断（終了処理）のときは待ちのままにして、再起動後に送り直す。
-// その間に回が変わっていたら（ペインが working に戻った・消えた）、何も書かない。
-func (n *Notifier) finish(paneID, id string, err error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	e := n.entries[paneID]
-	if e == nil || e.EventID != id {
-		return
-	}
-	e.sending = false
-	switch {
-	case err == nil:
-		e.Phase = phaseSent
-	case errors.Is(err, errGaveUp):
-		e.Phase = phaseFailed
-	default:
-		return
-	}
-	n.saveLocked()
-}
+// LogValue は slog の属性に使われる。
+func (*Notifier) LogValue() slog.Value { return slog.StringValue("webhook.Notifier") }
 
 func (n *Notifier) saveLocked() {
-	if err := saveLedger(n.o.StatePath, n.entries); err != nil {
+	f := ledgerFile{ServerStart: n.serverStart, Panes: n.entries, Outbox: n.outbox}
+	if err := saveLedger(n.o.StatePath, f); err != nil {
 		n.o.Logger.Warn("webhook の台帳を書けませんでした", "path", n.o.StatePath, "err", err)
 	}
 }

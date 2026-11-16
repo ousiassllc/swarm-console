@@ -1,6 +1,6 @@
 # ER / データモデル：config.toml・profiles.toml・最終報告・自己更新のファイル
 
-[ER / データモデル](er.md) の続き。§5 config.toml、§6 profiles.toml、§7 最終報告ファイル、§8 自己更新のファイルを定める。
+[ER / データモデル](er.md) の続き。§5 config.toml、§6 profiles.toml、§7 最終報告ファイル、§8 自己更新のファイル、§9 webhook の台帳を定める。
 
 改訂履歴は [ER / データモデル（本書）](er.md#改訂履歴) にまとめてある。
 
@@ -81,7 +81,7 @@ erDiagram
 | `file_get_roots` | 絶対パスの配列。省略は空（追加の根なし）。`file_get` の許可リストは、触れるセッションのペインの `cwd`・`report_dir` と、このキーの根の和（P-91）。ペインの `cwd` が `/` やホームそのもの（実パスで一致）のときは、その `cwd` だけを和から除く。このキーと `report_dir` に書いたものは `/` やホームでもそのまま許可する。`file_roots` とは別（`send_text` の `file` には効かない） |
 | `file_get_max_bytes` | 整数（バイト）。省略は `20971520`（20 MiB）。1 以上 `104857600`（100 MiB）以下。範囲外・整数でない値は起動拒否。`file_get` が返す 1 ファイルの上限（超えたら `too_large`） |
 | `agents.<name>` | `<name>` は `omp`・`claude`・`codex` だけ。書かれたキーだけ組み込みの既定を上書きする。正規表現（`working_re`・`ask_re`・`idle_re`・`status_line_re`・`border_re`・`process_match` の各要素）は起動時にコンパイルできること。`command`・`exit_command` は空文字不可で、改行・制御文字を含まない 1 行。`auth_file` は空文字不可（設定エラー）で、絶対パス（`~` 展開） |
-| `webhook` | 表 `[webhook]`（FR-STATE-1〜7。既定オフ）。`url`：文字列、省略か空文字ならオフ（何も作らず何も送らない）。`https://` だけ（`http://` は `127.0.0.1`・`localhost`・`::1` だけ）で、ユーザー名・パスワードを含まない。`secret`・`token`：文字列、省略か空ならそのヘッダー（`X-Swarm-Console-Signature`・`Authorization: Bearer`）を付けない。改行・制御文字を含まない 1 行。`max_attempts`：整数、既定 `5`、1〜10（最初の 1 回を含む）。`retry_interval`：期間、既定 `30s`、1s〜1h（最初の再送までの間隔。以後は倍々で 1h まで）。`timeout`：期間、既定 `10s`、1s〜1m（1 回の送信の上限）。違反は起動拒否で、エラー文に `url`・`secret`・`token` の値は入れない（NFR-SEC-18）。台帳は `~/.local/share/swarm-console/webhook-state.json`（600。ペイン ID ごとの回の段階・`event_id`・`state_changed_at`・`working` を見たときの最終報告ファイルの有無・更新時刻・サイズ。秘密の値は入らない） |
+| `webhook` | 表 `[webhook]`（FR-STATE-1〜7。既定オフ）。`url`：文字列、省略か空文字ならオフ（何も作らず何も送らない）。`https://` だけ（`http://` はループバックのアドレス（127.0.0.0/8・::1）と `localhost` だけ）で、ユーザー名・パスワードを含まない。`https` はどのホストでも受け付ける（ループバック・リンクローカル・プライベートのアドレスを指す URL は利用者の責任。NFR-SEC-18）。`secret`・`token`：文字列、省略か空ならそのヘッダー（`X-Swarm-Console-Signature`・`Authorization: Bearer`）を付けない。改行・制御文字を含まない 1 行。`max_attempts`：整数、既定 `5`、1〜10（最初の 1 回を含む）。`retry_interval`：期間、既定 `30s`、1s〜1h（最初の再送までの間隔。以後は倍々で 1h まで）。`timeout`：期間、既定 `10s`、1s〜1m（1 回の送信の上限）。違反は起動拒否で、エラー文に `url`・`secret`・`token` の値は入れない（NFR-SEC-18）。台帳は `~/.local/share/swarm-console/webhook-state.json`（600。形は §9。秘密の値は入らない） |
 | 未知のキー | 起動拒否（打ち間違いを検知する） |
 
 ### 5.1 `setup` による書き戻し
@@ -192,3 +192,38 @@ rules = [
 | `from`・`to`・`version` | `vX.Y.Z`（FR-UPD-3 の形）。読めない・形が違うファイルは無いものとして扱い、消す |
 | `boots` | 0 以上の整数。`serve` が起動の最初に 1 増やして書き戻し、3 以上になる起動で戻す。試運転が済んだらマーカーごと消える |
 | 書き込み | 一時ファイル → `rename`（NFR-AVL-3 と同じ作り）。権限 600 |
+
+## 9. webhook の台帳
+
+`[webhook] url` を書いたときだけ、`~/.local/share/swarm-console/webhook-state.json`（権限 600。`store.WriteFileAtomic`）を作る（FR-STATE-2。書かなければ作らない）。ペインごとの「回」と、送る約束をした「件」（outbox）を持つ。件は回と独立で、ペインが `working` に戻る・消える・tmux が再起動しても影響を受けない。
+
+```json
+{
+  "version": 2,
+  "server_start": "1731744000",
+  "panes": {
+    "%3": {
+      "phase": "done",
+      "event_id": "evt_0123456789abcdef0123456789abcdef",
+      "state_changed_at": "2026-11-16T09:00:05Z",
+      "report_base": {"exists": true, "mtime_ns": 1731744000000000000, "size": 1100},
+      "report_path": "/tmp/swarm-console/reports/T2.md"
+    }
+  },
+  "outbox": {
+    "evt_0123456789abcdef0123456789abcdef": {
+      "event_id": "evt_0123456789abcdef0123456789abcdef",
+      "payload": {"event": "pane.idle_report", "event_id": "evt_0123456789abcdef0123456789abcdef", "…": "FR-STATE-3 の本文そのもの"},
+      "attempts": 1
+    }
+  }
+}
+```
+
+| 項目 | 検証・意味 |
+|------|-----------|
+| `version` | `2`。違う（版 1 を含む）・JSON として読めないファイルは、警告のログ（台帳のパスと理由）を出して空から始める（送信は止めない） |
+| `server_start` | tmux サーバーの起動時刻（`#{start_time}`）。スナップショットの値が空でなく、台帳の値（空でない）と違えば、`panes` をすべて捨てて新しい値を書く（ペイン ID `%N` は再起動で使い回される）。`outbox` は残す。台帳の値が空なら書くだけ |
+| `panes`（キーは tmux のペイン ID） | `phase`：`working`（`working` を見た）・`waiting`（`idle` になり、最終報告が書かれるのを待つ）・`done`（件を作った。次の `working` まで、この回は二度と始めない）。`event_id`：`waiting` に移るときに決める（セッション・ペイン ID・移った時刻から）。`state_changed_at`：`waiting` に移った（`working` から `idle` を見た）時刻。`report_base`・`report_path`：基準にした最終報告ファイル（有無・更新時刻（ns）・サイズ）と、そのパス。現在のパスが `report_path` と違うとき（ペインの位置がずれたとき）は、違うファイル同士を比べず、新しいパスで基準を取り直す。続けて 2 回のスナップショットに無いペインの行と `shell` を見たペインの行は消す |
+| `outbox`（キーは `event_id`） | `payload`：送る本文そのもの（件を作るときに 1 度だけ作る。再送・再起動後も 1 バイトも変えない）。`attempts`：送った回数（POST の前に 1 増やして書く。再起動をまたいで `max_attempts` を共有する）。成功（2xx）か諦めた（`error` のログを出した）ら件を消す。終了による中断では残す |
+| 書き込みの順 | 回が「書けた」になったとき、`panes`（`done`）・`outbox`・`server_start` を 1 度に書いてから、最初の POST を始める |

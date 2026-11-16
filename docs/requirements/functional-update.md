@@ -42,7 +42,7 @@ URL は最新版が FR-UPD-3 の形に合うときだけ、その版から組み
 
 ### 12.3 通信と安全
 
-- 外向きの通信は、確認の `api.github.com` への GET 1 本と、自己更新のダウンロード（`github.com/ousiassllc/swarm-console/releases/download/<タグ>/…` とそのリダイレクト先。FR-UPD-13）だけ。待ち受けの方針（NFR-SEC-1・2: tailnet の IP だけ、インターネットに出さない）は変えない（NFR-SEC-15）。
+- 外向きの通信は、確認の `api.github.com` への GET 1 本と、自己更新のダウンロード（`github.com/ousiassllc/swarm-console/releases/download/<タグ>/…` とそのリダイレクト先。FR-UPD-13）だけ。待ち受けの方針（NFR-SEC-1・2: tailnet の IP だけ、インターネットに出さない）は変えない（NFR-SEC-15）（webhook（FR-STATE-7・NFR-SEC-18）は別。利用者が url を書いたときだけ）。
 - `host_status.update.latest` は FR-UPD-3 の形に合うときだけ出す（GitHub が返した文字列をそのまま MCP の応答に載せない）。ダウンロードの URL も、応答の URL ではなく、検証済みの版から組み立てる。
 - バイナリの置き場への書き込みは `~/bin/swarm-console/` の決まったファイルだけ（FR-UPD-15。NFR-SEC-14・16）。新しいバイナリは入れ替える前に実行しない（NFR-SEC-7）。
 

@@ -57,7 +57,7 @@ type Webhook struct {
 	Secret        Secret        // 空でなければ、本文の HMAC-SHA256 を X-Swarm-Console-Signature に付ける
 	Token         Secret        // 空でなければ Authorization: Bearer に付ける
 	MaxAttempts   int           // 最初の 1 回を含む送信の上限回数（1〜10）
-	RetryInterval time.Duration // 最初の再送までの間隔。以後は倍々で、上限は webhook の実装が持つ
+	RetryInterval time.Duration // 最初の再送までの間隔。以後は倍々で、上限は MaxWebhookRetryInterval
 	Timeout       time.Duration // 1 回の送信の上限
 }
 
@@ -82,8 +82,8 @@ func buildWebhook(r rawWebhook) (Webhook, error) {
 	if err := checkWebhookURL(r.URL); err != nil {
 		return Webhook{}, err
 	}
-	for key, v := range map[string]string{"webhook.secret": r.Secret, "webhook.token": r.Token} {
-		if err := CheckPlainLine(key, v); err != nil {
+	for _, c := range []struct{ key, value string }{{"webhook.secret", r.Secret}, {"webhook.token", r.Token}} { // 固定の順（エラーの出方を毎回同じにする）
+		if err := CheckPlainLine(c.key, c.value); err != nil {
 			return Webhook{}, err
 		}
 	}
@@ -117,13 +117,14 @@ func webhookDuration(key string, src *string, def, lo, hi time.Duration) (time.D
 	return d, nil
 }
 
-// checkWebhookURL は webhook.url が https（http は自分の機のループバックだけ）で、ユーザー情報を含まないことを確かめる。
-// 空はオフ。url.Parse のエラーは値を含むので、そのまま返さない。
+// checkWebhookURL は webhook.url が https（http はループバックのアドレス 127.0.0.0/8・::1 と localhost だけ）で、
+// ユーザー情報を含まないことを確かめる。https はどのホストでも受け付ける（ループバック・リンクローカル・プライベートの
+// アドレスを指す URL を書かないのは、利用者の責任）。空はオフ。url.Parse のエラーは値を含むので、そのまま返さない。
 func checkWebhookURL(s string) error {
 	if s == "" {
 		return nil
 	}
-	bad := errors.New("webhook.url は https://… の URL にしてください（http は 127.0.0.1・localhost・::1 だけ。ユーザー名・パスワードは URL に書けません）")
+	bad := errors.New("webhook.url は https://… の URL にしてください（http はループバックのアドレス（127.0.0.0/8・::1）と localhost だけ。ユーザー名・パスワードは URL に書けません）")
 	u, err := url.Parse(s)
 	if err != nil || u.Host == "" || u.Hostname() == "" || u.User != nil {
 		return bad

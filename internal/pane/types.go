@@ -75,6 +75,9 @@ type Snapshot struct {
 	Warnings []Warning
 	// TmuxSession は対象セッションのいずれかが存在するか（host_status.tmux_session）。
 	TmuxSession bool
+	// ServerStart は tmux サーバーの起動時刻（#{start_time}）。サーバーが無い・読めないときは ""。
+	// ペイン ID（%N）は tmux の再起動で使い回されるので、webhook の台帳が再起動を見分けるのに使う。
+	ServerStart string
 }
 
 // ReportPos は最終報告ファイル名（<位置>.md）に使う位置。セッションごとに別の名前になる（接頭辞つき）。

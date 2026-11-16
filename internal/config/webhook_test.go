@@ -1,14 +1,13 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
 	"testing"
 	"time"
-
-	"bytes"
 )
 
 func parseWebhook(t *testing.T, body string) (*Config, error) {
@@ -81,9 +80,9 @@ func TestWebhookRejectsBadValuesWithoutEchoingSecrets(t *testing.T) {
 	}
 }
 
-// ループバックへの http は許す（自分の機の受け手・テスト用）。
+// ループバック（127.0.0.0/8・::1）と localhost への http は許す（自分の機の受け手・テスト用）。
 func TestWebhookAllowsHTTPToLoopbackOnly(t *testing.T) {
-	for _, u := range []string{"http://127.0.0.1:9000/h", "http://localhost/h", "http://[::1]:9/h"} {
+	for _, u := range []string{"http://127.0.0.1:9000/h", "http://127.0.0.2/h", "http://localhost/h", "http://[::1]:9/h"} {
 		if _, err := parseWebhook(t, fmt.Sprintf("[webhook]\nurl = %q\n", u)); err != nil {
 			t.Errorf("%s: %v", u, err)
 		}

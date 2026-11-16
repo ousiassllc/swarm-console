@@ -94,6 +94,11 @@ type harness struct {
 	slept  []time.Duration
 	n      *Notifier
 	at     time.Time
+	note   *notes.Summary // ペインに付くメモ（テストが途中で替えられる）
+	// srvStart はスナップショットの ServerStart（tmux の起動時刻）。
+	srvStart string
+	cancel   context.CancelFunc // 今の Notifier の ctx を止める
+	wait     func()             // 今の Notifier の送信の終了を待つ
 	// onSleep は再送の待ちに入るたびに呼ぶ（受け手の復旧・終了の再現に使う）。
 	onSleep func()
 }
@@ -103,7 +108,8 @@ const reportPath = reportDir + "/0_T2.md"
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	h := &harness{t: t, fs: &fakeFS{files: map[string]reportFile{}}, logs: &bytes.Buffer{}, status: http.StatusOK,
-		state: filepath.Join(t.TempDir(), "webhook-state.json"), at: time.Date(2026, 11, 16, 9, 0, 0, 0, time.UTC)}
+		state: filepath.Join(t.TempDir(), "webhook-state.json"), at: time.Date(2026, 11, 16, 9, 0, 0, 0, time.UTC),
+		note: &notes.Summary{From: "そら", Repo: "ousiassllc/swarm-console", Items: []string{"#93"}, Next: "PR を出す"}}
 	h.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		h.mu.Lock()
@@ -120,8 +126,8 @@ func newHarness(t *testing.T) *harness {
 	return h
 }
 
-// start は台帳（h.state）から Notifier を作って Start する。ctx の終了は t.Cleanup で行う。
-func (h *harness) start() context.CancelFunc {
+// build は台帳（h.state）から Notifier を作る（Start はしない）。
+func (h *harness) build() {
 	h.t.Helper()
 	n, err := New(Options{
 		Config: h.cfg, ReportDir: reportDir, StatePath: h.state, Version: "test", FS: h.fs,
@@ -141,30 +147,62 @@ func (h *harness) start() context.CancelFunc {
 		h.t.Fatal(err)
 	}
 	h.n = n
+}
+
+// start は台帳から Notifier を作って Start する。ctx の終了は t.Cleanup でも行う。
+func (h *harness) start() context.CancelFunc {
+	h.t.Helper()
+	h.build()
+	h.begin()
+	return h.cancel
+}
+
+// begin は build した Notifier を Start する。
+func (h *harness) begin() {
 	ctx, cancel := context.WithCancel(context.Background())
-	wait := n.Start(ctx)
+	wait := h.n.Start(ctx)
+	h.cancel, h.wait = cancel, wait
 	h.t.Cleanup(func() { cancel(); wait() })
-	return cancel
+}
+
+// restart はプロセスの再起動の再現。今の Notifier を止め、送信の終了を待ってから、同じ台帳で新しく作って Start し、
+// 台帳から引き継いだ項目の送信が終わるまで待つ。
+func (h *harness) restart() {
+	h.t.Helper()
+	h.cancel()
+	h.wait()
+	h.start()
+	h.n.wg.Wait()
 }
 
 func (h *harness) pane(state agent.State) pane.PaneState {
-	return pane.PaneState{
-		ID: "%3", Session: "0", Pos: "T2", Local: "T2", GlobalPos: "0:T2", State: state,
-		Note: &notes.Summary{From: "そら", Repo: "ousiassllc/swarm-console", Items: []string{"#93"}, Next: "PR を出す"},
-	}
+	return h.paneAt("%3", "0:T2", "T2", state)
+}
+
+func (h *harness) paneAt(id, global, local string, state agent.State) pane.PaneState {
+	return pane.PaneState{ID: id, Session: "0", Pos: local, Local: local, GlobalPos: global, State: state, Note: h.note}
 }
 
 // observe は 5 秒進めて、state のペイン 1 つのスナップショットを渡し、始まった送信が終わるまで待つ。
 func (h *harness) observe(state agent.State) {
 	h.t.Helper()
+	h.snap(h.pane(state))
+}
+
+// snap は 5 秒進めて、panes のスナップショットを渡し、始まった送信が終わるまで待つ。
+func (h *harness) snap(panes ...pane.PaneState) {
+	h.t.Helper()
 	h.at = h.at.Add(5 * time.Second)
-	h.n.Observe(&pane.Snapshot{At: h.at, Panes: []pane.PaneState{h.pane(state)}})
+	h.n.Observe(&pane.Snapshot{At: h.at, Panes: panes, ServerStart: h.srvStart})
 	h.n.wg.Wait()
 }
 
 // report は最終報告ファイルを（更新時刻 mtime 秒で）置く。
-func (h *harness) report(mtimeSec int64) {
-	h.fs.put(reportPath, time.Unix(mtimeSec, 0), 100+mtimeSec)
+func (h *harness) report(mtimeSec int64) { h.reportAt(reportPath, mtimeSec) }
+
+// reportAt は path に最終報告ファイルを置く。
+func (h *harness) reportAt(path string, mtimeSec int64) {
+	h.fs.put(path, time.Unix(mtimeSec, 0), 100+mtimeSec)
 }
 
 func (h *harness) received() []hit {

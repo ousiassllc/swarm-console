@@ -1,4 +1,5 @@
-// Package webhook は、ペインが idle になってレポートが書けたときに、設定した URL へ 1 回だけ POST する（FR-STATE-1〜7・NFR-SEC-18）。
+// Package webhook は、ペインが idle になってレポートが書けたときに、設定した URL へ、idle の回ごとに 1 件だけ POST する（FR-STATE-1〜7・NFR-SEC-18）。
+// 送り終えた件は二度と送らない。送信の途中で止まったときだけ、再起動後に同じ件を同じ本文で送り直す（受け手は event_id で重複を捨てる）。
 // URL を設定しない（既定）と何も作らず、何も送らない。URL・署名の鍵・トークンはログ・エラー文に出さない。
 package webhook
 
