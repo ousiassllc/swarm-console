@@ -162,7 +162,8 @@ func readScreen(t *testing.T, name string) string {
 //   - fish-multiline-prompt.txt: #19 の報告（枠は右が開いている）
 //   - tide-framed-prompt.txt: 2026-11 の実機（fish 4.9 + tide 6、tmux-256color で cd ~ → clear のあと capture-pane -p）。
 //     tide_{left,right}_prompt_frame_enabled が true で、枠が右端まで閉じる（行末が ─╮ ─╯）。記号は ❮（#97）
-var closedScreens = []string{"fish-multiline-prompt.txt", "tide-framed-prompt.txt"}
+//   - tide-framed-prompt-insert.txt: 同じ画面で記号だけ ❯（insert モード）。実機の T1・T3 の記号は未確認なので両方を持つ
+var closedScreens = []string{"fish-multiline-prompt.txt", "tide-framed-prompt.txt", "tide-framed-prompt-insert.txt"}
 
 // 枠付き複数行のプロンプト（fish）でも、片付いていれば ok: true・メモを履歴へ移す。
 func TestCloseMultilinePromptOK(t *testing.T) {
