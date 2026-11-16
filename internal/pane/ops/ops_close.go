@@ -19,8 +19,9 @@ const (
 	stepTitle = "title"
 )
 
-// promptSuffixes はシェルのプロンプトらしい行の末尾。
-var promptSuffixes = []string{"$", "#", "%", ">", "❯", "➜", "»"}
+// promptSuffixes はシェルのプロンプトらしい行の末尾。❮ は tide（fish）の vi モード記号で、
+// key bindings の設定によっては通常の入力待ちでもこの記号になる。
+var promptSuffixes = []string{"$", "#", "%", ">", "❯", "❮", "➜", "»"}
 
 // Close はエージェントを終了してシェルを片付け、画面を確かめる。idle・shell のみ（P-19）。
 // 終了コマンドのあとは、ペインが shell に戻るまで待ってから cd ~ 以降を送る。accept_timeout までに戻らなければ
@@ -167,15 +168,21 @@ func (o *Operator) promptOnly(lines []string) bool {
 // framedPrompt は非空行（前後の空白は除去済み）が、1 つの枠付きプロンプトか。
 // 先頭行が上枠（╭┌╔┏）で始まり ~ を含み、末尾行が下枠（╰└╚┗）で始まって promptSuffixes のどれかで終わる。
 // 間の行は無いか、縦線（│├┃║）だけ。枠の中に出力があれば片付いていない。
-// 右端まで閉じた枠（╮┐╗┓ や ╯┘╝┛ で終わる行）は、別のアプリの箱であってプロンプトではない。
+// tide の右の枠（tide_right_prompt_frame_enabled）のように、先頭行が ╮┐╗┓、末尾行が ╯┘╝┛ で終わって
+// 右端まで閉じていてもよい（両方そろったときだけ）。末尾行は閉じ括り（水平線・空白・╯┘╝┛）を除いた
+// 残りがプロンプトの記号で終わること。出力や入力が残っていれば記号で終わらず、片付いていない。
 func framedPrompt(nonBlank []string) bool {
 	n := len(nonBlank)
 	first, last := nonBlank[0], nonBlank[n-1]
-	if n > maxPromptLines || !startsWithAny(first, "╭┌╔┏") || !startsWithAny(last, "╰└╚┗") {
+	if n > maxPromptLines || !startsWithAny(first, "╭┌╔┏") || !startsWithAny(last, "╰└╚┗") || !strings.Contains(first, "~") {
 		return false
 	}
-	if endsWithAny(first, "╮┐╗┓") || endsWithAny(last, "╯┘╝┛") || !strings.Contains(first, "~") {
+	closed := endsWithAny(first, "╮┐╗┓")
+	if closed != endsWithAny(last, "╯┘╝┛") {
 		return false
+	}
+	if closed {
+		last = strings.TrimRight(strings.TrimRight(last, "╯┘╝┛"), " ─━═")
 	}
 	if !slices.ContainsFunc(promptSuffixes, func(s string) bool { return strings.HasSuffix(last, s) }) {
 		return false

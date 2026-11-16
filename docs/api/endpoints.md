@@ -191,3 +191,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.20 | 2026-11-05 | endpoints-pane.md §5.1・endpoints-state.md §5.3・endpoints-report.md §5.5：`/proc/meminfo` を読めないときは `panes_status` の `host.mem_free_gb`、`host_status` の `mem_free_gb`・`mem_total_gb` も 0 になると明記（`report`・`host_status` の `mem.available` で見分ける。`panes_status` には印がない。P-95） | Issue #86 |
 | 1.21 | 2026-11-08 | `dir_list`（`/ops` のみ。`pane_start` の `cwd` に選べるディレクトリを 1 階層ずつ返す読み取りツール）を追加（ツール数 /ops 19→20、/report は 10 のまま）。`path_forbidden`・`not_found` の対象に `dir_list` を追加（`not_directory` を追記。§3.2）。§2：`pair --scope report`・`pair --scope ops`（`ops` は `/ops` の接続文字列と強い警告。既定は従来どおり `report`）。endpoints-pane.md §5.2 も同じ | Issue #90 |
 | 1.22 | 2026-11-09 | §2：`pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は変えない） | Issue #89 |
+| 1.23 | 2026-11-16 | endpoints-pane.md `pane_close`：「`~` のプロンプトだけ」の枠付きプロンプトは、右端まで閉じたもの（tide の右の枠。行末が `╮` と `╯`）と記号 `❮` も含むと改めた（1.4 以降の「右端まで閉じた箱はプロンプトとみなさない」を、中身が出力・入力の箱だけに絞った） | Issue #97（#19 の再発） |
