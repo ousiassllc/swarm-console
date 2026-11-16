@@ -32,8 +32,11 @@ func newWebhook(cfg *config.Config, version string, logger *slog.Logger) (*webho
 			}
 		}
 	}
-	logger.Info("webhook の通知を有効にしました", "default_url", cfg.Webhook.URL != "", "session_urls", own, "session_off", off,
-		"max_attempts", cfg.Webhook.MaxAttempts, "retry_interval", cfg.Webhook.RetryInterval.String())
+	attrs := []any{"default_url", cfg.Webhook.URL != "", "session_urls", own, "session_off", off}
+	if cfg.Webhook.URL != "" { // 再送の設定は [webhook] の送り先のものだけを出す（セッションの表の値は、表ごとに違うので出さない）
+		attrs = append(attrs, "max_attempts", cfg.Webhook.MaxAttempts, "retry_interval", cfg.Webhook.RetryInterval.String())
+	}
+	logger.Info("webhook の通知を有効にしました", attrs...)
 	return n, nil
 }
 
