@@ -44,3 +44,14 @@ func (n *Notifier) beginAttempt(ctx context.Context, it *item) (attempt int, err
 	n.saveLocked()
 	return it.Attempts, nil
 }
+
+// refundAttempt は、終了で中断された送信の分を送った回数から戻して台帳に書く。
+// 中断された通信は、受け手が受け取ったか分からないが、上限を使い切ったことにはしない。
+func (n *Notifier) refundAttempt(it *item) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if it.Attempts > 0 {
+		it.Attempts--
+		n.saveLocked()
+	}
+}

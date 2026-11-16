@@ -4,13 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
+
+	"github.com/ousiassllc/swarm-console/internal/config"
 )
 
 // 再送して意味がある失敗だけ true。リクエストを作れない（reasonRequest）・設定の誤り（404・302）は再送しない。
@@ -81,26 +87,81 @@ func TestClassify(t *testing.T) {
 		}
 	})
 	t.Run("名前解決", func(t *testing.T) {
-		err := get(t, newClient(5*time.Second), "http://swarm-console-test.invalid/")
-		var dnsErr *net.DNSError
-		if !errors.As(err, &dnsErr) {
-			t.Skipf("この環境では名前解決の失敗が DNSError にならない: %T", errors.Unwrap(err))
-		}
+		// 実際の名前解決は環境によって結果が違うので、エラーを組み立てて確かめる。
+		err := &url.Error{Op: "Post", URL: "https://swarm-console-test.invalid/", Err: &net.DNSError{Err: "no such host", Name: "swarm-console-test.invalid", IsNotFound: true}}
 		if got := classify(err); got != reasonDNS {
 			t.Errorf("classify = %q, want %q", got, reasonDNS)
 		}
 	})
-	t.Run("取り消し・そのほか", func(t *testing.T) {
+	t.Run("取り消し", func(t *testing.T) {
 		if got := classify(fmt.Errorf("x: %w", context.Canceled)); got != reasonCanceled {
 			t.Errorf("canceled: %q", got)
 		}
 		if got := classify(context.DeadlineExceeded); got != reasonTimeout {
 			t.Errorf("deadline: %q", got)
 		}
-		if got := classify(errors.New("unsupported protocol scheme")); got != reasonRequest {
-			t.Errorf("そのほか: %q", got)
-		}
 	})
+}
+
+// 応答なしで切れた（EOF）・接続のリセット・分類できない通信の失敗は、一時的な失敗として扱う（reasonConnect。再送する）。
+func TestClassifyTransportFailuresAreRetryable(t *testing.T) {
+	for name, err := range map[string]error{
+		"EOF":                   &url.Error{Op: "Post", URL: "https://x/", Err: io.EOF},
+		"ErrUnexpectedEOF":      io.ErrUnexpectedEOF,
+		"ECONNRESET(OpError)":   &url.Error{Op: "Post", URL: "https://x/", Err: &net.OpError{Op: "read", Net: "tcp", Err: syscall.ECONNRESET}},
+		"ECONNRESET(url.Error)": &url.Error{Op: "Post", URL: "https://x/", Err: syscall.ECONNRESET},
+		"分類できない":                errors.New("unsupported protocol scheme"),
+	} {
+		got := classify(err)
+		if got != reasonConnect || !retryable(0, got) {
+			t.Errorf("%s: classify = %q（retryable=%v）, want %q で再送する", name, got, retryable(0, got), reasonConnect)
+		}
+	}
+}
+
+// 応答なしで接続を切られた（EOF）ときは再送し、次の試行で届く。ちょうど 2 回の POST。
+func TestEOFWithoutResponseIsRetriedAndDelivered(t *testing.T) {
+	h := newHarness(t)
+	var calls atomic.Int32
+	h.mu.Lock()
+	h.intercept = func(w http.ResponseWriter, _ *http.Request) bool {
+		if calls.Add(1) > 1 {
+			return false
+		}
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err == nil {
+			_ = conn.Close()
+		}
+		return true
+	}
+	h.mu.Unlock()
+	h.setStatus(http.StatusNoContent)
+	h.start()
+	h.idleWithReport()
+	if got := len(h.received()); got != 2 {
+		t.Fatalf("POST = %d 回, want 2", got)
+	}
+	logs := h.logs.String()
+	if !strings.Contains(logs, "webhook を送りました") || strings.Contains(logs, `"level":"ERROR"`) {
+		t.Errorf("届いたはずです:\n%s", logs)
+	}
+	if !strings.Contains(logs, `"reason":"connect"`) || len(h.n.outbox) != 0 {
+		t.Errorf("1 回目の失敗の理由・outbox が違います: outbox=%d\n%s", len(h.n.outbox), logs)
+	}
+}
+
+// リクエストを作れない（URL の誤り）だけは、再送せずに諦める（reasonRequest）。
+func TestUnbuildableRequestIsNotRetried(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.URL = config.Secret("https://bad host/\x7f")
+	h.start()
+	h.idleWithReport()
+	if len(h.received()) != 0 || len(h.sleeps()) != 0 {
+		t.Fatalf("POST = %d 回, 待ち = %d 回, want 0・0", len(h.received()), len(h.sleeps()))
+	}
+	if logs := h.logs.String(); !strings.Contains(logs, `"reason":"request"`) || !strings.Contains(logs, `"attempts":1`) {
+		t.Errorf("理由・回数がログにありません:\n%s", logs)
+	}
 }
 
 // Notifier を fmt・slog に渡しても、設定（URL・鍵・トークン）は出ない。

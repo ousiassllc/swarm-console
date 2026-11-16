@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/notes"
@@ -161,8 +163,9 @@ func TestAttemptsAreSharedAcrossRestart(t *testing.T) {
 	if !strings.Contains(logs, `"level":"ERROR"`) || !strings.Contains(logs, `"attempts":3`) {
 		t.Errorf("諦めたことがログにありません:\n%s", logs)
 	}
-	if len(h.n.outbox) != 0 || len(h.sleeps()) != 2 {
-		t.Errorf("outbox = %d 件, 待ち = %d 回, want 0・2", len(h.n.outbox), len(h.sleeps()))
+	// 待ちは、再起動の前に 2 回（30s・60s）。再起動後は、続きの前に 2 回目の失敗の分（60s）を待つ。
+	if got, want := h.sleeps(), []time.Duration{30 * time.Second, 60 * time.Second, 60 * time.Second}; len(h.n.outbox) != 0 || !reflect.DeepEqual(got, want) {
+		t.Errorf("outbox = %d 件, 待ち = %v, want 0・%v", len(h.n.outbox), got, want)
 	}
 }
 

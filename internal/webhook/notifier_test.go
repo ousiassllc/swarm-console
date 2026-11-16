@@ -98,8 +98,9 @@ func TestStaleReportFromEarlierRoundDoesNotTrigger(t *testing.T) {
 	}
 }
 
-// 質問（asking）・判定不能（unknown）をはさんでも同じ回。asking → idle は回の終わり。
-// shell に戻ったら回を捨てる（そのあとの idle では送らない）。stalled → idle も working → idle として扱う。
+// working のあとに asking・unknown・stalled をはさんでも同じ回で、idle とレポートで POST が 1 回だけ届く。
+// shell に戻ったら回を捨てる（そのあとの idle では送らない）。working を見ていない（回を持たない）ペインは、
+// asking をはさんで idle になり、レポートが書かれても何も送らない。
 func TestRoundSurvivesAskingAndUnknown(t *testing.T) {
 	h := newHarness(t)
 	h.start()

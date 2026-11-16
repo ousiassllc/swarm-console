@@ -58,6 +58,12 @@ func (n *Notifier) send(ctx context.Context, it *item) error {
 		return errGaveUp
 	}
 	cfg := n.o.Config
+	// 再起動で引き継いだ件は、送った回数に応じた間隔をあけてから続ける（再送の待ちの途中で止まったときの続き）。
+	if it.Attempts > 0 && it.Attempts < cfg.MaxAttempts {
+		if err := n.o.Sleep(ctx, retryDelay(cfg.RetryInterval, it.Attempts)); err != nil {
+			return err
+		}
+	}
 	for {
 		attempt, err := n.beginAttempt(ctx, it)
 		if errors.Is(err, errGaveUp) {
@@ -73,8 +79,9 @@ func (n *Notifier) send(ctx context.Context, it *item) error {
 			n.o.Logger.Info("webhook を送りました", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane, "attempt", attempt, "status", status)
 			return nil
 		}
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if err := ctx.Err(); err != nil {
+			n.refundAttempt(it) // 終了で中断した通信は、送った回数に数えない（再起動後に、その分をやり直す）
+			return err
 		}
 		if attempt >= cfg.MaxAttempts || !retryable(status, reason) {
 			n.o.Logger.Error("webhook を送れませんでした", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane,
@@ -130,9 +137,9 @@ func (n *Notifier) post(ctx context.Context, id string, body []byte) (status int
 	return resp.StatusCode, reasonStatus
 }
 
-// retryable は再送して意味がある失敗か。接続・名前解決・TLS・タイムアウトの失敗と、応答の 408・425・429・5xx は再送する。
-// そのほかの 4xx・3xx（リダイレクトは追わない）と、リクエストを作れない失敗（reasonRequest。URL の誤りなど）は、
-// 設定の誤りなので再送しない。
+// retryable は再送して意味がある失敗か。通信の失敗（接続・名前解決・TLS・タイムアウト・応答なしで切れた）と、
+// 応答の 408・425・429・5xx は再送する。そのほかの 4xx・3xx（リダイレクトは追わない）と、リクエストを作れない失敗
+// （reasonRequest。URL の誤りなど）は、設定の誤りなので再送しない。
 func retryable(status int, reason string) bool {
 	switch reason {
 	case reasonConnect, reasonDNS, reasonTimeout, reasonTLS:
@@ -147,7 +154,9 @@ func retryable(status int, reason string) bool {
 	return false
 }
 
-// classify はエラーを、URL・ホスト名を含まない固定の理由にする。
+// classify は client.Do のエラーを、URL・ホスト名を含まない固定の理由にする。取り消し・タイムアウト・TLS・名前解決・
+// 接続のほか、分類できない通信の失敗（EOF・接続のリセットなど）も reasonConnect にして再送する
+// （リクエストを作れない失敗だけが reasonRequest で、それは post が直接返す）。
 func classify(err error) string {
 	var certErr *tls.CertificateVerificationError
 	var dnsErr *net.DNSError
@@ -167,7 +176,7 @@ func classify(err error) string {
 	case errors.As(err, &opErr):
 		return reasonConnect
 	}
-	return reasonRequest
+	return reasonConnect
 }
 
 // sleepCtx は d 待つ。ctx が終わったらそのエラーで戻る。

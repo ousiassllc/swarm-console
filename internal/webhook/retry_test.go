@@ -152,13 +152,18 @@ func TestShutdownDuringRetryKeepsItemForNextStart(t *testing.T) {
 	}
 }
 
-// Issue #93: 秘密の値（URL・署名の鍵・トークン）は、成功・失敗（応答・接続不能）・中断のどの経路でも、ログにも台帳にも出ない。
+// Issue #93: 秘密の値（URL・署名の鍵・トークン）は、成功・503・接続不能・リダイレクト・中断（再送の待ちで終了。台帳に件が残る）の
+// どの経路でも、ログにも台帳にも出ない。
 func TestSecretsNeverAppearInLogsOrLedger(t *testing.T) {
 	for name, setup := range map[string]func(h *harness){
 		"成功":     func(*harness) {},
 		"503":    func(h *harness) { h.setStatus(http.StatusServiceUnavailable) },
 		"接続不能":   func(h *harness) { h.srv.Close() },
 		"リダイレクト": func(h *harness) { h.setStatus(http.StatusFound) },
+		"中断": func(h *harness) {
+			h.setStatus(http.StatusServiceUnavailable)
+			h.onSleep = func() { h.cancel() } // 1 回目の失敗のあとの再送の待ちで終了する
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)

@@ -99,6 +99,9 @@ type harness struct {
 	srvStart string
 	cancel   context.CancelFunc // 今の Notifier の ctx を止める
 	wait     func()             // 今の Notifier の送信の終了を待つ
+	// intercept があれば、POST を記録したあとに呼ぶ。true を返したら、受け手はそれ以上応答しない
+	// （応答なしで接続を切る・通信の途中で止める再現に使う）。
+	intercept func(w http.ResponseWriter, r *http.Request) bool
 	// onSleep は再送の待ちに入るたびに呼ぶ（受け手の復旧・終了の再現に使う）。
 	onSleep func()
 }
@@ -114,8 +117,11 @@ func newHarness(t *testing.T) *harness {
 		body, _ := io.ReadAll(r.Body)
 		h.mu.Lock()
 		h.hits = append(h.hits, hit{r.Header.Clone(), body})
-		code := h.status
+		code, intercept := h.status, h.intercept
 		h.mu.Unlock()
+		if intercept != nil && intercept(w, r) {
+			return
+		}
 		w.WriteHeader(code)
 	}))
 	t.Cleanup(h.srv.Close)

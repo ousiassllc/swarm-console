@@ -28,6 +28,7 @@ tmux の中で動く AI コーディングエージェント（omp・Claude Code
 - サーバー側で組み立てる `report`（日本語・英語の markdown）と `dispatch`（条件のひな形つき指示文）
 - MCP の prompts（`report`・`dispatch`）と resources（`swarm://report`・`swarm://pane/<位置>`・`swarm://notes/<位置>`）
 - クライアントごとの Bearer トークン（窓口付き。触れる tmux セッションも付けられる）の発行・無効化 CLI
+- ペインが `working` から `idle` になりレポートが書けたときの webhook 通知（任意。既定はオフ。tailnet の外へ送るので、利用者が `[webhook] url` を書いたときだけ。FR-STATE-1〜7）
 - systemd ユーザーサービスとしての常駐、GitHub Releases での配布、CI（build・vet・golangci-lint・linterly・release plan test・install script test・test -race。[環境構築：CI/CD](environment/setup-ci.md#cicd)）
 - 実 tmux と擬似エージェント画面を使ったテスト
 
