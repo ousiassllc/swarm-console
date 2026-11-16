@@ -253,3 +253,19 @@ func TestRenderFirstAgentSetting(t *testing.T) {
 		})
 	}
 }
+
+// 手書きの [webhook]（秘密の値を含む）は、setup が別のキーを変えても 1 バイトも変わらない（FR-STATE-4。setup は聞かない）。
+func TestRenderKeepsHandwrittenWebhook(t *testing.T) {
+	hook := "\n[webhook]\nurl = \"https://hooks.example.com/x\"  # 送り先\ntoken = \"t\"\nmax_attempts = 3\n"
+	src := handwritten(t) + hook
+	st := loadBody(t, src)
+	ans := answersOf(st)
+	ans.ListenAddr = "127.0.0.1:50000"
+	out, err := Render(st, Diff(st, ans, testHome))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(string(out), hook) || !strings.Contains(string(out), `"127.0.0.1:50000"`) {
+		t.Fatalf("[webhook] が変わっています:\n%s", out)
+	}
+}

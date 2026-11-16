@@ -90,6 +90,20 @@
 # 最終報告ファイルを置くフォルダ。既定 "/tmp/swarm-console/reports"
 # report_dir = "/tmp/swarm-console/reports"
 
+# --- ペインが idle になってレポートが書けたときの webhook（FR-STATE-1〜7） ---
+# url を書いたときだけ、ペインが working → idle になり、最終報告ファイルが書かれた（更新された）回ごとに 1 件、
+# JSON を POST する（止まったときだけ、再起動後に同じ件を送り直す。受け手は event_id で重複を捨てる）。書かなければ（既定）何も送らない。tailnet の外へ送ることになるので、送り先は明示して決める。
+# url は https:// だけ（http はループバックのアドレス 127.0.0.0/8・::1 と localhost だけ）。URL にトークンを含む受け手もあるので、url の値もログに出さない。
+# secret・token の値もログ・エラーに出さない。値は config.toml の中だけに置く（権限 600 を勧める）。
+
+# [webhook]
+# url = ""                     # 送り先。空（既定）ならオフ
+# secret = ""                  # 空でなければ、本文の HMAC-SHA256 を X-Swarm-Console-Signature: sha256=<hex> に付ける
+# token = ""                   # 空でなければ Authorization: Bearer <token> を付ける
+# max_attempts = 5             # 最初の 1 回を含む送信の上限回数（1〜10）
+# retry_interval = "30s"       # 最初の再送までの間隔（1s〜1h）。以後は倍々で、1h を超えない
+# timeout = "10s"              # 1 回の送信の上限（1s〜1m）
+
 # --- ペインの固定名（"セッション:ウィンドウ.ペイン番号" = "名前"） ---
 
 # [pane_names]

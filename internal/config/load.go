@@ -69,6 +69,8 @@ type rawConfig struct {
 
 	UsageCheck    *bool   `toml:"usage_check"`
 	UsageInterval *string `toml:"usage_interval"`
+
+	Webhook rawWebhook `toml:"webhook"`
 }
 
 // Load は config.toml を読み、未知キーの拒否・検証・既定値の適用・`~` 展開・パスの Clean を行う。
@@ -170,6 +172,9 @@ func build(r *rawConfig, home string) (*Config, error) {
 	c.UpdateCheck = boolOr(r.UpdateCheck, true)
 	c.UpdateAuto = boolOr(r.UpdateAuto, true)
 	c.UsageCheck = boolOr(r.UsageCheck, true)
+	if c.Webhook, err = buildWebhook(r.Webhook); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 

@@ -12,6 +12,7 @@
 | バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から。最初の導入は `make install`。Releases への掲載は main の CI 成功ごとに自動。`serve` が自分で入れ替える。`update_auto = false` のときは手で入れ替え）。同じフォルダに `swarm-console.new`・`.old`・`.update-pending`・`.update-failed` が一時的にできる（ER §8） |
 | 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`templates/`（任意） |
 | データ | `~/.local/share/swarm-console/notes.json`（600） |
+| 通知の台帳 | `~/.local/share/swarm-console/webhook-state.json`（600。`[webhook] url` を書いたときだけできる。FR-STATE-2） |
 | 最終報告 | `/tmp/swarm-console/reports/<位置>.md`（エージェントが書く）、`archive/`（サーバーが移す） |
 | 待ち受け | `config.toml` の `listen_addr`（example-host の tailnet IP:48120） |
 | 常駐 | systemd ユーザーサービス `swarm-console.service` |
@@ -70,5 +71,6 @@ WantedBy=default.target
 | `usage_check` | `true` | `serve` が `omp usage --json` で使用状況を取る（FR-REP-12）。`omp` の確認（FR-REP-15）は `update_check` に従う |
 | `usage_interval` | `5m`（1m 以上） | 使用状況の取得の間隔 |
 | `update_auto` | `true` | 新しい版を見つけたら `serve` が自分で入れ替える（FR-UPD-19。`update_check = false` なら無効） |
+| `[webhook]` | なし（オフ） | ペインが `working` → `idle` になり最終報告が書けた回ごとに 1 件、`url` へ POST する（止まったときだけ再起動後に同じ件を送り直す。受け手は `event_id` で重複を捨てる）（FR-STATE-1〜7）。`url`（空ならオフ）・`secret`・`token`・`max_attempts`（`5`、1〜10）・`retry_interval`（`30s`、1s〜1h）・`timeout`（`10s`、1s〜1m） |
 | `[pane_names]` | なし | 位置の固定名 |
 | `[agents.<name>]` | 組み込み | アダプタの上書き（コマンド・正規表現・認証ファイル） |

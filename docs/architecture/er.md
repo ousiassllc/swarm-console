@@ -1,6 +1,6 @@
 # ER / データモデル
 
-本システムに RDB はない。永続データは次のファイルだけで、実行時の状態はメモリ上に持つ。このドキュメントはそれらのデータモデル（ファイルのスキーマ・関係・制約）を定める。実装時の構造体・バリデーションの根拠になる。
+本システムに RDB はない。永続データは次の表のファイルだけで、実行時の状態はメモリ上に持つ。このドキュメントはそれらのデータモデル（ファイルのスキーマ・関係・制約）を定める。実装時の構造体・バリデーションの根拠になる。
 
 | 区分 | 実体 | 置き場 | 権限 |
 |------|------|--------|------|
@@ -9,6 +9,7 @@
 | 永続（人が編集。`setup` も書く） | 設定 `config.toml` | `~/.config/swarm-console/config.toml` | 644 以下（`setup` が新規に作るときは 600） |
 | 永続（人が編集） | 条件のひな形 `profiles.toml` | `~/.config/swarm-console/profiles.toml` | 644 以下 |
 | 永続（人が編集、任意） | レポートのテンプレート | `~/.config/swarm-console/templates/report.{ja,en}.md` | — |
+| 永続（書き込み。`[webhook] url` を書いたときだけ） | webhook の台帳 `webhook-state.json` | `~/.local/share/swarm-console/webhook-state.json` | 600 |
 | 外部が書く | 最終報告 `<位置>.md` | `/tmp/swarm-console/reports/` | エージェントが書く |
 | 永続（書き込み: 自己更新のみ） | 旧バイナリの退避・試運転のマーカー・戻した版の記録 | `~/bin/swarm-console/swarm-console.{old,update-pending,update-failed}`（と一時の `swarm-console.new`） | 600（`.old`・`.new` は 755） |
 | 実行時（メモリ） | スナップショット・ペイン状態 | プロセス内 | — |
@@ -17,7 +18,7 @@
 
 - [ER / データモデル（本書）](er.md)：ファイル一覧、§1 全体 ER 図、§2 notes.json
 - [ER：tokens.toml・実行時のペイン状態](er-runtime.md)：§3 tokens.toml、§4 実行時のペイン状態（メモリ）
-- [ER：config.toml・profiles.toml ほか](er-config.md)：§5 config.toml、§6 profiles.toml、§7 最終報告ファイル、§8 自己更新のファイル
+- [ER：config.toml・profiles.toml ほか](er-config.md)：§5 config.toml、§6 profiles.toml、§7 最終報告ファイル、§8 自己更新のファイル、§9 webhook の台帳
 
 ## 1. 全体ER図
 
@@ -250,3 +251,4 @@ erDiagram
 | 1.15 | 2026-11-04 | §5 config.toml（er-config.md）：`file_get_roots` の説明に、ペインの `cwd` が `/` やホームそのものなら `cwd` は許可に入れず、明示した根はそのまま許可と追記（P-91）。既存の config はそのまま動く | Issue #82 |
 | 1.16 | 2026-11-05 | er-runtime.md：HOST_STATE に `mem`（`MemTotal`・`MemAvailable` から。P-93）、`usage` のアカウントに `reason`（P-94）を追記 | Issue #86・#87 |
 | 1.17 | 2026-11-05 | er-runtime.md：HOST_STATE の `mem` は、`/proc/meminfo` を読めないときも `host` の他の値を残して取得できずにする（P-95） | Issue #86 |
+| 1.18 | 2026-11-16 | §5 config.toml に `[webhook]`（`url`・`secret`・`token`・`max_attempts`・`retry_interval`・`timeout`。既定オフ）、永続ファイルの表と §9 に台帳 `webhook-state.json`（版 2：`server_start`・ペインごとの回・送る約束の outbox。FR-STATE-1〜7）を追加。既存の config はそのまま動く | Issue #93 |

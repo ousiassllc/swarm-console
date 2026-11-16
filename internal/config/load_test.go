@@ -60,9 +60,12 @@ func TestLoadDefaults(t *testing.T) {
 		TemplatesDir:     filepath.Join(conf, "templates"),
 		ProfilesPath:     filepath.Join(conf, "profiles.toml"),
 		NotesPath:        filepath.Join(home, ".local", "share", "swarm-console", "notes.json"),
+		WebhookStatePath: filepath.Join(home, ".local", "share", "swarm-console", "webhook-state.json"),
 
 		UpdateCheck: true, UpdateCheckInterval: 6 * time.Hour, UpdateAuto: true, // FR-UPD-10・19 の既定
 		UsageCheck: true, UsageInterval: 5 * time.Minute, // NFR-OPS-12 の既定
+		// FR-STATE-1〜7 の既定。url が空なのでオフ（既定の回数・間隔・タイムアウトだけ入る）。
+		Webhook: Webhook{MaxAttempts: 5, RetryInterval: 30 * time.Second, Timeout: 10 * time.Second},
 	}
 	// allowed_roots・file_roots はシンボリックリンク解決後（この機の /mnt/nvme の実体）になりうるので別に確かめる。
 	if want.AllowedRoots = cfg.AllowedRoots; len(cfg.AllowedRoots) != 2 {

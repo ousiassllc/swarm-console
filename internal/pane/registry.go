@@ -119,6 +119,9 @@ func (r *SnapshotRegistry) run(f *flight) {
 	ctx, cancel := context.WithTimeout(context.Background(), buildTimeout)
 	snap, err := r.build(ctx)
 	cancel()
+	if err == nil && r.deps.Observer != nil {
+		r.deps.Observer.Observe(snap)
+	}
 	r.mu.Lock()
 	if err == nil {
 		r.cur = snap
