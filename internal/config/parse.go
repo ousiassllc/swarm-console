@@ -46,5 +46,6 @@ func parse(data []byte, path, home string) (*Config, error) {
 	cfg.TemplatesDir = filepath.Join(dir, "templates")
 	cfg.ProfilesPath = filepath.Join(dir, "profiles.toml")
 	cfg.NotesPath = filepath.Join(home, ".local", "share", "swarm-console", "notes.json")
+	cfg.WebhookStatePath = filepath.Join(home, ".local", "share", "swarm-console", "webhook-state.json")
 	return cfg, nil
 }

@@ -28,6 +28,14 @@ type Deps struct {
 	VersionWarn func(version string) string
 	// CheckText は貼り付け本文の検証（safety.CheckText を渡す）。nil なら内蔵の簡易検査。Ops が使う。
 	CheckText func(text string) error
+	// Observer は作ったスナップショットを 1 つずつ（作った順に）受け取る。nil なら何もしない。
+	// Observe の中で Registry を呼んではいけない（取得の完了を待つので固まる）。時間のかかる処理は別 goroutine に任せる。
+	Observer SnapshotObserver
+}
+
+// SnapshotObserver は build が作ったスナップショットの受け手（webhook の通知など）。
+type SnapshotObserver interface {
+	Observe(snap *Snapshot)
 }
 
 // WithDefaults は nil の Clock・FS・Logger を既定で埋めた Deps を返す。必須の依存が無ければエラー。

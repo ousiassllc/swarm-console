@@ -35,6 +35,9 @@ type Config struct {
 	UsageCheck    bool
 	UsageInterval time.Duration
 
+	// Webhook は [webhook]（FR-STATE-1〜7）。URL が空ならオフ（既定）。
+	Webhook Webhook
+
 	TitlePrefix  string
 	AllowedRoots []string
 	DeniedPaths  []string
@@ -53,11 +56,12 @@ type Config struct {
 	Agents map[string]agent.Overrides
 
 	// 設定フォルダ・データの場所（config.toml のキーではない。Load が決める）。
-	ConfigDir    string // ~/.config/swarm-console
-	TokensPath   string // ConfigDir/tokens.toml
-	TemplatesDir string // ConfigDir/templates
-	NotesPath    string // ~/.local/share/swarm-console/notes.json
-	ProfilesPath string // ConfigDir/profiles.toml
+	ConfigDir        string // ~/.config/swarm-console
+	TokensPath       string // ConfigDir/tokens.toml
+	TemplatesDir     string // ConfigDir/templates
+	NotesPath        string // ~/.local/share/swarm-console/notes.json
+	ProfilesPath     string // ConfigDir/profiles.toml
+	WebhookStatePath string // ~/.local/share/swarm-console/webhook-state.json（webhook の送信済みの台帳）
 }
 
 // Profile は dispatch の条件のひな形 1 つ。
