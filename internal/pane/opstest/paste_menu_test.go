@@ -32,6 +32,8 @@ type ompLargePaste struct {
 	closeIgnored bool
 	// closeAfter は Esc からメニューが消えるまでの偽の時計の経過（0 なら即）。
 	closeAfter time.Duration
+	// dropEnters は、入力欄に印があっても最初の何回かの Enter を捨てる数（起動直後・高負荷の omp が Enter を取りこぼす。Issue #101）。
+	dropEnters int
 
 	mu    sync.Mutex
 	menu  bool
@@ -72,6 +74,8 @@ func (p *ompLargePaste) onOp(o panetest.Op) {
 				if !p.closeIgnored {
 					p.closeMenu()
 				}
+			case !p.menu && k == "Enter" && p.typed && p.dropEnters > 0:
+				p.dropEnters--
 			case !p.menu && k == "Enter" && p.typed:
 				p.typed = false
 				p.show("working.txt")
