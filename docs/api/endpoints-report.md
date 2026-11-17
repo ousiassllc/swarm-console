@@ -163,7 +163,7 @@
 | `idle` | そのまま指示文を送る。`started: false` |
 | `working`・`asking`・`stalled`・`unknown` | `invalid_state`（何も送らない） |
 
-送る前に、そのペインの古い最終報告ファイルを `archive/` へ移す。送ったあと（omp の貼り付け確認メニューが開いていれば閉じてから Enter を送る。閉じなければ `sent: true`・`ok: false`・`accepted: false`。`send_text` と同じ）、受理を確認し、`note` があれば保存して `note_saved` に入れる。
+送る前に、そのペインの古い最終報告ファイルを `archive/` へ移す。送ったあと（omp の貼り付け確認メニューが開いていれば閉じてから Enter を送る。閉じなければ `sent: true`・`ok: false`・`accepted: false`。`send_text` と同じ。Enter から 2 秒たっても画面が `idle` のままなら、期限の中で 2 秒おきに Enter を送り直す。Issue #101）、受理を確認し、`note` があれば保存して `note_saved` に入れる。
 
 ## 6. prompts と resources
 

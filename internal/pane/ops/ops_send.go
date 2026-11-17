@@ -16,6 +16,9 @@ import (
 // inputAreaLines は入力欄とみなす画面の下側の非空行数（受理確認用）。
 const inputAreaLines = 6
 
+// enterRetryStep は Enter を送ってから、効かなかったと見て Enter を送り直すまでの間隔（Issue #101）。
+const enterRetryStep = 2 * time.Second
+
 // escapeLog は send_escape が自動で残すログ（FR-NOTE-10）。
 const escapeLog = "Esc を送った（中断）"
 
@@ -73,6 +76,10 @@ func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pan
 
 // pasteAndAccept は Paste → 1 秒 → （貼り付けの確認メニューが開いていれば閉じる）→ Enter → 受理待ち。prior は送る前の状態。
 // 受理 = working になった。すでに working・stalled だったペインは、貼った本文の末尾が画面から消えたことも条件にする。
+// Enter が効かないことがある（起動直後の omp は入力を受けても送信を受け付けず、負荷が高いと長引く。Issue #101）。
+// Enter から enterRetryStep たっても画面が idle と読めるとき（working になっていない = 送信されていない）は Enter を送り直す。
+// 画面が読めない（unknown）ときや working・stalled のままのときは送り直さない（作業中のエージェントに余計な Enter を送らない）。
+// 送り直した Enter が空の入力欄に届いても何も起きない。受理されなければ ok:false のまま。
 // メニューを閉じる待ちと受理待ちは 1 つの期限（固定の 1 秒のあと accept_timeout）を分け合う（NFR-PERF-4: 決着は 1 秒 + accept_timeout 以内）。
 // 貼り付けに成功した後は、クライアントの切断・キャンセルで途中にならないよう ctx から切り離して Enter まで送る
 // （入力欄に半端な本文を残さない。NFR-AVL-7）。sent は貼り付けに成功したか。
@@ -88,14 +95,27 @@ func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapt
 	if closed, err := o.closePasteMenu(ctx, id, ad, deadline); err != nil || !closed {
 		return true, false, err
 	}
+	lastEnter := o.deps.Clock.Now()
 	if err := o.sendKeys(ctx, id, "Enter"); err != nil {
 		return true, false, err
 	}
 	wasWorking := prior == agent.StateWorking || prior == agent.StateStalled
+	var retryErr error
 	accepted, err = o.waitFor(ctx, max(deadline.Sub(o.deps.Clock.Now()), 0), pollStep, func(ctx context.Context) bool {
 		st, lines := o.look(ctx, id, ad)
-		return st == agent.StateWorking && (!wasWorking || !onScreen(lines, text))
+		if st == agent.StateWorking && (!wasWorking || !onScreen(lines, text)) {
+			return true
+		}
+		if now := o.deps.Clock.Now(); st == agent.StateIdle && now.Sub(lastEnter) >= enterRetryStep {
+			lastEnter = now
+			retryErr = o.sendKeys(ctx, id, "Enter")
+			return retryErr != nil
+		}
+		return false
 	})
+	if retryErr != nil {
+		return true, false, retryErr
+	}
 	return true, accepted, err
 }
 

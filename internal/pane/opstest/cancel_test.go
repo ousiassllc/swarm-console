@@ -16,8 +16,11 @@ func TestSendTextCancelAfterPasteStillSendsEnter(t *testing.T) {
 	ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
 	ctx, cancel := context.WithCancel(context.Background())
 	f.env.Tmux.OnOp(func(o panetest.Op) {
-		if o.Kind == "paste" {
+		switch {
+		case o.Kind == "paste":
 			cancel()
+		case o.Kind == "keys" && o.Keys[0] == "Enter": // 受理されたら Enter は 1 回で足りる（送り直さない。Issue #101）
+			f.env.Tmux.SetScreen("%0", panetest.ScreenWorking("omp", "1", "指示を実行"))
 		}
 	})
 	_, _ = run(t, f.env.Clock, func() (pane.SendResult, error) { return f.op.SendText(ctx, ref, "指示") })
@@ -31,8 +34,11 @@ func TestDispatchCancelAfterPasteStillSendsEnterAndReportsSent(t *testing.T) {
 	ref := f.single(panetest.ScreenIdle("omp"), []string{"omp"})
 	ctx, cancel := context.WithCancel(context.Background())
 	f.env.Tmux.OnOp(func(o panetest.Op) {
-		if o.Kind == "paste" {
+		switch {
+		case o.Kind == "paste":
 			cancel()
+		case o.Kind == "keys" && o.Keys[0] == "Enter": // 受理されたら Enter は 1 回で足りる（送り直さない。Issue #101）
+			f.env.Tmux.SetScreen("%0", panetest.ScreenWorking("omp", "1", "指示を実行"))
 		}
 	})
 	res, _ := run(t, f.env.Clock, func() (pane.DispatchResult, error) {

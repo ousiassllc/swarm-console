@@ -120,6 +120,8 @@
 
 tmux の bracketed paste で貼り付け、1 秒待って Enter。貼り付けの確認メニュー（omp が設定 `paste.largeMenuThreshold`（既定 100）行以上を受けたときに開く。開いている間の Enter は依頼の送信にならずメニューの選択になる）が開いていれば、先に閉じるキー（omp は `Escape` = 「Paste inline」。本文は変わらない）を 1 回送り、閉じたのを画面で確かめてから Enter を送る。メニューを閉じる待ちと受理の待ちは 1 つの期限（1 秒のあと `accept_timeout`）を分け合う。画面が読めずメニューの有無が分からないとき、またはメニューが期限までに閉じなかったときは、Enter を送らず `{"ok": false, "accepted": false, "state": "unknown"}`（メニューが開いたままの画面は `unknown`。本文はメニューの中にあり、ツールからは復旧できないので、人が画面で閉じる）。メニューが開いていないときは `Escape` を送らない（作業中のエージェントを中断しないため）。入力欄が空になって `working` になったら `accepted: true`。`accept_timeout` 内に受理されなければ `{"ok": false, "accepted": false, "state": "idle"}`。Ctrl-C などの特別なキーは送れない。
 
+Enter が効かないことがある（Issue #101。起動直後の omp は入力欄に本文を受けても送信を受け付けず、サーバーの負荷が高いと長引く）ため、Enter を送って 2 秒たっても画面が `idle` のまま（`working` になっていない = 送信されていない）なら、`accept_timeout` の期限の中で 2 秒おきに Enter を送り直す。画面が読めないとき（`unknown`）や `working`・`stalled` のままのときは送り直さない（作業中のエージェントに余計な Enter を送らない）。送り直した Enter が空の入力欄に届いても何も起きない。送り直しても期限までに受理されなければ、これまでどおり `{"ok": false, "accepted": false, "state": "idle"}`（`dispatch` も同じ）。決着の上限（1 秒 + `accept_timeout`）は変わらない。
+
 #### `send_escape`
 
 | 引数 | 型 | 必須 | 説明 |
