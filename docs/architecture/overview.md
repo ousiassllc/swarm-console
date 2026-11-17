@@ -154,7 +154,7 @@ sequenceDiagram
     end
     D->>D: 古い最終報告をアーカイブへ移動
     D->>X: load-buffer + paste-buffer -p → 1 秒待つ → （貼り付けの確認メニューが開いていれば閉じる）→ Enter
-    D->>X: 受理確認（working になる / 入力欄が空。2 秒たっても idle なら Enter を送り直す）
+    D->>X: 受理確認（working になる / 入力欄が空。2 秒たっても idle なら Enter を送り直してログに残す。omp を起動した直後は上限を start_timeout まで延ばす）
     D->>N: note を保存
     D-->>C: {ok, state, sent: 指示文全文, note_saved}
 ```
@@ -249,3 +249,4 @@ flowchart TD
 | 1.31 | 2026-11-09 | decisions.md P-22：Codex を実画面（codex-cli 0.167.0）で確定（Claude Code の作業中・許可確認・質問は、ログイン切れのため推定のまま）。agent-patterns.md の codex 列・判定規則・採取手順を実画面に合わせて改訂（`status_line_re`・承認カードの質問文・折り返した選択肢・数字キーは押した時点で確定するので `PickKeys` は Up/Down を優先） | Issue #4 |
 | 1.32 | 2026-11-16 | シーケンス図（dispatch）：貼り付けの 1 秒後に、omp の貼り付け確認メニューが開いていれば閉じてから Enter を送る。decisions.md P-100（Issue #99） |
 | 1.33 | 2026-11-17 | シーケンス図（dispatch）：受理確認で 2 秒たっても `idle` なら Enter を送り直す。decisions.md P-101（Enter が効かないときの送り直し） | Issue #101 |
+| 1.34 | 2026-11-17 | シーケンス図（dispatch）：omp を起動した直後の受理確認は上限を `start_timeout` まで延ばし、Enter を送り直したらログに残す。decisions.md P-102（omp を起動した直後の dispatch が高負荷で受理されないときの待ち） | Issue #103 |

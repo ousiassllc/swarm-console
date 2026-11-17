@@ -193,3 +193,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.22 | 2026-11-09 | §2：`pair --qr`（同じ接続文字列の QR を標準エラーに出す。標準出力は変えない） | Issue #89 |
 | 1.23 | 2026-11-16 | endpoints-pane.md `pane_close`：「`~` のプロンプトだけ」の枠付きプロンプトは、右端まで閉じたもの（tide の右の枠。行末が `╮` と `╯`）と記号 `❮` も含むと改めた（1.4 以降の「右端まで閉じた箱はプロンプトとみなさない」を、中身が出力・入力の箱だけに絞った） | Issue #97（#19 の再発） |
 | 1.24 | 2026-11-17 | endpoints-pane.md `send_text`・endpoints-report.md `dispatch`：Enter から 2 秒たっても `idle` のままなら、期限（1 秒 + `accept_timeout`）の中で 2 秒おきに Enter を送り直す。送り直しても受理されなければ `ok: false` のまま | Issue #101 |
+| 1.25 | 2026-11-17 | endpoints-pane.md `send_text`・endpoints-report.md `dispatch`：`dispatch` が omp を起動した直後（`started: true`）は、受理を待つ上限（Enter の送り直しを含む）を `accept_timeout` から `start_timeout`（既定 30 秒）に延ばす（決着は 1 秒 + `start_timeout` 以内。受理されなければ `ok: false` のまま）。Enter を送り直したら回数と経過時間をログに残す | Issue #103 |

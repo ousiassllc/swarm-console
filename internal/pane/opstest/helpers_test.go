@@ -2,6 +2,8 @@
 package opstest
 
 import (
+	"bytes"
+	"log/slog"
 	"runtime"
 	"testing"
 	"time"
@@ -13,22 +15,25 @@ import (
 )
 
 type fixture struct {
-	env *panetest.Env
-	reg *pane.SnapshotRegistry
-	op  *ops.Operator
+	env  *panetest.Env
+	reg  *pane.SnapshotRegistry
+	op   *ops.Operator
+	logs *bytes.Buffer // Operator のログ。操作が終わってから（run が戻ってから）読む
 }
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	env := panetest.NewEnv()
+	logs := &bytes.Buffer{}
 	reg, err := pane.NewRegistry(pane.Deps{
 		Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters,
 		Notes: env.Notes, Clock: env.Clock, FS: env.FS,
+		Logger: slog.New(slog.NewTextHandler(logs, nil)),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &fixture{env: env, reg: reg, op: ops.New(reg)}
+	return &fixture{env: env, reg: reg, op: ops.New(reg), logs: logs}
 }
 
 // single は 1 ペイン（%0・T1）だけを登録する。
