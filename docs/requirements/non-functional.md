@@ -9,7 +9,7 @@
 | NFR-PERF-1 | `panes_status` の応答時間 | 8 ペインで p95 500 ms 以内（スナップショットが新しい場合は 50 ms 以内） | tmux 呼び出しはペイン並列。P-05 |
 | NFR-PERF-2 | `report` の応答時間 | `panes_status` と同等 + 描画 20 ms 以内 | 同じスナップショットを使う |
 | NFR-PERF-3 | 応答サイズ（文字量削減） | **よくある入力での目標**。単位は **バイト**（UTF-8。日本語 1 字は 3 バイト。KB は 1,024 バイト）。`panes_status` 8 ペインで 8 KB 以内、`report`（markdown）で 6 KB 以内、`ask_card` で 2 KB 以内。前提：`panes_status` と `report` は 8 ペインで、メモの `next` は数十字・`items` は数件・`activity` は 1 行（120 字以内）。`ask_card` は `question` が 1〜2 文・選択肢が数個（`label` は数十字）。API 仕様 §7 の上限いっぱいの入力（メモの文字列 2,000 字、選択肢 20 個×300 字など）までは保証しない | 元仕様の目的 1。画面全文は返さない。テスト（`rendertest/size_test.go`・`tooltests/size_test.go`）は上の前提の入力を表す |
-| NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒。omp の貼り付け確認メニューを閉じる待ちは受理確認の待ちと 1 つの期限を分け合う（P-100）、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着。ただし `pane_close` は待ちが 2 つあるので、上限は 仕様で定めた待ち ＋ `shell` に戻るまでの待ち（`accept_timeout`）＋ 画面確認の待ち（`accept_timeout`） | 超えたら `ok: false` と現在の `state`。例外：`pane_close` で最初の待ち（終了コマンドのあと `shell` に戻るまで）を超えたときは `ok: false` ではなく `exit_timeout` のエラーを返す（機能要件 FR-O5・FR-O-C2） |
+| NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒。omp の貼り付け確認メニューを閉じる待ちは受理確認の待ちと 1 つの期限を分け合う（P-100）、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着（`dispatch` が omp を起動した直後だけ、受理確認の待ちの上限は `start_timeout`（30 秒）。P-102）。ただし `pane_close` は待ちが 2 つあるので、上限は 仕様で定めた待ち ＋ `shell` に戻るまでの待ち（`accept_timeout`）＋ 画面確認の待ち（`accept_timeout`） | 超えたら `ok: false` と現在の `state`。例外：`pane_close` で最初の待ち（終了コマンドのあと `shell` に戻るまで）を超えたときは `ok: false` ではなく `exit_timeout` のエラーを返す（機能要件 FR-O5・FR-O-C2） |
 | NFR-PERF-5 | 常駐時の負荷 | ホスト負荷が高い状態（load average が CPU 数を大きく上回る状態）でも劣化しない。サンプラーの CPU は 1 コア未満の数 % | 負荷が高い開発機で確認する |
 | NFR-PERF-6 | メモリ | 常駐 100 MB 以内 | ペインのハッシュ・直近画面のみ保持 |
 | NFR-PERF-7 | 取得量の上限 | `pane_tail` は最大 200 行・20,000 字。`report_read` は 20,000 字 | 上限を超えたら `truncated: true` |
@@ -141,3 +141,4 @@
 | 1.19 | 2026-11-16 | NFR-SEC-18・NFR-TEST-19：セッションごとの送り先（FR-STATE-8）に広げる。セッションごとの `url`・`secret`・`token` も値を出さない。2 つのセッションが別々の `httptest` の受け手に 1 回ずつ届くこと、`[webhook]` だけの設定が今までどおり動くことを確かめる | Issue #95 |
 | 1.20 | 2026-11-16 | NFR-PERF-4：メニューを閉じる待ちと受理確認の待ちは 1 つの期限を分け合う。NFR-SEC-9：クライアントが送れる Esc は `send_escape` だけ（サーバーが内部で送る Esc は別。P-100） | Issue #99 |
 | 1.21 | 2026-11-17 | NFR-PERF-4：Enter の送り直し（Enter から 2 秒たっても `idle` なら、期限の中で 2 秒おき。P-101）は 1 秒 + `accept_timeout` の上限を変えない | Issue #101 |
+| 1.22 | 2026-11-17 | NFR-PERF-4：`dispatch` が omp を起動した直後の受理確認の待ちは `start_timeout`（既定 30 秒）まで（起動の待ちとは別。P-102） | Issue #103 |

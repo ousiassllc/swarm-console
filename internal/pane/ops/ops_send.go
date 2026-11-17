@@ -67,7 +67,7 @@ func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pan
 	if err != nil {
 		return pane.SendResult{}, err
 	}
-	_, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State)
+	_, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State, o.deps.Cfg.AcceptTimeout)
 	if err != nil {
 		return pane.SendResult{}, err
 	}
@@ -80,10 +80,12 @@ func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pan
 // Enter から enterRetryStep たっても画面が idle と読めるとき（working になっていない = 送信されていない）は Enter を送り直す。
 // 画面が読めない（unknown）ときや working・stalled のままのときは送り直さない（作業中のエージェントに余計な Enter を送らない）。
 // 送り直した Enter が空の入力欄に届いても何も起きない。受理されなければ ok:false のまま。
-// メニューを閉じる待ちと受理待ちは 1 つの期限（固定の 1 秒のあと accept_timeout）を分け合う（NFR-PERF-4: 決着は 1 秒 + accept_timeout 以内）。
+// メニューを閉じる待ちと受理待ちは 1 つの期限（固定の 1 秒のあと window）を分け合う（NFR-PERF-4: 決着は 1 秒 + window 以内）。
+// window は通常 accept_timeout。dispatch が omp を起動した直後は acceptWindowAfterStart（Issue #103）。
+// Enter を送り直したら、回数と最初の Enter からの経過時間をログに残す（依頼文は出さない）。
 // 貼り付けに成功した後は、クライアントの切断・キャンセルで途中にならないよう ctx から切り離して Enter まで送る
 // （入力欄に半端な本文を残さない。NFR-AVL-7）。sent は貼り付けに成功したか。
-func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapter, text string, prior agent.State) (sent, accepted bool, err error) {
+func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapter, text string, prior agent.State, window time.Duration) (sent, accepted bool, err error) {
 	if err := o.deps.Tmux.Paste(ctx, id, text); err != nil {
 		return false, false, pane.TmuxError(err)
 	}
@@ -91,16 +93,18 @@ func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapt
 	if err := o.sleep(ctx, fixedWait); err != nil {
 		return true, false, err
 	}
-	deadline := o.deps.Clock.Now().Add(o.deps.Cfg.AcceptTimeout)
+	deadline := o.deps.Clock.Now().Add(window)
 	if closed, err := o.closePasteMenu(ctx, id, ad, deadline); err != nil || !closed {
 		return true, false, err
 	}
-	lastEnter := o.deps.Clock.Now()
+	firstEnter := o.deps.Clock.Now()
+	lastEnter := firstEnter
 	if err := o.sendKeys(ctx, id, "Enter"); err != nil {
 		return true, false, err
 	}
 	wasWorking := prior == agent.StateWorking || prior == agent.StateStalled
 	var retryErr error
+	resends := 0
 	accepted, err = o.waitFor(ctx, max(deadline.Sub(o.deps.Clock.Now()), 0), pollStep, func(ctx context.Context) bool {
 		st, lines := o.look(ctx, id, ad)
 		if st == agent.StateWorking && (!wasWorking || !onScreen(lines, text)) {
@@ -108,15 +112,39 @@ func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapt
 		}
 		if now := o.deps.Clock.Now(); st == agent.StateIdle && now.Sub(lastEnter) >= enterRetryStep {
 			lastEnter = now
+			resends++
+			o.deps.Logger.Info("Enter を送り直しました", "pane", id, "attempt", resends, "elapsed", now.Sub(firstEnter), "state", st)
 			retryErr = o.sendKeys(ctx, id, "Enter")
 			return retryErr != nil
 		}
 		return false
 	})
+	if resends > 0 {
+		o.logResendOutcome(id, resends, o.deps.Clock.Now().Sub(firstEnter), accepted, retryErr != nil || err != nil)
+	}
 	if retryErr != nil {
 		return true, false, retryErr
 	}
 	return true, accepted, err
+}
+
+// logResendOutcome は Enter を送り直した操作の結末を 1 行残す。受理されたなら Info、されなかったなら Warn。
+func (o *Operator) logResendOutcome(id string, resends int, elapsed time.Duration, accepted, failed bool) {
+	switch {
+	case accepted:
+		o.deps.Logger.Info("Enter の送り直しで受理されました", "pane", id, "resends", resends, "elapsed", elapsed)
+	case failed:
+		o.deps.Logger.Warn("Enter の送り直しの途中で失敗しました", "pane", id, "resends", resends, "elapsed", elapsed)
+	default:
+		o.deps.Logger.Warn("Enter を送り直しても受理を確かめられませんでした", "pane", id, "resends", resends, "elapsed", elapsed)
+	}
+}
+
+// acceptWindowAfterStart は dispatch が omp を起動した直後の、Enter の受理を待つ上限（Issue #103）。
+// 画面に入力待ちが出てからも初期化が続き、高負荷だと accept_timeout より長引くことがあるため、
+// 新しい設定は増やさず start_timeout まで延ばす（ただし accept_timeout より短くはしない）。
+func (o *Operator) acceptWindowAfterStart() time.Duration {
+	return max(o.deps.Cfg.AcceptTimeout, o.deps.Cfg.StartTimeout)
 }
 
 // closePasteMenu は、貼り付けの確認メニューが開いていれば閉じるキーを 1 回送り、閉じるまで deadline まで画面を取り直して待つ。
