@@ -250,3 +250,4 @@ flowchart TD
 | 1.32 | 2026-11-16 | シーケンス図（dispatch）：貼り付けの 1 秒後に、omp の貼り付け確認メニューが開いていれば閉じてから Enter を送る。decisions.md P-100（Issue #99） |
 | 1.33 | 2026-11-17 | シーケンス図（dispatch）：受理確認で 2 秒たっても `idle` なら Enter を送り直す。decisions.md P-101（Enter が効かないときの送り直し） | Issue #101 |
 | 1.34 | 2026-11-17 | シーケンス図（dispatch）：omp を起動した直後の受理確認は上限を `start_timeout` まで延ばし、Enter を送り直したらログに残す。decisions.md P-102（omp を起動した直後の dispatch が高負荷で受理されないときの待ち） | Issue #103 |
+| 1.35 | 2026-11-17 | decisions.md P-103（`pane_close` の `note_archived` は「この呼び出しで移したか」。仕様書を今の動きに合わせた） | Issue #105 |
