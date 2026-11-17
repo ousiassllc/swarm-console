@@ -15,7 +15,7 @@
 | FR-NOTE-3 | `panes_status` と `report`（markdown・json）には `from`・`origin`・`started_by`・`repo`・`items`・`next` だけを要約として出す。markdown の表では、`origin` が `agent` のとき依頼元のセルに `🤖 <started_by>発` を添える（`started_by` が空なら `🤖 エージェント発`）。`user` と空のときは何も添えない。詳細（`report` の `pane` 指定）のメモには `origin`・`started_by` も項目として出る。`note_history` は `from` に加えて `origin`・`started_by` でも絞り込める（それぞれ完全一致、AND）。`/report` からの書き込みは今までどおりできない（FR-SAFE-6） |
 | FR-NOTE-4 | `note_set` は渡した項目だけ書き換え、他の項目は残す。`null` を渡すとその項目を消す |
 | FR-NOTE-5 | `note_log` は出来事を時刻つきで 1 行足す（例：「Ask で B を選んだ」「agent-b へ報告した」）。直近 50 行を残す |
-| FR-NOTE-6 | `pane_close` はそのペインのメモを履歴に移し、現行メモを消す |
+| FR-NOTE-6 | `pane_close` はそのペインのメモを履歴に移し、現行メモを消す（確かめられたとき。メモがなければ何も移さない。結果の `note_archived` は「この呼び出しで移したか」。FR-O5） |
 | FR-NOTE-7 | 履歴は 500 件まで。古いものから消す |
 | FR-NOTE-8 | 秘密の値は書かない。`ghp_`・`sk-`・`eyJ` で始まる長い文字列、PEM などに見える文字列が入っていたら書き込みを拒否（`secret_detected`。拒否した値は応答・ログに出さない） |
 | FR-NOTE-9 | 書き込みは一時ファイルに書いてから rename（途中で落ちても壊れない）。権限 600 |
