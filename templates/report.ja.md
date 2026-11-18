@@ -1,4 +1,4 @@
-# swarm-console レポート
+# Nefos Hub レポート
 
 - 時刻: {{.At}}
 - サーバー負荷: load1 {{.Load1}} / CPU {{.CPU}} / メモリ空き {{.MemFree}} GB / スワップ {{.Swap}}

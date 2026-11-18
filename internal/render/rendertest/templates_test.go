@@ -54,7 +54,7 @@ func TestCustomTemplateOverridesPerLang(t *testing.T) {
 		t.Fatalf("%q", got)
 	}
 	en := mustReport(t, render.ReportInput{Snapshot: calmSnapshot(), Lang: "en", Templates: tpl})
-	if !strings.HasPrefix(en, "# swarm-console report") {
+	if !strings.HasPrefix(en, "# Nefos Hub report") {
 		t.Fatal("en は既定のまま")
 	}
 	viaDir := mustReport(t, render.ReportInput{Snapshot: calmSnapshot(), Lang: "ja", TemplatesDir: dir})

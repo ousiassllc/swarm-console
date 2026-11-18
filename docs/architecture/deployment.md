@@ -22,7 +22,7 @@
 
 ```ini
 [Unit]
-Description=swarm-console (MCP console for tmux agents)
+Description=Nefos Hub (swarm-console: MCP console for tmux agents)
 After=network-online.target tailscaled.service
 
 [Service]

@@ -48,17 +48,17 @@ func TestReportFormats(t *testing.T) {
 	c := e.h.Report()
 	ja := c.Must("report", nil).Text
 	en := c.Must("report", map[string]any{"lang": "en"}).Text
-	for _, want := range []string{"# swarm-console レポート", "## 要対応", e.askPos, e.workPos, "agent-b", "ousiassllc/funid", "#983"} {
+	for _, want := range []string{"# Nefos Hub レポート", "## 要対応", e.askPos, e.workPos, "agent-b", "ousiassllc/funid", "#983"} {
 		if !strings.Contains(ja, want) {
 			t.Errorf("ja に %q がありません:\n%s", want, ja)
 		}
 	}
-	for _, want := range []string{"# swarm-console report", "## Needs attention", e.askPos, "Asking"} {
+	for _, want := range []string{"# Nefos Hub report", "## Needs attention", e.askPos, "Asking"} {
 		if !strings.Contains(en, want) {
 			t.Errorf("en に %q がありません:\n%s", want, en)
 		}
 	}
-	if strings.Contains(ja, "# swarm-console report") || strings.Contains(en, "レポート") {
+	if strings.Contains(ja, "# Nefos Hub report") || strings.Contains(en, "レポート") {
 		t.Error("言語が混ざっています")
 	}
 

@@ -1,4 +1,4 @@
-// swarm-console は tmux 上のエージェントを MCP（Streamable HTTP）で見て操作するサーバー。
+// swarm-console（表示名は Nefos Hub）は tmux 上のエージェントを MCP（Streamable HTTP）で見て操作するサーバー。
 //
 //	swarm-console serve [--config <path>]
 //	swarm-console setup [--config <path>]
@@ -25,7 +25,7 @@ import (
 // version はリリースビルドで -ldflags "-X main.version=v1.0.0" により上書きする。
 var version = "dev"
 
-const usage = `使い方:
+const usage = `Nefos Hub の使い方（コマンド名は swarm-console）:
   swarm-console serve [--config <path>]
   swarm-console setup [--config <path>]
   swarm-console token add <名前> --scope ops|report [--config <path>]

@@ -92,7 +92,7 @@ func TestUpdateFollowsSnapshotAndAppearsInReport(t *testing.T) {
 	f := toolstest.New(t)
 	f.Registry.Snap.Update = pane.UpdateInfo{Status: "update_available", Current: "v0.1.4", Latest: "v9.9.9", CheckedAt: checkedAt, Apply: pane.ApplyInfo{State: "idle"}}
 	md, err := call(t, f, "report", `{}`)
-	if err != nil || !strings.Contains(md, "- 更新: omp（未取得）／ swarm-console v0.1.4（新しい版 v9.9.9 あり）\n") {
+	if err != nil || !strings.Contains(md, "- 更新: omp（未取得）／ Nefos Hub v0.1.4（新しい版 v9.9.9 あり）\n") {
 		t.Fatalf("report（markdown）の更新の行: %v\n%s", err, md)
 	}
 	js := mustCall(t, f, "report", `{"format":"json"}`)

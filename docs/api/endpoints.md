@@ -1,6 +1,6 @@
 # API 仕様
 
-swarm-console は MCP（Streamable HTTP、JSON-RPC）サーバー。このドキュメントは窓口・認証・エラー・全ツール・prompts・resources の入出力を定める。振る舞いの要件は [機能要件](../requirements/functional.md)、データ構造は [ER / データモデル](../architecture/er.md) を参照する。
+Nefos Hub（リポジトリ・バイナリ名は swarm-console）は MCP（Streamable HTTP、JSON-RPC）サーバー。このドキュメントは窓口・認証・エラー・全ツール・prompts・resources の入出力を定める。振る舞いの要件は [機能要件](../requirements/functional.md)、データ構造は [ER / データモデル](../architecture/er.md) を参照する。
 
 この文書は 1 ファイル 300 行の上限（Linterly）のため、次のファイルに分けている。節番号は分割前の通し番号のまま、どのファイルでも同じ番号で引く。
 
@@ -52,7 +52,7 @@ curl --socks5-hostname localhost:<port> -sS "http://<tailnet-ip>:48120/ops" \
 ```mermaid
 sequenceDiagram
     participant C as クライアント
-    participant S as swarm-console
+    participant S as Nefos Hub
 
     C->>S: POST /ops（Authorization なし）
     S-->>C: 401 {"error":{"code":"unauthorized"}}

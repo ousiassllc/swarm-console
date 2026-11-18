@@ -1,4 +1,4 @@
-# swarm-console report
+# Nefos Hub report
 
 - Time: {{.At}}
 - Server load: load1 {{.Load1}} / CPU {{.CPU}} / Mem free {{.MemFree}} GB / Swap {{.Swap}}
