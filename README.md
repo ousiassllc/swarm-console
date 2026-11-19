@@ -124,7 +124,7 @@ swarm-viewer につなぐための接続文字列を、1 行で出します。�
 - `serve` が実行する外部コマンドは、この引数固定の 2 つだけです（`[agents.omp] command` の先頭の語の実行ファイル。標準入力は `/dev/null`、シェルなし、打ち切り付き。`omp update` は実行しません）
 - メール・`accountId` は出力に出ません。アカウントは名前（メールの `@` 以降の最初のラベル）だけで示します。取れない値は消さずに「取得できず」と出します
 
-## idle になったときの webhook
+## idle になったとき・質問で止まったときの webhook
 
 ペインが `working` から `idle` になり、そのペインの最終報告ファイル（`report_dir` の `<位置>.md`）が書かれた（更新された）回ごとに、`serve` が設定した URL へ JSON を 1 件 POST します（送り終えた件は二度と送りません。止まったときだけ、下のとおり同じ件を送り直します）（Issue #93。受け手は Grok Bot のルーティンの webhook トリガーなどを想定しています）。**既定はオフ**です。`[webhook] url`（または下の `[webhook.sessions."<名>"] url`）を書かなければ何も送らず、今までどおり動きます。
 
@@ -156,7 +156,8 @@ timeout = "10s"           # 1 回の送信の上限（1s〜1m）
   ```
 
   `[webhook]`（どのセッションにも表が無いときの既定の送り先）と併せて書くこともできます。
-- 送る JSON：`event`（`pane.idle_report`）・`event_id`（同じ回で同じ値。受け手が重複を捨てるのに使います）・`session`・`pane`（`T1` など）・`pane_id`（`%12`）・`note`（`from`・`repo`・`items`・`next`）・`report_path`・`state_changed_at`（RFC3339・UTC）。レポートの中身・画面は送りません。`X-Swarm-Console-Event-Id` ヘッダーにも `event_id` が入ります
+- **質問で止まったときにも送ります**（Issue #111）。ペインが選択肢の質問（`asking`）になった回ごとに 1 件、`pane.asking` を同じ送り先へ送ります。`event`（`pane.asking`）・`event_id`・`session`・`pane`・`pane_id`・`title`（ペインのタイトル）・`question`（質問の要約。`panes_status` の `activity` と同じ 1 行、120 字まで）・`state_changed_at`（RFC3339・UTC）。例：`{"event":"pane.asking","event_id":"evt_…","session":"0","pane":"B1","pane_id":"%1","title":"FUNID: Implement five P2 features","question":"受け入れ条件「SDK を配布できる」の扱い","state_changed_at":"2026-11-19T12:30:05Z"}`。`asking` を見始めてから `asking` でない状態（`working`・`idle` など）を見るまでが 1 つの回で、同じ質問のまま何度も送りません（次に `asking` になれば、また 1 件）。署名・再送・台帳・秘密の値は下の `pane.idle_report` と同じです。選択肢・レポートの中身は送りません
+- 送る JSON（`pane.idle_report`）：`event`（`pane.idle_report`）・`event_id`（同じ回で同じ値。受け手が重複を捨てるのに使います）・`session`・`pane`（`T1` など）・`pane_id`（`%12`）・`note`（`from`・`repo`・`items`・`next`）・`report_path`・`state_changed_at`（RFC3339・UTC）。レポートの中身・画面は送りません。`X-Swarm-Console-Event-Id` ヘッダーにも `event_id` が入ります
 - 同じペイン・同じ回（1 回の `idle`）につき 1 件です。最終報告が書かれたとき、本文を決めて台帳（`~/.local/share/swarm-console/webhook-state.json`、600）に書いてから、送り始めます。成功（2xx）するか諦めたら件を消し、二度と送りません（`working` に戻って次の `idle` になれば、新しい回で別の `event_id`）。`idle` になったあとにレポートが書かれる順でも、書かれたときに送ります。前の回の残りのレポートだけでは送りません（レポートがシンボリックリンクなど通常のファイルでないときは「無し」として扱います）。ペインが消えた（続けて 2 回見えない。tmux に接続できない・一覧が空のスナップショットは数えません）・`shell` に戻った・tmux が再起動した回は捨てますが、すでに送ると決めた件は残って届きます
 - **配信は at-least-once です**。送信の途中や再送の待ちの間に `serve` が止まった・落ちたときは、再起動後に**同じ件（同じ `event_id`・1 バイトも同じ本文・同じ署名）をもう一度送ります**（成功の応答の直後に落ちた場合も同じです）。受け手は **`event_id` で重複を捨ててください**。署名は本文だけにかかり（時刻は含みません）、リプレイの対策も `event_id` の重複排除で行います。送った回数は再起動をまたいで数えるので、`max_attempts` を超えては送りません（終了で中断した通信は数えません）。**台帳を書けないとき**（読み取り専用・ディスクいっぱい）は、警告のログを出して送りますが、その間の再起動では同じ回に別の `event_id` が付くことがあります（重複排除の保証は、台帳が書けている間だけです）
 - 失敗（通信の失敗（応答なしで切れた場合を含む）・タイムアウト・408・425・429・5xx）は `max_attempts` 回まで、`retry_interval` から倍々の間隔で再送します。それでも送れなければ `error` のログ（`webhook を送れませんでした`。`event_id`・回数・理由・応答コード）を残し、件を捨てます（その回は送り直しません。手動の再送はありません）。404 など設定の誤りに見える応答は再送しません。リダイレクトは追いません

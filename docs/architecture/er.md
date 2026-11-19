@@ -253,3 +253,4 @@ erDiagram
 | 1.17 | 2026-11-05 | er-runtime.md：HOST_STATE の `mem` は、`/proc/meminfo` を読めないときも `host` の他の値を残して取得できずにする（P-95） | Issue #86 |
 | 1.18 | 2026-11-16 | §5 config.toml に `[webhook]`（`url`・`secret`・`token`・`max_attempts`・`retry_interval`・`timeout`。既定オフ）、永続ファイルの表と §9 に台帳 `webhook-state.json`（版 2：`server_start`・ペインごとの回・送る約束の outbox。FR-STATE-1〜7）を追加。既存の config はそのまま動く | Issue #93 |
 | 1.19 | 2026-11-16 | §5 config.toml の `[webhook]` に、セッションごとの送り先の表 `[webhook.sessions."<名>"]`（キーは `[webhook]` と同じ。名前は `sessions` にあるものだけ）を追加。台帳 §9 の形は変えない | Issue #95 |
+| 1.20 | 2026-11-19 | §9 webhook の台帳に `asked`（asking の回で `pane.asking` を作った印。ペイン ID → `event_id`。省略可なので版は 2 のまま）と、outbox に `pane.asking` の本文が入ることを追加。FR-STATE-9〜11 | Issue #111 |
