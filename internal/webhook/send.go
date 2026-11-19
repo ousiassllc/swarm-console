@@ -82,7 +82,7 @@ func (n *Notifier) send(ctx context.Context, it *item) error {
 		}
 		status, reason := n.post(ctx, cfg, it.EventID, it.Payload)
 		if reason == "" {
-			n.o.Logger.Info("webhook を送りました", "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane, "attempt", attempt, "status", status)
+			n.o.Logger.Info("webhook を送りました", "event", pl.Event, "event_id", it.EventID, "session", pl.Session, "pane", pl.Pane, "attempt", attempt, "status", status)
 			return nil
 		}
 		if err := ctx.Err(); err != nil {

@@ -97,9 +97,18 @@ type rig struct {
 
 func startRig(t *testing.T, webhookCfg string) *rig { return startRigSessions(t, webhookCfg, "0") }
 
+// startRigAs は擬似エージェントの scenario（working・ask など）でペイン 1 つを立てる。
+func startRigAs(t *testing.T, webhookCfg, scenario string) *rig {
+	return startRigScenario(t, webhookCfg, scenario, "0")
+}
+
 // startRigSessions は sessions の名前ごとに tmux のセッションと擬似エージェントのペインを立てて、App を動かす。
 // セッションが 2 つ以上のときは、設定にも sessions を書く（最終報告のファイル名は <セッション>_<位置>.md になる）。
 func startRigSessions(t *testing.T, webhookCfg string, sessions ...string) *rig {
+	return startRigScenario(t, webhookCfg, "working", sessions...)
+}
+
+func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...string) *rig {
 	t.Helper()
 	bin := fakeagenttest.Install(t, t.TempDir()) // HOME を替える前に go build する
 	tm := tmuxtest.New(t)
@@ -128,7 +137,7 @@ func startRigSessions(t *testing.T, webhookCfg string, sessions ...string) *rig 
 	}
 	panes := map[string]string{}
 	for _, name := range sessions {
-		id := tm.NewSession(name, 120, 40, fmt.Sprintf("PATH=%s:$PATH exec omp working", bin))
+		id := tm.NewSession(name, 120, 40, fmt.Sprintf("PATH=%s:$PATH exec omp %s", bin, scenario))
 		tm.WaitForText(id, "READY")
 		panes[name] = id
 	}

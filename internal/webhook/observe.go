@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/pane"
@@ -37,6 +38,7 @@ func (n *Notifier) syncServerLocked(start string) bool {
 	}
 	if n.serverStart != "" {
 		clear(n.entries)
+		clear(n.asked)
 		clear(n.absent)
 	}
 	n.serverStart = start
@@ -55,30 +57,86 @@ func (n *Notifier) trackLocked(snap *pane.Snapshot) bool {
 		}
 	}
 	for id := range n.absent {
-		if present[id] || n.entries[id] == nil {
+		if present[id] || (n.entries[id] == nil && n.asked[id] == "") {
 			delete(n.absent, id)
 		}
 	}
-	for id := range n.entries {
+	vanish := func(id string) {
 		if present[id] {
-			continue
+			return
 		}
 		if n.absent[id]++; n.absent[id] >= vanishAfter {
 			delete(n.entries, id) // 消えたペイン（tmux の ID は再起動で使い回されるので、残さない）
+			delete(n.asked, id)
 			delete(n.absent, id)
 			dirty = true
+		}
+	}
+	for id := range n.entries {
+		vanish(id)
+	}
+	for id := range n.asked {
+		if n.entries[id] == nil { // 回も持つペインは、上で数えた
+			vanish(id)
 		}
 	}
 	return dirty
 }
 
-// step は 1 ペインの回を進める。台帳が変わったら true。
+// step は 1 ペインの回（pane.idle_report）と asking の回（pane.asking）を進める。台帳が変わったら true。
+func (n *Notifier) step(snap *pane.Snapshot, p *pane.PaneState) bool {
+	asked := n.stepAsking(snap, p)
+	round := n.stepRound(snap, p)
+	return asked || round
+}
+
+// stepAsking は asking の回を進める。asking を見始めたとき（その回の最初）に 1 件作る。
+//
+//	asking              → その回で作っていなければ項目を作って送る。同じ回では、質問が変わっても・何度見ても作らない
+//	unknown             → 変えない（一時的な判定不能をはさんでも、同じ回）
+//	それ以外（working・idle・stalled・shell） → 回を終える。次の asking は新しい回
+func (n *Notifier) stepAsking(snap *pane.Snapshot, p *pane.PaneState) bool {
+	switch p.State {
+	case agent.StateAsking:
+		if _, ok := n.asked[p.ID]; ok {
+			return false
+		}
+		id := askEventID(p.Session, p.ID, snap.At)
+		n.asked[p.ID] = id
+		n.enqueueAskingLocked(p, id, snap.At)
+		return true
+	case agent.StateUnknown:
+		return false
+	}
+	if _, ok := n.asked[p.ID]; !ok {
+		return false
+	}
+	delete(n.asked, p.ID)
+	return true
+}
+
+// enqueueAskingLocked は pane.asking の本文を 1 回だけ作って outbox に入れ、送りを始める（台帳へは Observe が書いてから送りが始まる）。
+func (n *Notifier) enqueueAskingLocked(p *pane.PaneState, id string, at time.Time) {
+	if _, ok := n.o.Config.Target(p.Session); !ok {
+		return // このセッションには送り先が無い。何も作らず、何も送らない（回は作った扱いで、同じ回では作り直さない）
+	}
+	body, err := json.Marshal(newAskingPayload(p, id, at))
+	if err != nil {
+		n.o.Logger.Error("webhook の本文を作れませんでした", "event_id", id)
+		return
+	}
+	it := &item{EventID: id, Payload: body}
+	n.outbox[id] = it
+	n.startItemLocked(it)
+}
+
+// stepRound は 1 ペインの idle の回（pane.idle_report）を進める。台帳が変わったら true。
 //
 //	working・stalled → 回を始める（そのときの最終報告を Base に覚える）。done の回のあとでも、新しい回
 //	idle（回あり）   → 待ちに移る。最終報告が Base から変わっていれば項目を作って送る（回は done）
 //	shell            → 回を捨てる
 //	asking・unknown  → 変えない（質問や一時的な判定不能をはさんでも、同じ回）
-func (n *Notifier) step(snap *pane.Snapshot, p *pane.PaneState) bool {
+func (n *Notifier) stepRound(snap *pane.Snapshot, p *pane.PaneState) bool {
 	e := n.entries[p.ID]
 	switch p.State {
 	case agent.StateWorking, agent.StateStalled:
