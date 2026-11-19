@@ -1,3 +1,9 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lockup-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/lockup-light.svg">
+  <img alt="Nefos Hub" src="docs/assets/lockup-light.svg" width="480">
+</picture>
+
 # Nefos Hub
 
 Nefos Hub（ネフォス ハブ）は、tmux の中で動く AI コーディングエージェント（omp・Claude Code・Codex）を、MCP 経由で見る・操作する常駐サーバーです。リポジトリ名・バイナリ名・コマンド名・設定フォルダ名は、これまでどおり `swarm-console` のままです（表示名だけが変わりました）。
