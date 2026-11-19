@@ -51,7 +51,7 @@ func New(ov agent.Overrides) (agent.Adapter, error) {
 // MatchScreen はステータス行か質問カードが見えるかで omp の画面と判定する。
 func (a *adapter) MatchScreen(s agent.Screen) bool {
 	lines := agent.TrimScreen(s.Lines)
-	if a.liveCard(lines) >= 0 {
+	if _, ok := a.liveCard(lines); ok {
 		return true
 	}
 	return a.statusIndex(lines) >= 0

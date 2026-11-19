@@ -23,28 +23,39 @@ func (a *adapter) statusIndex(lines []string) int {
 	return -1
 }
 
-// liveCard は入力待ちの質問カード（画面の最後の枠が Ask の枠）の上枠の位置（なければ -1）。
-// 結果として残った Ask の枠は、あとにステータス行が続くので当たらない。
-func (a *adapter) liveCard(lines []string) int {
-	if len(lines) == 0 || !strings.HasPrefix(lines[len(lines)-1], "╰──") {
-		return -1
-	}
-	for i := len(lines) - 2; i >= 0; i-- {
-		if strings.HasPrefix(lines[i], "╭") {
-			if a.P.Ask.MatchString(lines[i]) {
-				return i
-			}
-			return -1
+// cardSpan は質問カードの枠の上枠と下枠の行の位置。
+type cardSpan struct{ top, bottom int }
+
+// afterCardMax は、質問カードの下枠のあとに続けてよい行の数の上限（活動行・タイトル・ステータス行・入力欄の下枠と空行）。
+const afterCardMax = 10
+
+// liveCard は入力待ちの質問カード（画面の最後の枠が Ask の枠）の位置を返す（なければ ok=false）。
+// 画面で最後の枠（最後の `╭` の行）の上枠が Ask の目印に当たり、その下枠（`╰──`）が画面の下のほうにあるとき。
+// v18 までは下枠が画面の最後の行だったが、v19 は枠のあとに活動行・ステータス行・入力欄の下枠（`╰─`）が続く。
+// 結果として残った Ask の枠は上枠が `╭─── Ask`（`─` が 3 つ以上）で目印に当たらず、あとの枠が最後の枠になるので当たらない。
+func (a *adapter) liveCard(lines []string) (cardSpan, bool) {
+	for i := len(lines) - 1; i >= 0; i-- {
+		if !strings.HasPrefix(lines[i], "╭") {
+			continue
 		}
+		if !a.P.Ask.MatchString(lines[i]) {
+			return cardSpan{}, false
+		}
+		for j := i + 1; j < len(lines); j++ {
+			if strings.HasPrefix(lines[j], "╰──") {
+				return cardSpan{top: i, bottom: j}, len(lines)-1-j <= afterCardMax
+			}
+		}
+		return cardSpan{}, false
 	}
-	return -1
+	return cardSpan{}, false
 }
 
 // Detect は画面の状態を判定する。質問カード → 作業中 → 入力待ちの順に見る。
 func (a *adapter) Detect(s agent.Screen) agent.Detection {
 	lines := agent.TrimScreen(s.Lines)
-	if top := a.liveCard(lines); top >= 0 {
-		return agent.Detection{State: agent.StateAsking, Activity: activityAbove(lines, top)}
+	if span, ok := a.liveCard(lines); ok {
+		return agent.Detection{State: agent.StateAsking, Activity: a.askActivity(lines, span)}
 	}
 	idx := a.statusIndex(lines)
 	if idx < 0 {
@@ -56,6 +67,16 @@ func (a *adapter) Detect(s agent.Screen) agent.Detection {
 		d.Elapsed = agent.FindElapsed(strings.SplitN(lines[idx], string(statusSep), 2)[0])
 	}
 	return d
+}
+
+// askActivity は質問中の活動行（`<記号> Asking …`）の文言。v19 は枠の下（ステータス行の直上）、v18 は枠の上にある。
+func (a *adapter) askActivity(lines []string, span cardSpan) string {
+	if idx := a.statusIndex(lines); idx > span.bottom {
+		if t := activityAbove(lines, idx); t != "" {
+			return t
+		}
+	}
+	return activityAbove(lines, span.top)
 }
 
 // activityAbove は idx の行の直上にある活動行（`<記号> Working…` など）の文言を返す。

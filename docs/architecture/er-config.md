@@ -195,7 +195,7 @@ rules = [
 
 ## 9. webhook の台帳
 
-`[webhook] url`（または `[webhook.sessions."<名>"] url`）を書いたときだけ、`~/.local/share/swarm-console/webhook-state.json`（権限 600。`store.WriteFileAtomic`）を作る（FR-STATE-2。書かなければ作らない）。ペインごとの「回」と、送る約束をした「件」（outbox）を持つ。件は回と独立で、ペインが `working` に戻る・消える・tmux が再起動しても影響を受けない。
+`[webhook] url`（または `[webhook.sessions."<名>"] url`）を書いたときだけ、`~/.local/share/swarm-console/webhook-state.json`（権限 600。`store.WriteFileAtomic`）を作る（FR-STATE-2。書かなければ作らない）。ペインごとの「回」と、`asking` の回（`asked`。FR-STATE-9）と、送る約束をした「件」（outbox）を持つ。件は回と独立で、ペインが `working` に戻る・消える・tmux が再起動しても影響を受けない。
 
 ```json
 {
@@ -210,11 +210,19 @@ rules = [
       "report_path": "/tmp/swarm-console/reports/T2.md"
     }
   },
+  "asked": {
+    "%1": "evt_fedcba9876543210fedcba9876543210"
+  },
   "outbox": {
     "evt_0123456789abcdef0123456789abcdef": {
       "event_id": "evt_0123456789abcdef0123456789abcdef",
       "payload": {"event": "pane.idle_report", "event_id": "evt_0123456789abcdef0123456789abcdef", "…": "FR-STATE-3 の本文そのもの"},
       "attempts": 1
+    },
+    "evt_fedcba9876543210fedcba9876543210": {
+      "event_id": "evt_fedcba9876543210fedcba9876543210",
+      "payload": {"event": "pane.asking", "event_id": "evt_fedcba9876543210fedcba9876543210", "…": "FR-STATE-10 の本文そのもの"},
+      "attempts": 0
     }
   }
 }
@@ -222,9 +230,10 @@ rules = [
 
 | 項目 | 検証・意味 |
 |------|-----------|
-| `version` | `2`。違う（版 1 を含む）・JSON として読めないファイルは、警告のログ（台帳のパスと理由）を出して空から始める（送信は止めない） |
+| `version` | `2`（`asked` は省略できる任意のキーなので、Issue #111 より前の台帳もそのまま読め、版は上げない）。違う（版 1 を含む）・JSON として読めないファイルは、警告のログ（台帳のパスと理由）を出して空から始める（送信は止めない） |
 | `server_start` | tmux サーバーの起動時刻（`#{start_time}`）。スナップショットの値が空でなく、台帳の値（空でない）と違えば、`panes` をすべて捨てて新しい値を書く（ペイン ID `%N` は再起動で使い回される）。`outbox` は残す。台帳の値が空なら書くだけ |
 | `panes`（キーは tmux のペイン ID） | `phase`：`working`（`working` を見た）・`waiting`（`idle` になり、最終報告が書かれるのを待つ）・`done`（件を作った。次の `working` まで、この回は二度と始めない）。`event_id`：`waiting` に移るときに決める（セッション・ペイン ID・移った時刻から）。`state_changed_at`：`waiting` に移った（`working` から `idle` を見た）時刻。`report_base`・`report_path`：基準にした最終報告ファイル（有無・更新時刻（ns）・サイズ）と、そのパス。現在のパスが `report_path` と違うとき（ペインの位置がずれたとき）は、違うファイル同士を比べず、新しいパスで基準を取り直す。ペインが 1 つも無いスナップショット（tmux に接続できない・一覧が空）は、消えた判定に数えない。続けて 2 回のスナップショットに無いペインの行と `shell` を見たペインの行は消す。最終報告が通常のファイルでない（シンボリックリンクなど）ときは「無し」（`exists: false`）で、「書けた」にならない。`working` の行は `event_id` を持たず（空で書かない）、`state_changed_at` はゼロ時刻（`0001-01-01T00:00:00Z`）のまま |
+| `asked`（キーは tmux のペイン ID。省略可） | いまの `asking` の回で `pane.asking` の件を作った（送り先が無くて作らなかった回も含む）印。値はその回の `event_id`（セッション・ペイン ID・`asking` を見た時刻から。`pane.idle_report` の `event_id` とは重ならない）。`asking`・`unknown` 以外（`working`・`idle`・`stalled`・`shell`）を見たら消し、次の `asking` は新しい回になる（FR-STATE-9）。`server_start` が変わったとき・ペインが続けて 2 回のスナップショットに無いときも消す。再起動しても同じ質問のまま二度目を作らない |
 | `outbox`（キーは `event_id`） | `payload`：送る本文そのもの（件を作るときに 1 度だけ作る。再送・再起動後も 1 バイトも変えない）。`attempts`：送った回数（POST の前に 1 増やして書く。再起動をまたいで `max_attempts` を共有する）。成功（2xx）か諦めた（`error` のログを出した）ら件を消す。終了による中断では残し、中断した通信の分は `attempts` に数えない（戻して書く）。引き継いだ件は、`attempts` に応じた再送の間隔をあけてから続ける |
-| 書き込みの順 | 回が「書けた」になったとき、`panes`（`done`）・`outbox`・`server_start` を 1 度に書いてから、最初の POST を始める |
+| 書き込みの順 | 回が「書けた」になったとき（`pane.idle_report`）、または `asking` の回を始めたとき（`pane.asking`）、`panes`（`done`）・`asked`・`outbox`・`server_start` を 1 度に書いてから、最初の POST を始める |
 | 書けないとき | 台帳を書けない（読み取り専用・ディスクいっぱい）ときは、警告のログ（パスと OS のエラー文）を出して送る。その間の再起動では、同じ回に別の `event_id` が付くことがある（重複排除の保証は、台帳が書けている間だけ） |

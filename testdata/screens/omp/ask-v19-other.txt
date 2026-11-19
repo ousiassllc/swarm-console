@@ -1,0 +1,21 @@
+# 実画面（omp v19.0.0 を実際の tmux に立て、ask ツールの質問を出させて capture-pane -p -J で取った。同じ画面でカーソルが Other の行（`Other:  type your own`。入力欄のカーソルぶん空白が 2 つ））
+
+ Use the ask tool exactly once. Question "SDK distribution decision: how to treat the acceptance criterion" with options:
+ "Recommended: keep CI artifacts only and file a separate issue for registry publish, and mention it as unmet in the report so
+ that humans can follow up later on", "Attach artifacts to GitHub Releases manually". Mark the first as recommended. Do nothing
+ else.
+
+╭─ Ask ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ SDK distribution decision: how to treat the acceptance criterion                                                               │
+│    Recommended: keep CI artifacts only and file a separate issue for registry publish, and mention it as unmet in the report  │
+│     so that humans can follow up later on                                                                                      │
+│    Attach artifacts to GitHub Releases manually                                                                               │
+│   Other:  type your own                                                                                                      │
+│                                                                                                                                │
+│   Submit                                                                                                                       │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+  󱊷 Asking SDK distribution decision                                           󰏗 SDK: Decide SDK distribution acceptance criterion
+  37s   ousiass-desktop  󰪣 Sonnet 5.5    sc-111/probe  󰁑 01a1f3c8 ──󰕝󰁨─1M─  8   329   52K   5.4K   86.9 tok/s
+╰─

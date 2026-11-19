@@ -82,6 +82,20 @@ type PasteMenu interface {
 	PasteMenuClose() Key
 }
 
+// Submitter は、選択肢を選んだあとに回答の確定（Submit）の Enter がもう 1 回要る質問フォームを出すエージェントのアダプタが、
+// Adapter に加えて実装する（omp v19。Issue #111）。
+type Submitter interface {
+	// SubmitFocused は質問カードのカーソルが Submit の行にあるか。ここで Enter を送ると回答が確定する。
+	SubmitFocused(s Screen) bool
+}
+
+// Toggler は、複数選択（チェックボックス）の質問を出すエージェントのアダプタが、Adapter に加えて実装する（omp。Issue #111）。
+// 複数選択では、カーソルを選択肢に合わせて Enter を送っても、その選択肢にはチェックが付かないことがあるので、先にチェックを付ける。
+type Toggler interface {
+	// ToggleKeys はカーソルが n 番にあるとき、n 番にチェックを付けるキー。すでにチェックされている・単一選択のカードは空。
+	ToggleKeys(s Screen, n int) []Key
+}
+
 // Overrides は config.toml の [agents.<name>] による上書き。nil / 空は「上書きしない」。
 // 正規表現は Go の regexp 構文で、起動時にコンパイルできること。
 type Overrides struct {

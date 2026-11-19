@@ -1,0 +1,19 @@
+# 実画面（omp v19.0.0 を実際の tmux に立て、ask ツールの質問を出させて capture-pane -p -J で取った。複数選択で Enter のあと。カーソルは Submit の行）
+
+ Use the ask tool exactly once: id "toppings", multi-select (multi: true), question "Pick toppings", options Cheese, Ham, Olives.
+ Do nothing else.
+
+╭─ Ask ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓ Pick toppings                                                                                                                │
+│    ✓ Cheese   ✓ Ham   Olives                                                                                                   │
+│                                                                                                                                │
+│  Submit                                                                                                                       │
+│                                                                                                                                │
+│                                                                                                                                │
+│                                                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+  󱊷 Asking toppings                                                            󰏗 SDK: Decide SDK distribution acceptance criterion
+  24s   ousiass-desktop  󰪣 Sonnet 5.5    sc-111/probe  󰁑 01a1f3c8 ─3%─────󰕝󰁨────────1M─  28   977   224K   7.4K
+╰─

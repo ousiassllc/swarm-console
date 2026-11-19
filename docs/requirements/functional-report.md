@@ -138,12 +138,16 @@ flowchart TD
     J -- はい --> K["「その他」欄に text を貼り付け"]
     J -- いいえ --> L["Enter"]
     K --> L
-    L --> M["accept_timeout までカードが閉じ working になるのを待つ"]
+    L --> L2{"カーソルが Submit の行に移ったか（omp v19）"}
+    L2 -- はい --> L3["Enter をもう 1 回だけ送る（回答の確定）"]
+    L2 -- いいえ --> M["accept_timeout までカードが閉じ idle か working になるのを待つ"]
+    L3 --> M
     M --> N["ok と state を返す"]
 ```
 
 - `n`（選ぶ番号）と `text`（「その他」に打つ文字）は同時に指定できない。どちらも指定しなければ `invalid_args`。`text` を指定すると「その他」の選択肢を選んで `text` を入れる（P-10）。
 - 再試行は 2 回まで。カーソルが合わないままの Enter は送らない。
+- omp v19 の質問フォームは、選択肢を選ぶ Enter のあとカーソルが `Submit` の行に移り、もう 1 回 Enter を送るまで回答は確定しない（Issue #111）。`ask_pick` は `Submit` の行にカーソルが移ったのを画面で確かめてから Enter を 1 回だけ送る（画面の反映が遅れても重ねて送らない）。質問が複数のフォームは、選んだ Enter のあとに次の質問が開くので、待たずに `ok: false`・`state: asking`・`card_closed: false` を返す（選んだ分は済んでいる）。次の質問は `ask_card` で読み直して選ぶ。最後の質問を選ぶと `Submit` へ進み、上の手順で確定する。
 
 ## 7. 指示の組み立て（FR-DISPATCH）
 

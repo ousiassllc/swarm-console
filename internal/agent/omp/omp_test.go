@@ -41,7 +41,7 @@ func toppings(cursor int) *agent.Card {
 
 func TestScreens(t *testing.T) {
 	const ask = "Asking fruit choice"
-	agenttest.CheckRows(t, agenttest.New(t, "omp"), "omp", []agenttest.Row{
+	rows := []agenttest.Row{
 		{File: "idle.txt", State: agent.StateIdle},
 		{File: "cancelled-idle.txt", State: agent.StateIdle},
 		{File: "working.txt", State: agent.StateWorking, Activity: "Working…", Elapsed: "2s"},
@@ -63,7 +63,8 @@ func TestScreens(t *testing.T) {
 		// 貼り付けの確認メニューが開いている間はステータス行が見えない。閉じて印が入力欄に残った画面は idle。
 		{File: "paste-prompt.txt", State: agent.StateUnknown},
 		{File: "paste-pending.txt", State: agent.StateIdle},
-	})
+	}
+	agenttest.CheckRows(t, agenttest.New(t, "omp"), "omp", append(rows, v19Rows...))
 }
 
 func TestKeys(t *testing.T) {

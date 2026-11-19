@@ -50,11 +50,14 @@ type ledgerFile struct {
 	Version     int               `json:"version"`
 	ServerStart string            `json:"server_start,omitempty"` // tmux サーバーの起動時刻。変わったらペイン ID が使い回されるので回を捨てる
 	Panes       map[string]*entry `json:"panes"`
-	Outbox      map[string]*item  `json:"outbox"`
+	// Asked は、いま asking の回で pane.asking の件を作った（送り先が無くて作らなかった回も含む）ペイン ID → event_id。
+	// asking でない状態を見たら消える。再起動しても、同じ質問のまま二度目を作らない。
+	Asked  map[string]string `json:"asked,omitempty"`
+	Outbox map[string]*item  `json:"outbox"`
 }
 
 func emptyLedger() ledgerFile {
-	return ledgerFile{Version: ledgerVersion, Panes: map[string]*entry{}, Outbox: map[string]*item{}}
+	return ledgerFile{Version: ledgerVersion, Panes: map[string]*entry{}, Asked: map[string]string{}, Outbox: map[string]*item{}}
 }
 
 // loadLedger は台帳を読む。無ければ空。壊れている・版が違えば空にして、そのことを返す（送信は止めない）。
@@ -72,6 +75,14 @@ func loadLedger(path string) (ledgerFile, error) {
 	}
 	if f.Panes == nil {
 		f.Panes = map[string]*entry{}
+	}
+	if f.Asked == nil {
+		f.Asked = map[string]string{}
+	}
+	for id, ev := range f.Asked {
+		if ev == "" {
+			delete(f.Asked, id)
+		}
 	}
 	if f.Outbox == nil {
 		f.Outbox = map[string]*item{}
