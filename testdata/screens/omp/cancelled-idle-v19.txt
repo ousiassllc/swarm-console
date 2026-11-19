@@ -1,0 +1,11 @@
+# 実画面（omp v19.0.0 を実際の tmux に立て、ask ツールの質問を出させて capture-pane -p -J で取った。Esc を 2 回押して質問をキャンセルした直後（`Ask input was cancelled`））
+
+ Use the ask tool exactly once: question "Pick a fruit", options Apple, Banana. Do nothing else.
+
+
+ Ask
+Ask input was cancelled
+
+  F5 to retry
+ 󰵗   ousiass-desktop  󰪣 Sonnet 5.5    sc-111/probe  󰁑 01a1f3c8 ─3%─────󰕝󰁨───────1M─  38   1.2K   312K   8.2K  󱘲
+╰─

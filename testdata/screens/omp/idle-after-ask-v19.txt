@@ -1,0 +1,22 @@
+# 実画面（omp v19.0.0 を実際の tmux に立て、ask ツールの質問を出させて capture-pane -p -J で取った。Submit のあと、結果の枠（`╭─── Ask`）が残り、回答を受けたエージェントの返事が出て入力待ちに戻った）
+
+ Use the ask tool exactly once. Question "SDK distribution decision: how to treat the acceptance criterion" with options:
+ "Recommended: keep CI artifacts only and file a separate issue for registry publish, and mention it as unmet in the report so
+ that humans can follow up later on", "Attach artifacts to GitHub Releases manually". Mark the first as recommended. Do nothing
+ else.
+
+
+╭───  Ask ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│  SDK distribution decision: how to treat the acceptance criterion                                                              │
+│   Attach artifacts to GitHub Releases manually                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+ ユーザーは「GitHub Releases に成果物を手動で添付する」を選びました。ask は指示どおり 1 回だけ使い、ほかの操作はしていません。
+
+  Advisor 1 note
+   ▎ 問題なし。指示は「ask を1回だけ使い、他は何もしない」なので、このまま終えてよい。選択結果
+   ▎ (github_releases_manual)を報告するだけにして、Releases への添付や issue 起票など追加作業は始めないこと。
+
+                                                                               󰏗 SDK: Decide SDK distribution acceptance criterion
+ 󰵗   ousiass-desktop  󰪣 Sonnet 5.5    sc-111/probe  󰁑 01a1f3c8 ─3%󰕝󰁨──1M─  14   402   109K   6.2K   39.9 tok/s
+╰─
