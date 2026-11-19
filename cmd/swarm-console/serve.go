@@ -48,7 +48,7 @@ func runServe(ctx context.Context, args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("起動します", "version", version, "listen_addr", a.Cfg.ListenAddr)
+	logger.Info("Nefos Hub を起動します", "version", version, "listen_addr", a.Cfg.ListenAddr)
 	return a.Run(ctx)
 }
 

@@ -16,7 +16,7 @@ const (
 	descReportRead = "ペインの最終報告ファイル（<位置>.md）を読む。ファイルがなければ {\"exists\":false}。"
 	descHostStatus = "サーバーの負荷・CPU 数・CPU 使用率・メモリ・スワップ・ディスク（使用率つき）・tmux セッションの有無・" +
 		"エージェント種別ごとのペイン数・稼働時間と、使用状況（usage）・omp の新しい版の確認（omp）・" +
-		"swarm-console の新しい版の確認の結果と自己更新の状況（update）を返す。"
+		"Nefos Hub の新しい版の確認の結果と自己更新の状況（update）を返す。"
 	descAgentAuthStatus = "エージェント（omp・claude・codex）ごとのログイン状態（valid・expired・expiring_soon・unknown）と期限日時を返す。" +
 		"鍵・トークンの中身は返さない。"
 	descNoteGet     = "1 ペインのメモを全項目返す。メモがなければ note は null。"

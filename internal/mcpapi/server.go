@@ -50,7 +50,7 @@ func newServer(endpoint string, o Options) *mcp.Server {
 	if version == "" {
 		version = "dev"
 	}
-	s := mcp.NewServer(&mcp.Implementation{Name: "swarm-console", Version: version}, &mcp.ServerOptions{
+	s := mcp.NewServer(&mcp.Implementation{Name: "swarm-console", Title: "Nefos Hub", Version: version}, &mcp.ServerOptions{
 		Logger: o.Logger,
 		// ステートレスなので、一覧の変更通知は送れない。
 		Capabilities: &mcp.ServerCapabilities{

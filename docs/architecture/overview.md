@@ -14,7 +14,7 @@
 graph TD
     C1["MCP クライアント（curl / Claude Code / Codex / Cursor ほか）"]
 
-    subgraph Proc["swarm-console（Go 1 バイナリ・1 プロセス）"]
+    subgraph Proc["Nefos Hub（swarm-console。Go 1 バイナリ・1 プロセス）"]
         direction TB
         HTTP["HTTP サーバー（tailnet IP:48120）"]
         AUTH["認証ミドルウェア（Bearer・窓口スコープ・監査ログ）"]
@@ -114,7 +114,7 @@ flowchart LR
 ```mermaid
 sequenceDiagram
     participant C as MCP クライアント
-    participant S as swarm-console
+    participant S as Nefos Hub
     participant A as 認証ミドルウェア
     participant T as ツール層
 

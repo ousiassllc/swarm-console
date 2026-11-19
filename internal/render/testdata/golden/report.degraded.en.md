@@ -1,9 +1,9 @@
-# swarm-console report
+# Nefos Hub report
 
 - Time: 2026-10-31 22:10:05 (+09:00)
 - Server load: load1 98.2 / CPU Unavailable / Mem free 0.0 GB / Swap 0%
 - Disk: / 95% (5 GB free), /mnt/nvme Unavailable
-- Updates: omp 18.14.2 (Update 18.15.0 available) / swarm-console dev (Unavailable)
+- Updates: omp 18.14.2 (Update 18.15.0 available) / Nefos Hub dev (Unavailable)
 - Login: omp Valid / claude Unknown / codex Unknown
 
 ## Panes

@@ -2,7 +2,7 @@
 
 ## 目的
 
-tmux の中で動く AI コーディングエージェント（omp・Claude Code・Codex）を、MCP 経由で次の 4 点が満たせる形にする常駐サーバー `swarm-console` を作る。
+tmux の中で動く AI コーディングエージェント（omp・Claude Code・Codex）を、MCP 経由で次の 4 点が満たせる形にする常駐サーバー Nefos Hub（リポジトリ・バイナリ名は `swarm-console`）を作る。
 
 1. ペインの画面をまるごと読まずに、状態・質問カード・最終報告を短い JSON で取れる（文字量を減らす）
 2. 貼り付け・選択・閉じるなどの手順を 1 回の呼び出しで正しく行える（SSH の回数と手順ミスを減らす）
@@ -64,7 +64,7 @@ graph TD
     end
 
     subgraph Desktop["example-host"]
-        subgraph SC["swarm-console（systemd user, tailnet IP:48120）"]
+        subgraph SC["Nefos Hub（swarm-console。systemd user, tailnet IP:48120）"]
             REP["/report 窓口（見るだけ）"]
             OPS["/ops 窓口（見る＋操作）"]
             CORE["ペイン台帳・スナップショット・アダプタ・メモ・レンダラ"]
@@ -164,3 +164,4 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | 1.7 | 2026-11-03 | ツール数 18→19（`file_get`。`/ops` のみ）、ドキュメントマップの API 仕様：ペインを見る・操作するに `file_get` を追加 | Issue #82 |
 | 1.8 | 2026-11-05 | ドキュメントマップ：レポートに足す値の集め方にメモリ（`host.mem`）を追記 | Issue #86・#87 |
 | 1.9 | 2026-11-08 | ツール数 19→20（`dir_list`。`/ops` のみ）。`swarm-console pair --scope report\|ops` | Issue #90 |
+| 1.10 | 2026-11-18 | 表示名を「Nefos Hub」（カタカナは「ネフォス」）に変更（Kozue → Nefos）。リポジトリ名・バイナリ名・パス・設定キー・ツール名・API パスは変えない | Issue #107 |

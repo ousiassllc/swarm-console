@@ -1,4 +1,4 @@
-# swarm-console の設定（config.toml）。
+# Nefos Hub（コマンド名は swarm-console）の設定（config.toml）。
 #
 # 手で書いても、`swarm-console setup` で対話的に作っても同じファイルになる。
 # 行頭の # を外すとその値が効く。書かなかったキーは、各行に書いた既定値で動く。

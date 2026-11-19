@@ -82,11 +82,11 @@ func (w words) statusNote(status, latest string) string {
 	return w.unavailable
 }
 
-// updatesText は `omp 18.14.2（最新）／ swarm-console v0.1.5（最新）`。
+// updatesText は `omp 18.14.2（最新）／ Nefos Hub v0.1.5（最新）`。
 func (w words) updatesText(snap *pane.Snapshot) string {
 	o, u := snap.Omp, snap.Update
 	omp := version("omp", o.Current) + w.paren(w.statusNote(o.Status, o.Latest))
-	self := version("swarm-console", u.Current) + w.paren(w.statusNote(u.Status, tagOrEmpty(u.Latest)))
+	self := version("Nefos Hub", u.Current) + w.paren(w.statusNote(u.Status, tagOrEmpty(u.Latest)))
 	return omp + w.listSep + self
 }
 

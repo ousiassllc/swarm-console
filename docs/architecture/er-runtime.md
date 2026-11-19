@@ -67,7 +67,7 @@ erDiagram
         object layout "段数・列数"
         object usage "最後の使用状況の結果（収集器から。status・アカウント。アカウントごとに name・reason（without_usage | no_email | 空）・枠）"
         object omp "omp の更新確認の結果（収集器から）"
-        object update "swarm-console の更新確認の結果（host_status.update と同じ）"
+        object update "Nefos Hub の更新確認の結果（host_status.update と同じ）"
         object auth "エージェントのログイン期限（スナップショットを作るときに読む）"
     }
     PANE_STATE {

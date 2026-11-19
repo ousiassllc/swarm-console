@@ -24,7 +24,7 @@
 | FR-REP-12 | 使用状況（Issue #21）：Claude の 5 時間枠・7 日枠、Cursor の使用量、Codex の 5 時間枠・7 日枠を、アカウントごとに返す。Claude は `omp` が返したアカウントを全部返し、ある枠が取れなくてもアカウントを消さない。取れなかったアカウント（`accountsWithoutUsage` から来たもの）と名前が作れなかったアカウント（メールが空）には、JSON だけ理由 `reason`（`without_usage`・`no_email`。どちらでもなければ `null`。両方なら `without_usage`。Issue #87）を付ける。JSON は `usage`（API 仕様 §5.5）、markdown は「使用状況」の節。取り方・間隔は [report-values.md §2](../architecture/report-values.md#2-使用状況issue-21) |
 | FR-REP-13 | サーバー負荷（Issue #23・#86）：メモリの全体・使用量・使用率（`MemTotal − MemAvailable`。`mem_free_gb` は互換のため残す）・CPU 使用率・スワップの使用量と使用率・`disk_mounts` の各マウントの使用率を、数値で返す。バーなどの見た目は仕様に入れず、値だけを返す。メモリの markdown の行は変えない（空きだけ）。SSD 2 台は既存の `disk_mounts`（既定 `/` と `/mnt/nvme`）。取れない値は FR-REP-11 |
 | FR-REP-14 | ペインの経過（Issue #22）：ペインの表に列「経過」を、状態の右に足す。値は `panes_status` の `elapsed`（エージェントの画面の経過表示、読めなければサーバーが `working` を観測し始めてからの経過。ER §4）をそのまま使い、`null` は `—`。新しい項目・起点は足さない。JSON は既存の `panes[].elapsed` |
-| FR-REP-15 | omp の更新確認（Issue #24）：omp の今の版と、新しい版があるかを返す（`omp.status`：`up_to_date`・`update_available`・`unknown`・`pending`・`disabled`）。`update_check`・`update_check_interval` に従う。swarm-console 自身の状態（`host_status.update` と同じ）も `update` として一緒に返す（JSON は `update`、markdown は見出しの「更新」の 1 行に omp と並べる。FR-UPD-9）。取れないときは `unknown` と `reason`（markdown は「取得できず」） |
+| FR-REP-15 | omp の更新確認（Issue #24）：omp の今の版と、新しい版があるかを返す（`omp.status`：`up_to_date`・`update_available`・`unknown`・`pending`・`disabled`）。`update_check`・`update_check_interval` に従う。Nefos Hub 自身の状態（`host_status.update` と同じ）も `update` として一緒に返す（JSON は `update`、markdown は見出しの「更新」の 1 行に omp と並べる。FR-UPD-9）。取れないときは `unknown` と `reason`（markdown は「取得できず」） |
 | FR-REP-16 | ログイン期限（Issue #25）：`agent_auth_status` と同じ判定を `auth` として返す。`expired`・`expiring_soon`（48 時間以内）だけ要対応の一覧に入れる（`kind`：`auth_expired`・`auth_expiring`）。`unknown` は要対応に入れず、`auth` に `unknown` のまま残し、markdown の見出しに「不明」と出す。`pane` を指定した場合も、ログインの要対応は入れる（ペインに属さないので絞らない。並びはペインの項目のあと。API 仕様 §5.5）。閾値・設定は足さない |
 | FR-REP-17 | `host_status` は、同じスナップショットの値として `mem`・`cpu`・`swap`・拡張した `disk`・`usage`（アカウントごとの `reason` を含む）・`omp` を返す（キーと形は `report` の JSON と同じ。API 仕様 §5.3。`mem_total_gb`・`mem_free_gb` も残す）。`format: markdown` に出す新しい値の見た目（行の並び・言葉）は §5.3・§5.4 に従う |
 | FR-REP-18 | メール・`accountId`・`orgId`・トークン・`omp` のコマンド出力の文面・パスは、レポートと `host_status` のどこにも出さない（アカウントごとの `reason` は決まった値だけで、これらを含めない）。アカウントは [report-values.md §2.2](../architecture/report-values.md#22-アカウント名) の名前だけで示す（NFR-SEC-5） |
@@ -44,12 +44,12 @@
 ### 5.3 出力レイアウト（`ja`、例）
 
 ````markdown
-# swarm-console レポート
+# Nefos Hub レポート
 
 - 時刻: 2026-10-31 22:10:05 (+09:00)
 - サーバー負荷: load1 98.2 / CPU 42% / メモリ空き 41.3 GB / スワップ 5%
 - ディスク: / 73%（空き 120 GB）、/mnt/nvme 78%（空き 830 GB）
-- 更新: omp 18.14.2（最新）／ swarm-console v0.1.5（最新）
+- 更新: omp 18.14.2（最新）／ Nefos Hub v0.1.5（最新）
 - ログイン: omp 不明 / claude 期限切れ / codex 期限間近
 
 ## ペイン
