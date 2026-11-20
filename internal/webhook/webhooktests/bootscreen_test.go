@@ -29,13 +29,22 @@ const frozenPID = 101 // env.Pane("%0", 100, ...) の omp のプロセス
 
 func newFrozenScreen(t *testing.T, r *receiver) *frozenScreen {
 	t.Helper()
-	g := newRig(t, r.target(3))
+	return newFrozenScreenWith(t, r, pane.NewUnaccepted(), false)
+}
+
+// newFrozenScreenWith は un を Registry に渡す。notifierSharesUn なら Notifier にも渡し、件を送ったあとも見続ける（Issue #115）。
+func newFrozenScreenWith(t *testing.T, r *receiver, un *pane.Unaccepted, notifierSharesUn bool) *frozenScreen {
+	t.Helper()
+	g := bareRig(t)
+	if notifierSharesUn {
+		g.un = un
+	}
+	g.build(r.target(3))
 	env := panetest.NewEnv()
 	env.Cfg.ReportDir = filepath.Join(g.dir, "reports")
 	probe := panetest.NewProbeAdapter("omp")
 	env.Adapters["omp"] = probe
 	env.Tmux.SetPanes(env.Pane("%0", 100, 0, 0, panetest.ScreenIdle("omp"), []string{"omp"})) // 起動画面のまま
-	un := pane.NewUnaccepted()
 	reg, err := pane.NewRegistry(pane.Deps{
 		Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters, Notes: env.Notes,
 		Clock: env.Clock, Unaccepted: un, Observer: g.n,

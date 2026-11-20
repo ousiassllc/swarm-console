@@ -92,6 +92,7 @@ type rig struct {
 	at     time.Time
 	cancel context.CancelFunc
 	wait   func()
+	un     *pane.Unaccepted // Notifier に渡す受理の記録（nil なら渡さない）
 }
 
 var noSleep = func(ctx context.Context, _ time.Duration) error { return ctx.Err() }
@@ -117,7 +118,7 @@ func (g *rig) build(cfg config.Webhook) {
 	n, err := webhook.New(webhook.Options{
 		Config: cfg, ReportDir: filepath.Join(g.dir, "reports"), StatePath: g.state, Version: "test",
 		Logger: slog.New(slog.NewJSONHandler(&lockedWriter{b: g.logs}, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		Sleep:  noSleep,
+		Sleep:  noSleep, Unaccepted: g.un,
 	})
 	if err != nil {
 		g.t.Fatal(err)

@@ -124,14 +124,15 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 	if err != nil {
 		return nil, err
 	}
-	wh, err := newWebhook(cfg, version, logger)
+	un := pane.NewUnaccepted() // Registry・Ops（受理の記録）と Notifier（件を送ったペインの見張り）が共有する
+	wh, err := newWebhook(cfg, version, logger, un)
 	if err != nil {
 		return nil, err
 	}
 	deps := pane.Deps{
 		Cfg: cfg, Tmux: tmux.New(cfg.TmuxSocket), Host: hostReader, Adapters: adapters, Notes: store,
 		Values: valuesSource{col, up},
-		Clock:  clk, Logger: logger, VersionWarn: tmux.CheckVersion, CheckText: policy.CheckText,
+		Clock:  clk, Logger: logger, VersionWarn: tmux.CheckVersion, CheckText: policy.CheckText, Unaccepted: un,
 	}
 	if wh != nil { // nil の *Notifier をインターフェースに入れない
 		deps.Observer = wh
