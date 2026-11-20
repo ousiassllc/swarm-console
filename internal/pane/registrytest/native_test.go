@@ -79,8 +79,8 @@ func TestNativeFallsBackToCaptureWhenComposeFails(t *testing.T) {
 	env, _ := nativeEnv(t) // SetNativeScreen していない = ok=false
 	r := newTestRegistry(t, env)
 	got := byID(t, mustRefresh(t, r), "%0")
-	if got.State != agent.StateIdle || got.Title != panetest.NativeFrame {
-		t.Fatalf("state=%s title=%q", got.State, got.Title)
+	if got.State != agent.StateIdle || got.Title != "" {
+		t.Fatalf("state=%s title=%q, want idle / 空（TSP のタイトルは出さない）", got.State, got.Title)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestShellWithStaleTspTitleIsShell(t *testing.T) {
 	p.Title = panetest.NativeFrame
 	env.Tmux.SetPanes(p)
 	got := byID(t, mustRefresh(t, newTestRegistry(t, env)), "%0")
-	if got.State != agent.StateShell || got.Agent != "" {
-		t.Fatalf("state=%s agent=%q, want shell", got.State, got.Agent)
+	if got.State != agent.StateShell || got.Agent != "" || got.Title != "" {
+		t.Fatalf("state=%s agent=%q title=%q, want shell / 空のタイトル", got.State, got.Agent, got.Title)
 	}
 }

@@ -66,10 +66,13 @@ func nativeScreen(ad agent.Adapter, title string, pid int) (agent.Screen, bool) 
 }
 
 // paneTitle は PaneState.Title にするタイトル。tern の画面のペインのタイトルは画面データ（最後の 1 フレーム。数 KB の JSON）なので、
-// panes_status・report・webhook に出さず空にする（Issue #121）。
-func paneTitle(title string, o observation) string {
-	if o.native {
-		return ""
+// panes_status・report・webhook に出さず空にする（Issue #121）。画面を組み立てられたかには関わらない
+// （記録がまだ無い・読めない・omp が終わってシェルに戻った、でも出さない）。
+func (r *SnapshotRegistry) paneTitle(title string) string {
+	for _, ad := range r.deps.Adapters {
+		if nat, ok := ad.(agent.Native); ok && nat.NativeTitle(title) {
+			return ""
+		}
 	}
 	return title
 }
