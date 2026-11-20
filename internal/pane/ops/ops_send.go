@@ -135,8 +135,8 @@ func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapt
 	var retryErr error
 	resends := 0
 	accepted, err = o.waitFor(ctx, max(deadline.Sub(o.deps.Clock.Now()), 0), pollStep, func(ctx context.Context) bool {
-		st, lines := o.look(ctx, id, ad)
-		if st == agent.StateWorking && (!wasWorking || !onScreen(lines, text)) {
+		st, rd := o.look(ctx, id, ad)
+		if st == agent.StateWorking && (!wasWorking || o.landed(ad, rd, text, firstEnter)) {
 			return true
 		}
 		if now := o.deps.Clock.Now(); st == agent.StateIdle && now.Sub(lastEnter) >= enterRetryStep {
@@ -238,6 +238,17 @@ func onScreen(lines []string, text string) bool {
 		}
 	}
 	return false
+}
+
+// landed は、すでに作業中だったペインに貼った text が、入力欄から送信に移ったか。
+// 普通の画面は、text の末尾が入力欄（画面の下側）から消えたこと。tern の画面は入力欄が見えないので、
+// 会話の記録に since 以降の指示として text の末尾が書かれたことで確かめる（agent.Native）。
+func (o *Operator) landed(ad agent.Adapter, rd pane.Reading, text string, since time.Time) bool {
+	if rd.Native {
+		nat, ok := ad.(agent.Native)
+		return ok && nat.NativeDelivered(rd.PID, text, since)
+	}
+	return !onScreen(rd.Lines, text)
 }
 
 // Escape は Esc を送って状態の遷移を待つ。許可は working・stalled・asking・idle。confirm の検査は tools 層。

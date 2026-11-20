@@ -46,6 +46,21 @@ omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左�
 | Clean | 画面下のステータス行・活動行・タイトル行、`╭╰├` の枠線、`Todo N tasks` の枠、`TODO` の木、枠の左右の `│` を除く | TODO は 2 通りの表示がある（上の枠と下の `TODO` の木） |
 | StableText | ステータス行を除き、スピナー文字と `36s`・`1m 5s`・`12:34`・`N tokens` を除く | 本文の中の時間表記も消えるが、画面ハッシュ用なので問題ない |
 
+### omp（tern の画面。TSP）
+
+omp は、tern が管理する tmux のセッションでは tern の画面（TSP）を出す（条件は [P-111](decisions.md)）。`capture-pane` は空で、`pane_title` は `tsp;f;{"sf":"s:1","s":<連番>,"ops":[…]}`（最後の 1 フレームの差分）になる。アダプタは `agent.Native` も実装し、`pane` はタイトルが `tsp;` で始まる omp のペインだけ、`capture-pane` の代わりに**会話の記録（`/proc/<pid>/fd` が指す `~/.omp/agent/sessions/<cwd>/<日時>_<id>.jsonl` の末尾）から組み立てた画面**を `Detect` などに渡す（[P-112](decisions.md)。限界は P-113）。
+
+| 項目 | 組み立て方 | 普通の画面との対応 |
+|------|-----------|-------------------|
+| 本文 | 直近のやり取り（新しいほうから最大 40）。指示・応答は 1 行ずつ字下げ 1、ツールの呼び出しは ` ▸ <名前>: <意図>`。ツールの結果は出さない | `pane_tail` の中身（`Clean` を通る） |
+| working | 記録の最後が番の途中（指示・ツールの結果・`stopReason=toolUse` の応答）。活動行 `U+F12B7 <最後のツールの意図、無ければ Working…>` とステータス行 `U+E0B6 ⠋ <経過> U+E0B1 tern`（経過は番の始まり＝最後の指示から。`36s`・`17m05s`・`1h05m`） | `working_re`（スピナー）・`Activity`・`Elapsed` |
+| asking | 最後のやり取りが `ask` の呼び出し（結果がまだ無い）。引数の `html`（`<fieldset><legend>`＋radio・checkbox・select）か `questions` の配列から、1 問目を `╭─ Ask …╮`・見出し・選択肢（`Other: type your own`・`Submit`）に組み立てる。カーソルは `recommended`（html は `checked`）の選択肢、無ければ 1 番。`recommended` の選択肢には ` (recommended)` を足す | `ask_re`・`ParseCard`・`PickKeys`・`Toggler`・`SubmitFocused` |
+| idle | 上のどれでもない（記録が無い・開いていない起動直後も） | `idle_re`（`U+E0B6` 行） |
+| StableText | ステータス行（経過・スピナー）を除く。経過時間の更新では変わらず、会話が進むと変わる | 画面ハッシュ・`changed_at`・`stalled` |
+| `title`（`panes_status`） | `""`（フレームの JSON を出さない） | 普通の画面は `pane_title` のまま |
+
+`NativeDelivered(pid, text, since)` は、`since` 以降のユーザーの指示に `text` の最後の非空行の末尾 30 字が含まれるか。`send_text`・`dispatch` が、すでに作業中のペインで受理を確かめるのに使う（入力欄が見えないため）。記録を開いていない pid は `false`、組み立てを読めない（記録を開けない）ときは `capture-pane` に戻る。実機の記録は `testdata/native/omp/`。
+
 ### claude
 
 | 判定 | 目印 | 誤判定しやすい点 |

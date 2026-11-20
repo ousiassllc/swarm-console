@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -163,4 +164,29 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(out), nil
+}
+
+// PaneMeta は 1 ペインの、画面の外にある情報（Issue #121）。
+type PaneMeta struct {
+	PID   int    // ペインのシェルの PID
+	Title string // #{pane_title}
+}
+
+// PaneMeta は id のペインのシェルの PID とタイトルを返す（display -p -t <id>）。
+// ペインが無ければエラー。タイトルは最初の空白より後ろ全部（空白・記号を含んでよい）。
+func (c *Client) PaneMeta(ctx context.Context, id string) (PaneMeta, error) {
+	if err := checkPane(id); err != nil {
+		return PaneMeta{}, err
+	}
+	out, err := c.run(ctx, subDisplay, "", "-p", "-t", id, "#{pane_pid} #{pane_title}")
+	if err != nil {
+		return PaneMeta{}, err
+	}
+	out = strings.TrimSuffix(out, "\n")
+	pidText, title, _ := strings.Cut(out, " ")
+	pid, err := strconv.Atoi(pidText)
+	if err != nil {
+		return PaneMeta{}, apperr.Wrap(apperr.TmuxError, errors.New("display: pane_pid の解析に失敗"), "subcommand", subDisplay)
+	}
+	return PaneMeta{PID: pid, Title: title}, nil
 }

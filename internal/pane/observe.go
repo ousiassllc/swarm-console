@@ -64,6 +64,9 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 		}
 		return o
 	}
+	if ns, ok := nativeScreen(ad, p.Title, pid); ok {
+		screen = ns
+	}
 	det := ad.Detect(screen)
 	o := observation{
 		agentName: name,

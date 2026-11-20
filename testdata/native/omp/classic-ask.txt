@@ -1,0 +1,41 @@
+# 実画面（omp v19.0.1 を PI_TUI_NATIVE=0 で実際の tmux に立て、ask ツールの質問を出させて capture-pane -p -J で取った。tern の画面（session.jsonl の 1〜6 行目）と同じ質問。
+ Warning: Fallback chain for role 'default' references unknown model: cursor/claude-sonnet-5-high
+
+ Warning: Fallback chain for role 'task' references unknown model: cursor/claude-sonnet-5-high
+
+ Warning: Fallback chain for role 'advisor' references unknown model: cursor/claude-sonnet-5-high
+
+
+                                                      ████████████
+                                                         ██  ██       ▄▀▀▄ █▀▄▀▄ █▀▀▄
+                                                         ██  ██       ▀▄▄▀ █ █ █ █▄▄▀
+                                                         ▒▒  ██                  █
+                                                             ██       v19.0.1
+
+                                   Tip: Use /tan to fork the current conversation into a background agent
+
+ Connected to MCP servers: supabase, deepwiki, nano-banana.
+
+
+ Use the ask tool exactly once. Question "Pick a colour for the test" with options "Red (recommended)" and "Blue". Do nothing else.
+
+╭─ Ask ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Pick a colour for the test                                                                                                               │
+│   Red (recommended)                                                                                                                    │
+│    Blue                                                                                                                                 │
+│    Other: type your own                                                                                                                 │
+│                                                                                                                                          │
+│   Submit                                                                                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+  󱊷 Asking colour choice                                                                                    󰏘 COLOUR: Pick a colour for test
+  /tmp ────3%─────────────────────────────────────────────────────󰕝────󰁨──────────────────────────────────────────────────────────────1M─
+╰─
+
+
+
+
+
+
+

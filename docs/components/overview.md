@@ -127,7 +127,7 @@ swarm-console/
 | `notes` | `notes.json` の読み書き、`note_set` のマージ・検証、履歴、孤児化 | `Store`、`Get/Set/Log/Archive/History` | FR-NOTE |
 | `render` | `report`（markdown/json、`ja`/`en`）と `dispatch` の指示文のレンダリング。純関数（スナップショット＋設定 → 文字列） | `Report(ReportInput)`、`Dispatch(DispatchInput)` | FR-REP, FR-DIS |
 | `safety` | `cwd`・`file`・`file_get`・`dir_list` の許可判定（シンボリックリンク解決。`dir_list` は `file_get` の判定を根 `allowed_roots` で共有）、貼り付けテキストの検証、秘密パターン、秘密のファイル名（`IsSecretName`）、`file_get` の根にしない広すぎる `cwd`（`IsBroadCWD`） | `NewPolicy(cfg)`、`Policy`（`CheckCWD`・`CheckFile`・`CheckFileGet`・`CheckDirList`・`IsListableDir`・`CheckText`・`DetectSecret`）、`DetectSecret(s)`、`IsSecretName(name)`、`IsBroadCWD(cwd, home)` | FR-SAFE, NFR-SEC |
-| `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`（失敗時・中断時は自分が作った一意名のバッファだけ `delete-buffer -b`）・`select-pane -T`・`display -p` の実行と出力の解析 | `Client`（`New(socket, opts...)`。`pane.Tmux` を実装する） | NFR-SEC-7, NFR-ENV-2 |
+| `tmux` | `list-panes`・`capture-pane`・`send-keys`・`load-buffer`＋`paste-buffer -p`（失敗時・中断時は自分が作った一意名のバッファだけ `delete-buffer -b`）・`select-pane -T`・`display -p`（開始時刻・ペインの pid とタイトル `PaneMeta`）の実行と出力の解析 | `Client`（`New(socket, opts...)`。`pane.Tmux` を実装する） | NFR-SEC-7, NFR-ENV-2 |
 | `host` | `/proc`（負荷・メモリ・スワップ・CPU の差・稼働時間・プロセス木）、`statfs`（空きと使用率）、認証ファイルの期限 | `Host`（インターフェース）、`Reader`（実装。`NewReader(clk)`）。`Status(ctx, diskMounts)`、`ProcTree(pid)`、`AuthStatus(agent, authFile, now)`、`SampleCPU()` | FR-R5, FR-R6, FR-AD-5, FR-REP-13 |
 | `updatecheck` | `releases/latest` の取得（タイムアウト・本文上限・`api.github.com` 以外へリダイレクトしない）、`vX.Y.Z` の検査、`semver` 比較、失敗の分類（`reason`）、最後の結果の保持、`serve` の定期確認の goroutine | `Checker.Check(ctx) Result`（`New(Options)`）、`Runner`（`NewRunner(RunnerOptions)`、`Start(ctx)`、`Snapshot() Snapshot`）。HTTP クライアントと `clock` を差し替え可能 | FR-UPD-1〜10, NFR-SEC-15, NFR-AVL-9 |
 | `selfupdate` | `updatecheck` が `update_available` を返したときの入れ替え：許可ホスト内のダウンロード（サイズ上限・リダイレクト制限）、`SHA256SUMS` の検証、`~/bin/swarm-console/` の 5 ファイルへの書き込み（`.new` → `.old` ハードリンク → マーカー → `rename`）、起動時の試運転と戻し（`boots`・`.old` の `rename`・`update-failed`）、`apply` の状況の保持。入れ替え後は `serve` に正常終了を要求する（`systemctl` は実行しない） | `Updater`（`New(Options, trial)`、`Apply(ctx, latest) error`、`Status() Apply`）、`Probation(dir, version, clk, logger) Decision`（起動の最初）。HTTP クライアント・実行ファイルのパス・`clock`・ホームを `Options` で差し替え可能 | FR-UPD-11〜20, NFR-SEC-14・15・16, NFR-AVL-10 |
@@ -163,6 +163,15 @@ type Card struct {
 
 type Key struct {
     Name string // "Up" | "Down" | "Enter" | 数字 "1".."9"
+}
+
+// 任意のインターフェース（アダプタが Adapter に加えて実装する）：
+//   PasteMenu・Submitter・Toggler・WorkProbe・TurnProbe（omp）、
+//   Native（omp。Issue #121）：tern の画面（TSP）のペインを会話の記録から読む。
+type Native interface {
+    NativeTitle(title string) bool                           // pane_title が tern の画面か（omp は "tsp;" で始まる）
+    NativeScreen(pid, maxLines int) (NativeView, bool)       // 会話の記録から組み立てた、普通の画面と同じ形の画面
+    NativeDelivered(pid int, text string, since time.Time) bool // since 以降に text が指示として記録されたか
 }
 
 type Adapter interface {

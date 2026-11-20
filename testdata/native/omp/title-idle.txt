@@ -1,0 +1,1 @@
+tsp;f;{"sf":"s:1","s":23,"ops":[["set","3.bar/model/name",{"spans":[{"t":"Sonnet 5.5","s":"accent"},{"t":"","s":"success icon"}]}],["set","3.bar/usage",{"title":"Session cost 󰙺 0.10 +  0.01","spans":[{"t":"󰙺","s":"icon"},{"t":"0.10 +"},{"t":"","s":"icon"},{"t":"0.01"}]}]]}
