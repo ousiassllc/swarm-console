@@ -31,6 +31,10 @@ type entry struct {
 	ChangedAt time.Time  `json:"state_changed_at"`
 	Base      reportStat `json:"report_base"`
 	BasePath  string     `json:"report_path"` // Base を取った最終報告のパス。ペインの位置が変わって違うファイルになったら、取り直す
+	// Sent は done にした（件を作った）ときの最終報告の様子。次の回の Base にする（Issue #115）。
+	// 件を作ってから次の working を見るまでに最終報告が書き直されても、その回の idle で「書けた」と読めるようにするため。
+	// 無い（#115 より前の台帳の done）ときは、次の working を見たときの最終報告を Base にする（今までどおり）。
+	Sent *reportStat `json:"report_sent,omitempty"`
 }
 
 // item は送る約束をした 1 件（outbox）。回の状態とは独立で、ペインが working に戻っても・消えても・tmux が再起動しても、

@@ -57,13 +57,16 @@ func (f *frozenScreen) see(d time.Duration) agent.State {
 	return snap.Panes[0].State
 }
 
-func (f *frozenScreen) writeReport() {
+func (f *frozenScreen) writeReport() { f.writeReportBody("done\n") }
+
+// writeReportBody は最終報告を body で（書き直して）置く。body の長さが変わると「更新された」と見える。
+func (f *frozenScreen) writeReportBody(body string) {
 	f.t.Helper()
 	dir := filepath.Join(f.dir, "reports")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		f.t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "T1.md"), []byte("done\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "T1.md"), []byte(body), 0o600); err != nil {
 		f.t.Fatal(err)
 	}
 }

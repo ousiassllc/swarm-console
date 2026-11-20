@@ -132,7 +132,8 @@ func (n *Notifier) enqueueAskingLocked(p *pane.PaneState, id string, at time.Tim
 
 // stepRound は 1 ペインの idle の回（pane.idle_report）を進める。台帳が変わったら true。
 //
-//	working・stalled → 回を始める（そのときの最終報告を Base に覚える）。done の回のあとでも、新しい回
+//	working・stalled → 回を始める（そのときの最終報告を Base に覚える）。done の回のあとでも、新しい回。
+//	                   done の回のあとは、件を作ったときの最終報告（Sent）を Base にする（その後に書き直されていれば、この回の idle で送る）
 //	idle（回あり）   → 待ちに移る。最終報告が Base から変わっていれば項目を作って送る（回は done）
 //	shell            → 回を捨てる
 //	asking・unknown  → 変えない（質問や一時的な判定不能をはさんでも、同じ回）
@@ -143,7 +144,7 @@ func (n *Notifier) stepRound(snap *pane.Snapshot, p *pane.PaneState) bool {
 		if e != nil && e.Phase == phaseWorking {
 			return n.rebaseLocked(p, e)
 		}
-		n.entries[p.ID] = n.newRound(p)
+		n.entries[p.ID] = n.newRound(p, e)
 		return true
 	case agent.StateShell:
 		if e == nil {
@@ -164,7 +165,7 @@ func (n *Notifier) stepRound(snap *pane.Snapshot, p *pane.PaneState) bool {
 			return true
 		}
 		if cur := n.stat(p); cur.Exists && cur != e.Base {
-			n.completeRoundLocked(p, e)
+			n.completeRoundLocked(p, e, cur)
 			return true
 		}
 		return dirty
@@ -172,8 +173,16 @@ func (n *Notifier) stepRound(snap *pane.Snapshot, p *pane.PaneState) bool {
 	return false
 }
 
-func (n *Notifier) newRound(p *pane.PaneState) *entry {
-	return &entry{Phase: phaseWorking, Base: n.stat(p), BasePath: n.reportPath(p)}
+// newRound は working を見て回を始める。前の回が done（件を作った）で、同じパスの最終報告なら、そのとき（Sent）を Base にする。
+// working を最初に見る前に最終報告が書き直されていても、「書き直された」と読むため（Issue #115）。
+// Sent の無い done（#115 より前の台帳）・前の回が無い・パスが違うときは、今の最終報告を Base にする。
+func (n *Notifier) newRound(p *pane.PaneState, prev *entry) *entry {
+	path := n.reportPath(p)
+	base := n.stat(p)
+	if prev != nil && prev.Phase == phaseDone && prev.Sent != nil && prev.BasePath == path {
+		base = *prev.Sent
+	}
+	return &entry{Phase: phaseWorking, Base: base, BasePath: path}
 }
 
 // rebaseLocked は最終報告のパスが Base を取ったときと違えば（ペインの位置がずれたとき）、新しいパスで Base を取り直す。
@@ -188,9 +197,10 @@ func (n *Notifier) rebaseLocked(p *pane.PaneState, e *entry) bool {
 }
 
 // completeRoundLocked は最終報告が書かれた回を終える。本文を 1 回だけ作って outbox に入れ、回を done にする
-// （同じ idle の回では二度と作らない。次の working で新しい回）。台帳へは Observe が書いてから、送りが始まる。
-func (n *Notifier) completeRoundLocked(p *pane.PaneState, e *entry) {
-	e.Phase = phaseDone
+// （同じ idle の回では二度と作らない。次の working で新しい回）。cur は「書けた」と見た最終報告で、次の回の Base になる（Sent）。
+// 台帳へは Observe が書いてから、送りが始まる。
+func (n *Notifier) completeRoundLocked(p *pane.PaneState, e *entry, cur reportStat) {
+	e.Phase, e.Sent = phaseDone, &cur
 	if _, ok := n.o.Config.Target(p.Session); !ok {
 		return // このセッションには送り先が無い（[webhook] もセッションの表も無い、または url が空）。何も作らず、何も送らない
 	}
