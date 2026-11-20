@@ -48,6 +48,7 @@ type PaneState struct { //nolint:revive // render・tools が使う公開契約�
 	Left      int
 
 	Agent         string // omp | claude | codex。"" は null
+	AgentPID      int    // プロセス木から見つけたエージェントの pid。画面だけで決めたとき・エージェントなしは 0（会話の記録を読むのに使う。Issue #120）
 	State         agent.State
 	Title         string
 	Cwd           string
@@ -132,12 +133,15 @@ type PickResult struct {
 	CardClosed bool
 }
 
-// SendResult は send_text の結果。
+// SendResult は send_text の結果。Reaction・ReactionBasis は、すでに working・stalled のペインへ送ったときだけ入る（Issue #120）。
+// idle のペインへの送信は、これまでどおり working になったかだけで受理を決め、Reaction は空。
 type SendResult struct {
-	OK       bool
-	State    agent.State
-	Accepted bool
-	Chars    int
+	OK            bool
+	State         agent.State
+	Accepted      bool
+	Chars         int
+	Reaction      agent.Reaction
+	ReactionBasis string
 }
 
 // EscapeResult は send_escape の結果。

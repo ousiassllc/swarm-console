@@ -48,7 +48,7 @@ omp のステータス行は Nerd Font の私用領域の文字（`U+E0B6` 左�
 
 ### omp（tern の画面。TSP）
 
-omp は、tern が管理する tmux のセッションでは tern の画面（TSP）を出す（条件は [P-109](decisions.md)）。`capture-pane` は空で、`pane_title` は `tsp;f;{"sf":"s:1","s":<連番>,"ops":[…]}`（最後の 1 フレームの差分）になる。アダプタは `agent.Native` も実装し、`pane` はタイトルが `tsp;` で始まる omp のペインだけ、`capture-pane` の代わりに**会話の記録（`/proc/<pid>/fd` が指す `~/.omp/agent/sessions/<cwd>/<日時>_<id>.jsonl` の末尾）から組み立てた画面**を `Detect` などに渡す（[P-110](decisions.md)。限界は P-111）。
+omp は、tern が管理する tmux のセッションでは tern の画面（TSP）を出す（条件は [P-111](decisions.md)）。`capture-pane` は空で、`pane_title` は `tsp;f;{"sf":"s:1","s":<連番>,"ops":[…]}`（最後の 1 フレームの差分）になる。アダプタは `agent.Native` も実装し、`pane` はタイトルが `tsp;` で始まる omp のペインだけ、`capture-pane` の代わりに**会話の記録（`/proc/<pid>/fd` が指す `~/.omp/agent/sessions/<cwd>/<日時>_<id>.jsonl` の末尾）から組み立てた画面**を `Detect` などに渡す（[P-112](decisions.md)。限界は P-113）。
 
 | 項目 | 組み立て方 | 普通の画面との対応 |
 |------|-----------|-------------------|
