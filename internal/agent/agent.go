@@ -179,3 +179,25 @@ func Builtin() []string { return slices.Clone(builtinNames[:]) }
 
 // IsBuiltin は name が組み込みのエージェントか。
 func IsBuiltin(name string) bool { return slices.Contains(builtinNames[:], name) }
+
+// NativeView は Native.NativeScreen が組み立てた画面と、画面からは読めない付帯情報。
+type NativeView struct {
+	Screen Screen
+	// AskQuestions は質問カードが出ているときの、フォーム全体の質問の数（出ていなければ 0）。
+	// 組み立てた画面には開いている 1 問目のカードだけが載り、選んだあとの遷移は見えない。
+	AskQuestions int
+}
+
+// Native は、エージェントが tern の画面（TSP。Tern Surface Protocol）を出しているペインを読めるアダプタが、Adapter に加えて実装する（omp。Issue #121）。
+// tern の画面のペインは、端末の画面（capture-pane）に何も描かれず、pane_title には最後の 1 フレーム（差分）だけが入る。
+// 画面の文字で状態を読む判定は、会話の記録（omp はセッションの jsonl）から組み立てた「普通の画面と同じ形の画面」に対して動かす。
+type Native interface {
+	// NativeTitle は pane_title が tern の画面データ（omp は `tsp;` で始まる）か。
+	NativeTitle(title string) bool
+	// NativeScreen は pid のプロセスの会話の記録から、画面の最後 maxLines 行までを普通の画面と同じ形に組み立てる。
+	// 記録が読めないときは ok=false。
+	NativeScreen(pid int, maxLines int) (v NativeView, ok bool)
+	// NativeDelivered は since 以降に、text が指示（ユーザーの発言）として記録されたか。
+	// tern の画面には入力欄が描かれないので、貼った本文が入力欄から消えたことの代わりに、受理の確認に使う。
+	NativeDelivered(pid int, text string, since time.Time) bool
+}

@@ -2,6 +2,8 @@
 package omp
 
 import (
+	"time"
+
 	"github.com/ousiassllc/swarm-console/internal/agent"
 )
 
@@ -35,11 +37,13 @@ var defaults = agent.Spec{
 
 // adapter の logDir は omp のログのディレクトリ。空なら ~/.omp/logs（テストだけが替える）。
 // procDir は /proc（開いているファイルの一覧を引く）、sessionsDir は omp のセッションの記録の置き場。空なら /proc と ~/.omp/agent/sessions（テストだけが替える）。
+// now は tern の画面を組み立てるときの経過時間の時計。空なら time.Now（テストだけが替える）。
 type adapter struct {
 	*agent.Base
 	logDir      string
 	procDir     string
 	sessionsDir string
+	now         func() time.Time // 空なら time.Now（テストだけが替える）
 }
 
 func init() {

@@ -115,14 +115,14 @@ func (o *Operator) waitFor(ctx context.Context, timeout, step time.Duration, che
 	}
 }
 
-// look は画面を取り直し、アダプタで状態を読む。読めなければ (Unknown, nil)。
-func (o *Operator) look(ctx context.Context, id string, ad agent.Adapter) (agent.State, []string) {
-	text, err := o.deps.Tmux.Capture(ctx, id, pane.CaptureLines)
+// look は画面を取り直し、アダプタで状態を読む。読めなければ (Unknown, 空の Reading)。
+// tern の画面（TSP）のペインは、会話の記録から組み立てた画面（Reading.Native）を読む（Issue #121）。
+func (o *Operator) look(ctx context.Context, id string, ad agent.Adapter) (agent.State, pane.Reading) {
+	rd, err := o.reg.ReadScreen(ctx, id, pane.CaptureLines, ad)
 	if err != nil {
-		return agent.StateUnknown, nil
+		return agent.StateUnknown, pane.Reading{}
 	}
-	lines := pane.SplitLines(text)
-	return ad.Detect(agent.NewScreen(lines)).State, lines
+	return ad.Detect(agent.NewScreen(rd.Lines)).State, rd
 }
 
 // adapterFor は p のエージェントのアダプタ。

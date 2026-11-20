@@ -217,6 +217,18 @@ func (f *FakeTmux) SetTitle(_ context.Context, id, title string) error {
 	return nil
 }
 
+// PaneMeta は SetPanes で設定したペインの PID・タイトル。無ければエラー。
+func (f *FakeTmux) PaneMeta(_ context.Context, id string) (tmux.PaneMeta, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, p := range f.panes {
+		if p.ID == id {
+			return tmux.PaneMeta{PID: p.PID, Title: p.Title}, nil
+		}
+	}
+	return tmux.PaneMeta{}, fmt.Errorf("panetest: ペイン %s がありません", id)
+}
+
 // ServerStart は設定された起動時刻。
 func (f *FakeTmux) ServerStart(context.Context) (string, error) {
 	f.mu.Lock()

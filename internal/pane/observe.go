@@ -36,6 +36,7 @@ type observation struct {
 	elapsed   string
 	hash      string
 	readable  bool
+	native    bool // tern の画面（TSP）のペイン。画面は会話の記録から組み立てた（Issue #121）。title はタイトルとして使えない
 }
 
 func hashText(s string) string {
@@ -63,6 +64,10 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 		}
 		return o
 	}
+	native := false
+	if ns, ok := nativeScreen(ad, p.Title, pid); ok {
+		screen, native = ns, true
+	}
 	det := ad.Detect(screen)
 	o := observation{
 		agentName: name,
@@ -71,6 +76,7 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 		elapsed:   det.Elapsed,
 		hash:      hashText(ad.StableText(screen.Lines)),
 		readable:  true,
+		native:    native,
 	}
 	switch det.State {
 	case agent.StateAsking:

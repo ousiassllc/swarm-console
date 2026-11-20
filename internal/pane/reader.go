@@ -46,15 +46,6 @@ func (r *SnapshotRegistry) target(ctx context.Context, ref Ref) (*PaneState, err
 	return p, nil
 }
 
-// capture は画面を取り直して Screen にする。tmux の失敗は tmux_error。
-func (r *SnapshotRegistry) capture(ctx context.Context, id string, lines int) ([]string, error) {
-	text, err := r.deps.Tmux.Capture(ctx, id, lines)
-	if err != nil {
-		return nil, TmuxError(err)
-	}
-	return SplitLines(text), nil
-}
-
 // TmuxError は tmux 呼び出しの失敗を apperr.TmuxError に包む（すでに *apperr.Error ならそのまま）。
 func TmuxError(err error) error {
 	if e := apperr.As(err); e.Code != apperr.Internal {
@@ -76,10 +67,11 @@ func (r *SnapshotRegistry) Tail(ctx context.Context, ref Ref, lines int, raw boo
 	if clean {
 		n += cleanMargin
 	}
-	got, err := r.capture(ctx, p.ID, n)
+	rd, err := r.ReadScreen(ctx, p.ID, n, ad)
 	if err != nil {
 		return Tail{}, err
 	}
+	got := rd.Lines
 	if clean {
 		got = ad.Clean(got)
 	}
@@ -110,11 +102,11 @@ func (r *SnapshotRegistry) Card(ctx context.Context, ref Ref) (*agent.Card, erro
 	if !ok {
 		return nil, apperr.New(apperr.UnsupportedAgent, "pane", p.Pos)
 	}
-	got, err := r.capture(ctx, p.ID, CaptureLines)
+	rd, err := r.ReadScreen(ctx, p.ID, CaptureLines, ad)
 	if err != nil {
 		return nil, err
 	}
-	return ReadCard(ad, got), nil
+	return ReadCard(ad, rd.Lines), nil
 }
 
 // ReadCard は画面が質問カードなら上限で切ったカードを返す。そうでなければ nil。

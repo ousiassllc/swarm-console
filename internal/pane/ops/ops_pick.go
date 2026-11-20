@@ -41,9 +41,12 @@ func (o *Operator) PickAsk(ctx context.Context, ref pane.Ref, n int, text string
 	if err != nil {
 		return pane.PickResult{}, err
 	}
-	card, err := o.readCardFresh(ctx, p.ID, ad)
+	card, rd, err := o.readCardFresh(ctx, p.ID, ad)
 	if err != nil {
 		return pane.PickResult{}, err
+	}
+	if rd.Native {
+		return o.pickNative(ctx, p, ad, *card, rd, n, text)
 	}
 	target, picked, err := pickTarget(card, n, text)
 	if err != nil {
@@ -124,11 +127,11 @@ func (o *Operator) awaitCardClosed(ctx context.Context, id string, ad agent.Adap
 	nextQuestion := false
 	var sendErr error
 	closed, err := o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, pollStep, func(ctx context.Context) bool {
-		st, lines := o.look(ctx, id, ad)
+		st, rd := o.look(ctx, id, ad)
 		if st != agent.StateAsking {
 			return st != agent.StateUnknown
 		}
-		screen := agent.NewScreen(lines)
+		screen := agent.NewScreen(rd.Lines)
 		if sub != nil && !submitted && sub.SubmitFocused(screen) {
 			submitted = true
 			sendErr = o.sendKeys(ctx, id, "Enter")
@@ -150,16 +153,16 @@ func (o *Operator) awaitCardClosed(ctx context.Context, id string, ad agent.Adap
 }
 
 // readCardFresh は画面を取り直して質問カードを読む。カードが無ければ not_asking。
-func (o *Operator) readCardFresh(ctx context.Context, id string, ad agent.Adapter) (*agent.Card, error) {
-	text, err := o.deps.Tmux.Capture(ctx, id, pane.CaptureLines)
+func (o *Operator) readCardFresh(ctx context.Context, id string, ad agent.Adapter) (*agent.Card, pane.Reading, error) {
+	rd, err := o.reg.ReadScreen(ctx, id, pane.CaptureLines, ad)
 	if err != nil {
-		return nil, pane.TmuxError(err)
+		return nil, pane.Reading{}, err
 	}
-	c := pane.RawCard(ad, pane.SplitLines(text))
+	c := pane.RawCard(ad, rd.Lines)
 	if c == nil {
-		return nil, apperr.New(apperr.NotAsking)
+		return nil, pane.Reading{}, apperr.New(apperr.NotAsking)
 	}
-	return c, nil
+	return c, rd, nil
 }
 
 // pickTarget は目標のカーソル番号と、選んだ選択肢（text のときは nil）を決める。
@@ -241,11 +244,11 @@ func (o *Operator) submitCustom(ctx context.Context, id string, ad agent.Adapter
 	sub, _ := ad.(agent.Submitter)
 	inputOpen := false
 	if _, err := o.waitFor(ctx, o.deps.Cfg.AcceptTimeout, pollStep, func(ctx context.Context) bool {
-		st, lines := o.look(ctx, id, ad)
+		st, rd := o.look(ctx, id, ad)
 		if st != agent.StateAsking {
 			return true
 		}
-		screen := agent.NewScreen(lines)
+		screen := agent.NewScreen(rd.Lines)
 		if sub != nil && sub.SubmitFocused(screen) {
 			return true
 		}

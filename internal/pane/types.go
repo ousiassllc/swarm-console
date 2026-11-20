@@ -209,6 +209,8 @@ type Tmux interface {
 	ListPanes(ctx context.Context, sessions []string) ([]tmux.PaneInfo, error)
 	// Capture は画面の最後から lines 行を capture-pane -p（ANSI なし、折り返し結合なし）で返す。
 	Capture(ctx context.Context, id string, lines int) (string, error)
+	// PaneMeta は id のペインのシェルの PID とタイトルを返す。tern の画面（TSP）のペインかの判定に使う（Issue #121）。
+	PaneMeta(ctx context.Context, id string) (tmux.PaneMeta, error)
 	// SendKeys は tmux のキー名（Up・Down・Enter・Escape・数字など）を send-keys する。
 	SendKeys(ctx context.Context, id string, keys ...string) error
 	// SendLiteral は send-keys -l で文字列をそのまま送る（制御文字は呼び出し側で除外済み）。
