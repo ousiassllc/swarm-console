@@ -208,7 +208,7 @@ rules = [
       "state_changed_at": "2026-11-16T09:00:05Z",
       "report_base": {"exists": true, "mtime_ns": 1731744000000000000, "size": 1100},
       "report_path": "/tmp/swarm-console/reports/T2.md",
-      "report_sent": {"exists": true, "mtime_ns": 1731744000000000000, "size": 1100}
+      "report_sent": {"exists": true, "mtime_ns": 1731744100000000000, "size": 1300}
     }
   },
   "asked": {

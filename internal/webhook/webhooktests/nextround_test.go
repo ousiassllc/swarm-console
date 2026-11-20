@@ -1,6 +1,8 @@
 package webhooktests
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -173,5 +175,60 @@ func TestFrozenScreenWorkWithoutRewritePostsNoSecond(t *testing.T) {
 	f.drain()
 	if n := len(r.received()); n != 1 {
 		t.Fatalf("書き直していないのに送りました: POST = %d 回, want 1\n%s", n, f.logText())
+	}
+}
+
+// 前の回が done の台帳から引き継ぐ回の基準。Sent が無い台帳（#115 より前）・最終報告のパスが違う台帳では、
+// 次の working を見たときの最終報告を基準にする（今までどおり）。書き直し済みの最終報告があっても、新しい作業が無ければ送らない。
+func TestDoneLedgerWithoutUsableSentBaselinesAtNextWorking(t *testing.T) {
+	for name, ledgerPane := range map[string]func(path string) string{
+		"report_sent が無い（#115 より前）": func(path string) string {
+			return `{"phase":"done","event_id":"evt_old","state_changed_at":"2026-11-16T09:00:00Z","report_base":{"exists":false},"report_path":"` + path + `"}`
+		},
+		"report_sent のパスが今と違う": func(string) string {
+			return `{"phase":"done","event_id":"evt_old","state_changed_at":"2026-11-16T09:00:00Z","report_base":{"exists":false},"report_path":"/elsewhere/0_T2.md","report_sent":{"exists":true,"mtime_ns":1,"size":1}}`
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newReceiver(t, "KEY-N-0000", "TOK-N-0000")
+			g := bareRig(t)
+			path := filepath.Join(g.dir, "reports", "0_T2.md")
+			led := `{"version":2,"server_start":"100","panes":{"%3":` + ledgerPane(path) + `},"outbox":{}}`
+			if err := os.WriteFile(g.state, []byte(led), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			g.build(r.target(3))
+			g.report("0", "rewritten after the old round\n")
+
+			g.see("0", agent.StateWorking)
+			g.see("0", agent.StateIdle)
+			g.see("0", agent.StateIdle)
+			if got := len(r.received()); got != 0 {
+				t.Fatalf("新しい作業が無いのに送りました: POST = %d 回", got)
+			}
+
+			g.see("0", agent.StateWorking) // 新しい作業で最終報告を書き直す
+			g.report("0", "rewritten after the old round, and once more\n")
+			g.see("0", agent.StateIdle)
+			if got := len(r.received()); got != 1 {
+				t.Fatalf("書き直したのに送りません: POST = %d 回, want 1\n%s", got, g.logText())
+			}
+		})
+	}
+}
+
+// shell に戻って回を捨てたペインは、前の回の Sent を引き継がない。書き直された最終報告が残っていても、次の回で誤って送らない。
+func TestShellDropsSentBaseline(t *testing.T) {
+	g, r := idleRig(t)
+	g.see("0", agent.StateWorking)
+	g.report("0", "one\n")
+	g.see("0", agent.StateIdle) // 1 件目
+	g.report("0", "one, rewritten and longer\n")
+	g.see("0", agent.StateShell)
+	g.see("0", agent.StateWorking) // 新しい回。基準はいまの最終報告
+	g.see("0", agent.StateIdle)
+	g.see("0", agent.StateIdle)
+	if got := len(r.received()); got != 1 {
+		t.Fatalf("shell で回を捨てたのに送りました: POST = %d 回, want 1\n%s", got, g.logText())
 	}
 }
