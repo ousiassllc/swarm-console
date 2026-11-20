@@ -212,6 +212,10 @@ func (n *Notifier) completeRoundLocked(p *pane.PaneState, e *entry, cur reportSt
 	it := &item{EventID: e.EventID, Payload: body}
 	n.outbox[it.EventID] = it
 	n.startItemLocked(it)
+	if n.o.Unaccepted != nil {
+		// 画面が止まった omp は、件を送ったあとも作業が続くかをログで見続ける（10 分の上限を外す。Issue #115。P-107）。
+		n.o.Unaccepted.Retain(p.ID)
+	}
 }
 
 func (n *Notifier) reportPath(p *pane.PaneState) string {

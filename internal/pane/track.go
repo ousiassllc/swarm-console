@@ -192,6 +192,7 @@ func (r *SnapshotRegistry) trackVanished(ctx context.Context, cur []PaneState, n
 		if r.absent[id] < vanishAfter {
 			continue
 		}
+		r.deps.Unaccepted.Release(id) // 消えたペイン。件を送ったあとも見ていたなら、やめる（Issue #115）
 		meta := notes.ArchiveMeta{PaneID: id, Pos: sp.pos, Agent: sp.agent, Title: sp.title, At: now}
 		if _, err := r.deps.Notes.Archive(ctx, meta, notes.ClosedByVanished); err != nil {
 			r.log.Warn("消えたペインのメモを履歴へ移せませんでした", "pane", id, "err", err)

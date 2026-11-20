@@ -59,6 +59,7 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 		o := observation{state: agent.StateUnknown, hash: hashText(strings.Join(screen.Lines, "\n")), readable: true}
 		if isShellCommand(p.CurrentCmd) {
 			o.state = agent.StateShell
+			r.deps.Unaccepted.Release(p.ID) // エージェントが終わった。件を送ったあとも見ていたなら、やめる（Issue #115）
 		}
 		return o
 	}
@@ -89,16 +90,20 @@ const (
 	// 作業中のログは数分あくことがある（長いツールの実行中）ので、あいたら idle に戻り、次の作業の行でまた working になる。
 	logWorkWindow = 2 * time.Minute
 	// unacceptedTTL は、受理を確かめられなかった指示の記録を、最後の作業の行（無ければ Enter）からこの間たっても作業の跡が無ければ捨てる。
-	// 止まっていたペインを、いつまでもログの確認の対象にしない。
+	// 止まっていたペインを、いつまでもログの確認の対象にしない。件を送ったあと（Retain）のペインには適用しない（Issue #115）。
 	unacceptedTTL = 10 * time.Minute
+	// retainedPollInterval は、件を送ったあとも見続けるペイン（Retain）のログを読む間隔。それまでは前に読んだ結果を使う。
+	// 見続ける間は何も起きないことが多く、長く待つ作業（CI 待ちなど）が続いても、2 件目が少し遅れて飛べばよいので、5 秒ごとの更新より粗くする（P-107）。
+	retainedPollInterval = 30 * time.Second
 )
 
 // confirmByLog は、指示の Enter を送ったのに受理を画面で確かめられなかったペイン（Unaccepted）だけ、エージェントのログで作業中かを確かめる。
 // omp は負荷が高いと画面の描き直しが止まり、作業中でも起動画面のまま idle と読めるため（Issue #113）。
 // 画面が working・asking と読めたら画面が回復したので記録を捨てる。それ以外の状態・記録の無いペインは何も変えない。
 // 記録があっても、ログに作業の跡が無い（止まっている）なら idle のままにする。
+// 件を送ったあと（Retain）のペインは、10 分の上限で捨てず、retainedPollInterval おきにログを読む。別のプロセス（pid）になっていたら捨てる（Issue #115）。
 func (r *SnapshotRegistry) confirmByLog(id string, ad agent.Adapter, pid int, state agent.State) agent.State {
-	since, marked := r.deps.Unaccepted.Since(id)
+	e, marked := r.deps.Unaccepted.probe(id)
 	if !marked {
 		return state
 	}
@@ -110,12 +115,20 @@ func (r *SnapshotRegistry) confirmByLog(id string, ad agent.Adapter, pid int, st
 	if state != agent.StateIdle || !ok || pid == 0 {
 		return state
 	}
-	now := r.clk.Now()
-	last, worked := wp.LastWork(pid, since)
-	if !worked {
-		last = since
+	if e.Retained && e.PID != 0 && e.PID != pid { // 同じペイン ID で別のエージェント（tmux の再起動で ID が使い回された・起動し直した）
+		r.deps.Unaccepted.Clear(id)
+		return state
 	}
-	if now.Sub(last) > unacceptedTTL {
+	now := r.clk.Now()
+	last, worked := e.Last, e.Worked
+	if !e.Retained || e.Checked.IsZero() || now.Sub(e.Checked) >= retainedPollInterval {
+		last, worked = wp.LastWork(pid, e.Enter)
+		r.deps.Unaccepted.setProbe(id, pid, now, last, worked)
+	}
+	if !worked {
+		last = e.Enter
+	}
+	if !e.Retained && now.Sub(last) > unacceptedTTL {
 		r.deps.Unaccepted.Clear(id)
 		return state
 	}

@@ -24,6 +24,9 @@ type Options struct {
 	Client    *http.Client  // nil なら送り先の Timeout のクライアント（リダイレクトは追わない）
 	// Sleep は再送の間隔の待ち。ctx が終わったらそのエラーで戻る。テストは待たずに間隔を記録する実装に替える。
 	Sleep func(ctx context.Context, d time.Duration) error
+	// Unaccepted は Registry・Ops と共有する、受理を画面で確かめられなかった指示の記録（Issue #113）。nil なら何もしない。
+	// pane.idle_report の件を作ったペインを Retain して、そのあとも作業が続くかをログで見続ける（Issue #115）。
+	Unaccepted *pane.Unaccepted
 }
 
 // Notifier はスナップショットを見て、ペインが working → idle になり最終報告が書かれた回ごと（pane.idle_report）と、ペインが asking になった回ごと
