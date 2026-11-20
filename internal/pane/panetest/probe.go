@@ -14,6 +14,15 @@ type ProbeAdapter struct {
 	mu   sync.Mutex
 	work map[int][]time.Time
 	turn map[int]turnState
+
+	reaction      map[int]agent.ReactionReading
+	reactionCalls []ReactionCall
+	reactionAfter map[int]reactionStep
+}
+
+type reactionStep struct {
+	calls int
+	r     agent.ReactionReading
 }
 
 type turnState struct {
@@ -68,4 +77,54 @@ func (a *ProbeAdapter) Turn(pid int, since time.Time) (time.Time, bool, bool) {
 		return time.Time{}, false, false
 	}
 	return t.at, t.inTurn, true
+}
+
+// ReactionCall は ProbeAdapter.Reaction が呼ばれた記録。
+type ReactionCall struct {
+	PID   int
+	Since time.Time
+	Text  string
+}
+
+var _ agent.ReactionProbe = (*ProbeAdapter)(nil)
+
+// SetReaction は pid の会話の記録が、いまこう読めることにする（Issue #120）。
+func (a *ProbeAdapter) SetReaction(pid int, r agent.ReactionReading) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.reaction == nil {
+		a.reaction = map[int]agent.ReactionReading{}
+	}
+	a.reaction[pid] = r
+}
+
+// SetReactionAfter は pid の読み取りが calls 回目に達したら、r を返すようにする（記録があとから進むことの再現）。
+func (a *ProbeAdapter) SetReactionAfter(pid, calls int, r agent.ReactionReading) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.reactionAfter == nil {
+		a.reactionAfter = map[int]reactionStep{}
+	}
+	a.reactionAfter[pid] = reactionStep{calls: calls, r: r}
+}
+
+// Reaction は SetReaction した読み取り。していなければ、記録に現れない（unverified・not_found）。呼び出しは ReactionCalls に残る。
+func (a *ProbeAdapter) Reaction(pid int, since time.Time, text string) agent.ReactionReading {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.reactionCalls = append(a.reactionCalls, ReactionCall{PID: pid, Since: since, Text: text})
+	if st, ok := a.reactionAfter[pid]; ok && len(a.reactionCalls) >= st.calls {
+		return st.r
+	}
+	if r, ok := a.reaction[pid]; ok {
+		return r
+	}
+	return agent.ReactionReading{Reaction: agent.ReactionUnverified, Basis: agent.BasisNotFound}
+}
+
+// ReactionCalls は Reaction が呼ばれた記録。
+func (a *ProbeAdapter) ReactionCalls() []ReactionCall {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return append([]ReactionCall(nil), a.reactionCalls...)
 }

@@ -10,6 +10,7 @@
 | NFR-PERF-2 | `report` の応答時間 | `panes_status` と同等 + 描画 20 ms 以内 | 同じスナップショットを使う |
 | NFR-PERF-3 | 応答サイズ（文字量削減） | **よくある入力での目標**。単位は **バイト**（UTF-8。日本語 1 字は 3 バイト。KB は 1,024 バイト）。`panes_status` 8 ペインで 8 KB 以内、`report`（markdown）で 6 KB 以内、`ask_card` で 2 KB 以内。前提：`panes_status` と `report` は 8 ペインで、メモの `next` は数十字・`items` は数件・`activity` は 1 行（120 字以内）。`ask_card` は `question` が 1〜2 文・選択肢が数個（`label` は数十字）。API 仕様 §7 の上限いっぱいの入力（メモの文字列 2,000 字、選択肢 20 個×300 字など）までは保証しない | 元仕様の目的 1。画面全文は返さない。テスト（`rendertest/size_test.go`・`tooltests/size_test.go`）は上の前提の入力を表す |
 | NFR-PERF-4 | 操作ツールの応答時間 | 仕様で定めた待ち（`send_text` の 1 秒。omp の貼り付け確認メニューを閉じる待ちは受理確認の待ちと 1 つの期限を分け合う（P-100）、`pane_close` の 1 秒×2×手順数など）＋ 受理確認の待ちで、`accept_timeout`（10 秒）以内に決着（`dispatch` が omp を起動した直後だけ、受理確認の待ちの上限は `start_timeout`（30 秒）。P-102）。ただし `pane_close` は待ちが 2 つあるので、上限は 仕様で定めた待ち ＋ `shell` に戻るまでの待ち（`accept_timeout`）＋ 画面確認の待ち（`accept_timeout`） | 超えたら `ok: false` と現在の `state`。例外：`pane_close` で最初の待ち（終了コマンドのあと `shell` に戻るまで）を超えたときは `ok: false` ではなく `exit_timeout` のエラーを返す（機能要件 FR-O5・FR-O-C2） |
+| NFR-PERF-4a | 作業中のペインへの `send_text` の反応待ち | 受理確認のあと、`reaction` が決まるまでの待ち（`acted`・`ignored` が決まれば待たずに返す。決まらなければ `accept_timeout`・`start_timeout` の長いほう、既定 30 秒で打ち切る）を足した時間以内に決着。`idle` のペインへの送信と `dispatch` には足さない | 超えたら最後の読み取りの `reaction`（決まらなければ `unverified`）を返す。`ok` は変えない（`acted` のときだけ `true`）。FR-O2・P-109 |
 | NFR-PERF-5 | 常駐時の負荷 | ホスト負荷が高い状態（load average が CPU 数を大きく上回る状態）でも劣化しない。サンプラーの CPU は 1 コア未満の数 % | 負荷が高い開発機で確認する |
 | NFR-PERF-6 | メモリ | 常駐 100 MB 以内 | ペインのハッシュ・直近画面のみ保持 |
 | NFR-PERF-7 | 取得量の上限 | `pane_tail` は最大 200 行・20,000 字。`report_read` は 20,000 字 | 上限を超えたら `truncated: true` |
@@ -146,3 +147,4 @@
 | 1.24 | 2026-11-20 | NFR-TEST-19：webhook の確かめる項目に、1 件送ったあとに最終報告が書き直された次の回で 2 件目が 1 回届くこと・書き直していなければ届かないこと（FR-STATE-1。Issue #115）を加える。ほかの項目は変えない | Issue #115 |
 | 1.25 | 2026-11-20 | NFR-TEST-19：webhook の確かめる項目に、画面もログも 10 分より長く止まったあとの作業で最終報告が書き直されたら 2 件目が 1 回届くこと・書き直していなければ届かないこと・見張りの間隔と上限・やめる条件（FR-STATE-12。Issue #115）を加える。ほかの項目は変えない | Issue #115 |
 | 1.26 | 2026-11-20 | NFR-TEST-19：webhook の確かめる項目に、受理を確かめられず、モデルの呼び出しの行が 10 分以上出ない長いコマンドのあとで最終報告が書かれたら 1 回届くこと・見張りの途中でサーバーを再起動しても 1 回届くこと・実際に作業していないペインを `working` にしないこと・`watch` を持たない古い台帳を読めること（FR-STATE-12。Issue #118）を加える。ほかの項目は変えない | Issue #118 |
+| 1.27 | 2026-11-20 | NFR-PERF-4a：作業中（`working`・`stalled`）のペインへの `send_text` の応答時間に、反応を待つ分（既定で最大 30 秒）を足す。`idle` のペインへの送信と `dispatch` は変えない（FR-O2。Issue #120） | Issue #120 |
