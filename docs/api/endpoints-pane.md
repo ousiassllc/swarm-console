@@ -36,6 +36,7 @@
 }
 ```
 
+- `title` は tmux の `pane_title`。omp が tern の画面（TSP）を出しているペインは `""`（最後のフレームの JSON を出さない）。
 - `agent` は `omp`・`claude`・`codex`・`null`。`activity` はエージェントがいま何をしているかの 1 行（取れなければ `null`。120 字で切ったペインにだけ、`note` のあとに `"truncated": true` が付く。切っていなければキーごと出さない）。`report` の JSON の `panes[]` も同じ。
 - `note` はメモの要約（`from`・`origin`・`started_by`・`repo`・`items`・`next` だけ。空の項目は出さない）。`origin` は `user`・`agent`（FR-NOTE-2）。メモがなければ `null`。
 - `warnings[]` は `{"code": "layout_changed", "message": "..."}` の配列（コード：`layout_changed`・`tmux_unavailable`・`session_missing`・`pane_unreadable`）。
@@ -57,6 +58,8 @@
 ```
 
 `unknown` のペインは飾りの除去をせず `raw` 相当で返す。`pane` は対象のセッション内の位置（接頭辞なし）。
+
+omp が tern の画面（TSP。`capture-pane` が空）を出しているペインは、会話の記録から組み立てた画面（直近の指示・応答・`▸ <ツール>: <意図>`）を返す（`raw` でも同じ。飾りの行は付くが、`tsp;f;{…}` のフレームは出さない。[P-110](../architecture/decisions.md)）。
 
 #### `ask_card`
 
@@ -105,6 +108,8 @@
 
 キーを送ったあとは、画面にカーソルの移動が映るまで（1 試行あたり最大 1 秒）画面を取り直して確かめる。映る前に次のキーを送らない。カーソルが 3 回の試行で合わなければ（最大 3 秒）`cursor_mismatch`（Enter は送らない）。カードが閉じず `working` にもならなければ `{"ok": false, "state": "asking", "card_closed": false}`。
 omp v19 の質問フォームは、選択肢を選ぶ Enter のあとカーソルが `Submit` の行に移り、もう 1 回 Enter を送るまで回答が確定しない。`ask_pick` は、カードが閉じるのを待つ間に `Submit` の行へカーソルが移ったのを見たら、Enter をもう 1 回だけ送る（`text` で「その他」を選んだときも同じ）。質問が複数のフォームで、選んだあとに別の質問が開いたときは、待たずに `{"ok": false, "state": "asking", "picked": {…}, "card_closed": false}` を返す。次の質問は `ask_card`（開いている質問だけを返す）で読み直す。複数選択（チェックボックス）の質問は、`n` 番にカーソルを合わせたあと、`n` 番がまだチェックされていなければ Space でチェックを付け、画面にチェックが映るのを確かめてから Enter を送る（すでにチェックされていれば Space は送らない＝外さない。ほかの選択肢のチェックは触らない）。チェックが映らなければ `cursor_mismatch`（Enter は送らない）。
+
+omp が tern の画面（TSP）のペインでは、カーソルが画面に映らないので、カーソルは最初の位置（`recommended`、無ければ 1 番）にあるとして Up/Down の差分・（複数選択なら Space）・Enter を送り、500 ms たっても質問のままなら Submit の Enter を送って、回答が記録されて質問でなくなったら閉じたと見る。**質問が 2 つ以上のフォーム**は `cursor_mismatch`（`details.reason: native_form`）、**`text`（その他への自由入力）**は `custom_not_allowed`（`details.reason: native`）で、キーを送らずに断る（[P-111](../architecture/decisions.md)）。人がカーソルを動かしたあとのカードには合わない。
 
 #### `send_text`
 
