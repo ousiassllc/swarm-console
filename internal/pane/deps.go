@@ -31,6 +31,8 @@ type Deps struct {
 	// Observer は作ったスナップショットを 1 つずつ（作った順に）受け取る。nil なら何もしない。
 	// Observe の中で Registry を呼んではいけない（取得の完了を待つので固まる）。時間のかかる処理は別 goroutine に任せる。
 	Observer SnapshotObserver
+	// Unaccepted は受理を画面で確かめられなかった指示の記録（Issue #113）。nil なら WithDefaults が空のものを作る。Registry と Ops は同じものを共有する。
+	Unaccepted *Unaccepted
 }
 
 // SnapshotObserver は build が作ったスナップショットの受け手（webhook の通知など）。
@@ -55,6 +57,9 @@ func (d Deps) WithDefaults() (Deps, error) {
 	}
 	if d.FS == nil {
 		d.FS = OSReportFS{}
+	}
+	if d.Unaccepted == nil {
+		d.Unaccepted = NewUnaccepted()
 	}
 	if d.Logger == nil {
 		d.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
