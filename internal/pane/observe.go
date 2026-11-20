@@ -97,11 +97,12 @@ const (
 	retainedPollInterval = 30 * time.Second
 )
 
-// confirmByLog は、指示の Enter を送ったのに受理を画面で確かめられなかったペイン（Unaccepted）だけ、エージェントのログで作業中かを確かめる。
+// confirmByLog は、指示の Enter を送ったのに受理を画面で確かめられなかったペイン（Unaccepted）だけ、エージェントのログと会話の記録で作業中かを確かめる。
 // omp は負荷が高いと画面の描き直しが止まり、作業中でも起動画面のまま idle と読めるため（Issue #113）。
 // 画面が working・asking と読めたら画面が回復したので記録を捨てる。それ以外の状態・記録の無いペインは何も変えない。
-// 記録があっても、ログに作業の跡が無い（止まっている）なら idle のままにする。
-// 件を送ったあと（Retain）のペインは、10 分の上限で捨てず、retainedPollInterval おきにログを読む。別のプロセス（pid）になっていたら捨てる（Issue #115）。
+// 作業中と読むのは、(1) ログの最後の作業の行から logWorkWindow 以内、(2) 会話の記録の最後が番の途中（TurnProbe。長いコマンドの実行中はモデルの呼び出しの行が出ないので、(2) が作業中を保つ。Issue #118）。
+// (2) は時間で打ち切らない（エージェントのプロセスが生きている間）。どちらの跡も無い（止まっている）なら idle のままにする。
+// 件を送ったあと（Retain）のペインは、10 分の上限で捨てず、retainedPollInterval おきに読む。別のプロセス（pid）になっていたら捨てる（Issue #115）。
 func (r *SnapshotRegistry) confirmByLog(id string, ad agent.Adapter, pid int, state agent.State) agent.State {
 	e, marked := r.deps.Unaccepted.probe(id)
 	if !marked {
@@ -111,28 +112,42 @@ func (r *SnapshotRegistry) confirmByLog(id string, ad agent.Adapter, pid int, st
 		r.deps.Unaccepted.Clear(id)
 		return state
 	}
-	wp, ok := ad.(agent.WorkProbe)
-	if state != agent.StateIdle || !ok || pid == 0 {
+	wp, hasLog := ad.(agent.WorkProbe)
+	tp, hasTurn := ad.(agent.TurnProbe)
+	if state != agent.StateIdle || (!hasLog && !hasTurn) || pid == 0 {
 		return state
 	}
-	if e.Retained && e.PID != 0 && e.PID != pid { // 同じペイン ID で別のエージェント（tmux の再起動で ID が使い回された・起動し直した）
+	if e.PID != 0 && e.PID != pid { // 同じペイン ID で別のエージェント（tmux の再起動で ID が使い回された・起動し直した）
 		r.deps.Unaccepted.Clear(id)
 		return state
 	}
 	now := r.clk.Now()
-	last, worked := e.Last, e.Worked
+	res := e.probeResult
 	if !e.Retained || e.Checked.IsZero() || now.Sub(e.Checked) >= retainedPollInterval {
-		last, worked = wp.LastWork(pid, e.Enter)
-		r.deps.Unaccepted.setProbe(id, pid, now, last, worked)
+		res = probeResult{PID: pid, Checked: now}
+		if hasLog {
+			res.Last, res.Worked = wp.LastWork(pid, e.Enter)
+		}
+		if hasTurn {
+			res.TurnLast, res.InTurn, res.TurnOK = tp.Turn(pid, e.Enter)
+		}
+		r.deps.Unaccepted.setProbe(id, res)
 	}
-	if !worked {
-		last = e.Enter
+	if res.TurnOK && res.InTurn {
+		return agent.StateWorking
+	}
+	last := e.Enter
+	if res.Worked && res.Last.After(last) {
+		last = res.Last
+	}
+	if res.TurnOK && res.TurnLast.After(last) {
+		last = res.TurnLast
 	}
 	if !e.Retained && now.Sub(last) > unacceptedTTL {
 		r.deps.Unaccepted.Clear(id)
 		return state
 	}
-	if worked && now.Sub(last) <= logWorkWindow {
+	if res.Worked && now.Sub(res.Last) <= logWorkWindow {
 		return agent.StateWorking
 	}
 	return state
