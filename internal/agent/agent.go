@@ -98,6 +98,15 @@ type WorkProbe interface {
 	LastWork(pid int, since time.Time) (at time.Time, ok bool)
 }
 
+// TurnProbe は、エージェントが会話の記録（omp はセッションの jsonl）をファイルに書くアダプタが、WorkProbe に加えて実装する（omp。Issue #118）。
+// 長いコマンド（学習・CI 待ちなど）の実行中はモデルの呼び出しの行がログに出ないので、記録の末尾が「作業の番の途中」かで作業中かを確かめる。
+type TurnProbe interface {
+	// Turn は pid のプロセスの会話の記録の、since 以降の最後のやり取りの時刻 last と、その番がまだ終わっていないか inTurn を返す。
+	// 番の途中は、ユーザーの指示・ツールの呼び出し（結果を待っている）・ツールの結果（次のモデルの応答を待っている）。最終の応答（ツールの呼び出しを伴わない）や中断で終わっていれば inTurn=false。
+	// 記録が無い・読めない・since 以降のやり取りが無いときは ok=false。
+	Turn(pid int, since time.Time) (last time.Time, inTurn, ok bool)
+}
+
 // Toggler は、複数選択（チェックボックス）の質問を出すエージェントのアダプタが、Adapter に加えて実装する（omp。Issue #111）。
 // 複数選択では、カーソルを選択肢に合わせて Enter を送っても、その選択肢にはチェックが付かないことがあるので、先にチェックを付ける。
 type Toggler interface {

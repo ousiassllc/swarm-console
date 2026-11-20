@@ -38,13 +38,14 @@ type Notifier struct {
 	o Options
 
 	mu          sync.Mutex
-	entries     map[string]*entry // キーは tmux のペイン ID
-	asked       map[string]string // ペイン ID → いまの asking の回の event_id（pane.asking を作った回。asking でなくなったら消す）
-	outbox      map[string]*item  // キーは event_id
-	serverStart string            // 台帳に書いた tmux サーバーの起動時刻
-	absent      map[string]int    // ペイン ID → 続けてスナップショットに無かった回数（保存しない）
-	ctx         context.Context   // Start が決める。nil の間は送らず、待ちのままにする
-	closed      bool              // wait が呼ばれた。以後は新しく送らない
+	entries     map[string]*entry     // キーは tmux のペイン ID
+	asked       map[string]string     // ペイン ID → いまの asking の回の event_id（pane.asking を作った回。asking でなくなったら消す）
+	outbox      map[string]*item      // キーは event_id
+	serverStart string                // 台帳に書いた tmux サーバーの起動時刻
+	watch       map[string]watchEntry // ペイン ID → 台帳に書いた、受理を確かめられなかった指示の見張り（pane.Unaccepted の写し。Issue #118）
+	absent      map[string]int        // ペイン ID → 続けてスナップショットに無かった回数（保存しない）
+	ctx         context.Context       // Start が決める。nil の間は送らず、待ちのままにする
+	closed      bool                  // wait が呼ばれた。以後は新しく送らない
 	wg          sync.WaitGroup
 }
 
@@ -75,7 +76,15 @@ func New(o Options) (*Notifier, error) {
 	if err != nil {
 		o.Logger.Warn("webhook の台帳を読めませんでした。空から始めます", "path", o.StatePath, "err", err)
 	}
-	return &Notifier{o: o, entries: led.Panes, asked: led.Asked, outbox: led.Outbox, serverStart: led.ServerStart, absent: map[string]int{}}, nil
+	if o.Unaccepted != nil {
+		// 台帳の見張りを引き継ぐ。サーバーの再起動のあとも、受理を確かめられなかった指示の作業が終わるのを見逃さない（Issue #118）。
+		ws := make(map[string]pane.Watch, len(led.Watch))
+		for id, w := range led.Watch {
+			ws[id] = w.toPane()
+		}
+		o.Unaccepted.Restore(ws)
+	}
+	return &Notifier{o: o, entries: led.Panes, asked: led.Asked, watch: led.Watch, outbox: led.Outbox, serverStart: led.ServerStart, absent: map[string]int{}}, nil
 }
 
 // Start は送信を始める。台帳から読んだ項目と、これ以前に作った項目の送信がここから動く。ctx が終わると再送の待ち・通信を中断し、
@@ -106,7 +115,7 @@ func (*Notifier) GoString() string { return "webhook.Notifier" }
 func (*Notifier) LogValue() slog.Value { return slog.StringValue("webhook.Notifier") }
 
 func (n *Notifier) saveLocked() {
-	f := ledgerFile{ServerStart: n.serverStart, Panes: n.entries, Asked: n.asked, Outbox: n.outbox}
+	f := ledgerFile{ServerStart: n.serverStart, Panes: n.entries, Asked: n.asked, Watch: n.watch, Outbox: n.outbox}
 	if err := saveLedger(n.o.StatePath, f); err != nil {
 		n.o.Logger.Warn("webhook の台帳を書けませんでした", "path", n.o.StatePath, "err", err)
 	}

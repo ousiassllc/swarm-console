@@ -97,6 +97,7 @@ type harness struct {
 	note   *notes.Summary // ペインに付くメモ（テストが途中で替えられる）
 	// srvStart はスナップショットの ServerStart（tmux の起動時刻）。
 	srvStart string
+	un       *pane.Unaccepted   // Notifier に渡す受理の記録（nil なら渡さない）
 	cancel   context.CancelFunc // 今の Notifier の ctx を止める
 	wait     func()             // 今の Notifier の送信の終了を待つ
 	// intercept があれば、POST を記録したあとに呼ぶ。true を返したら、受け手はそれ以上応答しない
@@ -136,7 +137,7 @@ func newHarness(t *testing.T) *harness {
 func (h *harness) build() {
 	h.t.Helper()
 	n, err := New(Options{
-		Config: h.cfg, ReportDir: reportDir, StatePath: h.state, Version: "test", FS: h.fs,
+		Config: h.cfg, ReportDir: reportDir, StatePath: h.state, Version: "test", FS: h.fs, Unaccepted: h.un,
 		Logger: slog.New(slog.NewJSONHandler(h.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Sleep: func(ctx context.Context, d time.Duration) error {
 			h.mu.Lock()

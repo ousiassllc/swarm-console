@@ -25,12 +25,15 @@ func (n *Notifier) Observe(snap *pane.Snapshot) {
 			dirty = true
 		}
 	}
+	if n.syncWatchLocked() {
+		dirty = true
+	}
 	if dirty {
 		n.saveLocked() // 項目を作ったときも、ここで台帳に書いてから送りが始まる（送る goroutine は n.mu を待つ）
 	}
 }
 
-// syncServerLocked は tmux サーバーの起動時刻を台帳と突き合わせる。変わっていたら再起動なので、ペインの回をすべて捨てる
+// syncServerLocked は tmux サーバーの起動時刻を台帳と突き合わせる。変わっていたら再起動なので、ペインの回と見張りをすべて捨てる
 // （ペイン ID は使い回される）。outbox の項目は残す。台帳が変わったら true。
 func (n *Notifier) syncServerLocked(start string) bool {
 	if start == "" || start == n.serverStart {
@@ -40,6 +43,7 @@ func (n *Notifier) syncServerLocked(start string) bool {
 		clear(n.entries)
 		clear(n.asked)
 		clear(n.absent)
+		n.dropWatchLocked()
 	}
 	n.serverStart = start
 	return true
@@ -57,7 +61,7 @@ func (n *Notifier) trackLocked(snap *pane.Snapshot) bool {
 		}
 	}
 	for id := range n.absent {
-		if present[id] || (n.entries[id] == nil && n.asked[id] == "") {
+		if present[id] || n.untracked(id) {
 			delete(n.absent, id)
 		}
 	}
@@ -68,6 +72,10 @@ func (n *Notifier) trackLocked(snap *pane.Snapshot) bool {
 		if n.absent[id]++; n.absent[id] >= vanishAfter {
 			delete(n.entries, id) // 消えたペイン（tmux の ID は再起動で使い回されるので、残さない）
 			delete(n.asked, id)
+			if w, ok := n.watch[id]; ok && n.o.Unaccepted != nil {
+				n.o.Unaccepted.Drop(id, w.Enter) // 消えたペインの見張り（台帳から読み戻したものを含む）は捨てる（Issue #118）
+			}
+			delete(n.watch, id)
 			delete(n.absent, id)
 			dirty = true
 		}
@@ -80,7 +88,55 @@ func (n *Notifier) trackLocked(snap *pane.Snapshot) bool {
 			vanish(id)
 		}
 	}
+	for id := range n.watch {
+		if n.entries[id] == nil && n.asked[id] == "" {
+			vanish(id)
+		}
+	}
 	return dirty
+}
+
+// untracked は id のペインが、回・asking の回・見張りのどれも持たないか。
+func (n *Notifier) untracked(id string) bool {
+	_, watched := n.watch[id]
+	return n.entries[id] == nil && n.asked[id] == "" && !watched
+}
+
+// dropWatchLocked は台帳の見張りをすべて捨てる（tmux サーバーが再起動して、ペイン ID が別のペインを指すようになったとき）。
+// Unaccepted のうち、台帳の記録そのもの（同じ Enter の時刻）だけを消し、再起動のあとに受けた新しい指示の記録は残す。
+func (n *Notifier) dropWatchLocked() {
+	if n.o.Unaccepted != nil {
+		for id, w := range n.watch {
+			n.o.Unaccepted.Drop(id, w.Enter)
+		}
+	}
+	clear(n.watch)
+}
+
+// syncWatchLocked は Unaccepted（操作とスナップショットの組み立てが書く）の見張りの記録を、台帳に書く写しへ取り込む。変わっていたら true。
+// 受理を確かめられなかった指示の記録がサーバーの再起動で消えないようにするため（Issue #118。P-108）。
+func (n *Notifier) syncWatchLocked() bool {
+	if n.o.Unaccepted == nil {
+		return false
+	}
+	cur := n.o.Unaccepted.Export()
+	if len(cur) == len(n.watch) {
+		same := true
+		for id, w := range cur {
+			if old, ok := n.watch[id]; !ok || !old.same(w) {
+				same = false
+				break
+			}
+		}
+		if same {
+			return false
+		}
+	}
+	clear(n.watch)
+	for id, w := range cur {
+		n.watch[id] = watchOf(w)
+	}
+	return true
 }
 
 // step は 1 ペインの回（pane.idle_report）と asking の回（pane.asking）を進める。台帳が変わったら true。

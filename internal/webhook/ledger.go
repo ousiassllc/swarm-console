@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/store"
 )
 
@@ -47,6 +48,25 @@ type item struct {
 	sending bool // 送信中（保存しない。二重に始めないための印）
 }
 
+// watchEntry は、受理を確かめられなかった指示（send_text・dispatch）の見張りの 1 ペイン分（Issue #118。P-108）。
+// サーバーの再起動で見張りが消えないよう、台帳に持つ。見張りの中身は pane.Unaccepted が持ち、これはその写し。
+type watchEntry struct {
+	Enter    time.Time `json:"enter"`              // 受理を確かめられなかった Enter の時刻
+	Retained uint64    `json:"retained,omitempty"` // 0 でなければ、件を送ったあとも見続ける対象で、その印を付けた順
+	PID      int       `json:"pid,omitempty"`      // 見張ったエージェントの pid。別のプロセスになっていたら捨てる
+}
+
+func watchOf(w pane.Watch) watchEntry {
+	return watchEntry{Enter: w.Enter, Retained: w.Retained, PID: w.PID}
+}
+
+func (w watchEntry) same(o pane.Watch) bool { return w == watchOf(o) }
+
+func (w watchEntry) toPane() pane.Watch {
+	return pane.Watch{Enter: w.Enter, Retained: w.Retained, PID: w.PID}
+}
+
+// ledgerVersion は台帳の版。省略できる任意のキー（asked・report_sent・watch）を足すときは上げない（古い台帳もそのまま読める。ER §9）。
 const ledgerVersion = 2
 
 // ledgerFile は webhook-state.json。
@@ -56,12 +76,14 @@ type ledgerFile struct {
 	Panes       map[string]*entry `json:"panes"`
 	// Asked は、いま asking の回で pane.asking の件を作った（送り先が無くて作らなかった回も含む）ペイン ID → event_id。
 	// asking でない状態を見たら消える。再起動しても、同じ質問のまま二度目を作らない。
-	Asked  map[string]string `json:"asked,omitempty"`
-	Outbox map[string]*item  `json:"outbox"`
+	Asked map[string]string `json:"asked,omitempty"`
+	// Watch は、受理を確かめられなかった指示の見張り（ペイン ID → 記録）。再起動のあとも、長い作業の完了を見逃さないため（Issue #118）。無ければ省略。
+	Watch  map[string]watchEntry `json:"watch,omitempty"`
+	Outbox map[string]*item      `json:"outbox"`
 }
 
 func emptyLedger() ledgerFile {
-	return ledgerFile{Version: ledgerVersion, Panes: map[string]*entry{}, Asked: map[string]string{}, Outbox: map[string]*item{}}
+	return ledgerFile{Version: ledgerVersion, Panes: map[string]*entry{}, Asked: map[string]string{}, Watch: map[string]watchEntry{}, Outbox: map[string]*item{}}
 }
 
 // loadLedger は台帳を読む。無ければ空。壊れている・版が違えば空にして、そのことを返す（送信は止めない）。
@@ -87,6 +109,14 @@ func loadLedger(path string) (ledgerFile, error) {
 		if ev == "" {
 			delete(f.Asked, id)
 		}
+	}
+	for id, w := range f.Watch {
+		if w.Enter.IsZero() || id == "" {
+			delete(f.Watch, id)
+		}
+	}
+	if f.Watch == nil {
+		f.Watch = map[string]watchEntry{}
 	}
 	if f.Outbox == nil {
 		f.Outbox = map[string]*item{}
