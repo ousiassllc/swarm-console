@@ -25,12 +25,15 @@ func (n *Notifier) Observe(snap *pane.Snapshot) {
 			dirty = true
 		}
 	}
+	if n.syncWatchLocked() {
+		dirty = true
+	}
 	if dirty {
 		n.saveLocked() // 項目を作ったときも、ここで台帳に書いてから送りが始まる（送る goroutine は n.mu を待つ）
 	}
 }
 
-// syncServerLocked は tmux サーバーの起動時刻を台帳と突き合わせる。変わっていたら再起動なので、ペインの回をすべて捨てる
+// syncServerLocked は tmux サーバーの起動時刻を台帳と突き合わせる。変わっていたら再起動なので、ペインの回と見張りをすべて捨てる
 // （ペイン ID は使い回される）。outbox の項目は残す。台帳が変わったら true。
 func (n *Notifier) syncServerLocked(start string) bool {
 	if start == "" || start == n.serverStart {
@@ -40,6 +43,7 @@ func (n *Notifier) syncServerLocked(start string) bool {
 		clear(n.entries)
 		clear(n.asked)
 		clear(n.absent)
+		n.dropWatchLocked()
 	}
 	n.serverStart = start
 	return true
@@ -57,7 +61,7 @@ func (n *Notifier) trackLocked(snap *pane.Snapshot) bool {
 		}
 	}
 	for id := range n.absent {
-		if present[id] || (n.entries[id] == nil && n.asked[id] == "") {
+		if present[id] || n.untracked(id) {
 			delete(n.absent, id)
 		}
 	}
@@ -68,6 +72,10 @@ func (n *Notifier) trackLocked(snap *pane.Snapshot) bool {
 		if n.absent[id]++; n.absent[id] >= vanishAfter {
 			delete(n.entries, id) // 消えたペイン（tmux の ID は再起動で使い回されるので、残さない）
 			delete(n.asked, id)
+			if w, ok := n.watch[id]; ok && n.o.Unaccepted != nil {
+				n.o.Unaccepted.Drop(id, w.Enter) // 消えたペインの見張り（台帳から読み戻したものを含む）は捨てる（Issue #118）
+			}
+			delete(n.watch, id)
 			delete(n.absent, id)
 			dirty = true
 		}
@@ -80,7 +88,55 @@ func (n *Notifier) trackLocked(snap *pane.Snapshot) bool {
 			vanish(id)
 		}
 	}
+	for id := range n.watch {
+		if n.entries[id] == nil && n.asked[id] == "" {
+			vanish(id)
+		}
+	}
 	return dirty
+}
+
+// untracked は id のペインが、回・asking の回・見張りのどれも持たないか。
+func (n *Notifier) untracked(id string) bool {
+	_, watched := n.watch[id]
+	return n.entries[id] == nil && n.asked[id] == "" && !watched
+}
+
+// dropWatchLocked は台帳の見張りをすべて捨てる（tmux サーバーが再起動して、ペイン ID が別のペインを指すようになったとき）。
+// Unaccepted のうち、台帳の記録そのもの（同じ Enter の時刻）だけを消し、再起動のあとに受けた新しい指示の記録は残す。
+func (n *Notifier) dropWatchLocked() {
+	if n.o.Unaccepted != nil {
+		for id, w := range n.watch {
+			n.o.Unaccepted.Drop(id, w.Enter)
+		}
+	}
+	clear(n.watch)
+}
+
+// syncWatchLocked は Unaccepted（操作とスナップショットの組み立てが書く）の見張りの記録を、台帳に書く写しへ取り込む。変わっていたら true。
+// 受理を確かめられなかった指示の記録がサーバーの再起動で消えないようにするため（Issue #118。P-108）。
+func (n *Notifier) syncWatchLocked() bool {
+	if n.o.Unaccepted == nil {
+		return false
+	}
+	cur := n.o.Unaccepted.Export()
+	if len(cur) == len(n.watch) {
+		same := true
+		for id, w := range cur {
+			if old, ok := n.watch[id]; !ok || !old.same(w) {
+				same = false
+				break
+			}
+		}
+		if same {
+			return false
+		}
+	}
+	clear(n.watch)
+	for id, w := range cur {
+		n.watch[id] = watchOf(w)
+	}
+	return true
 }
 
 // step は 1 ペインの回（pane.idle_report）と asking の回（pane.asking）を進める。台帳が変わったら true。
@@ -132,7 +188,8 @@ func (n *Notifier) enqueueAskingLocked(p *pane.PaneState, id string, at time.Tim
 
 // stepRound は 1 ペインの idle の回（pane.idle_report）を進める。台帳が変わったら true。
 //
-//	working・stalled → 回を始める（そのときの最終報告を Base に覚える）。done の回のあとでも、新しい回
+//	working・stalled → 回を始める（そのときの最終報告を Base に覚える）。done の回のあとでも、新しい回。
+//	                   done の回のあとは、件を作ったときの最終報告（Sent）を Base にする（その後に書き直されていれば、この回の idle で送る）
 //	idle（回あり）   → 待ちに移る。最終報告が Base から変わっていれば項目を作って送る（回は done）
 //	shell            → 回を捨てる
 //	asking・unknown  → 変えない（質問や一時的な判定不能をはさんでも、同じ回）
@@ -143,7 +200,7 @@ func (n *Notifier) stepRound(snap *pane.Snapshot, p *pane.PaneState) bool {
 		if e != nil && e.Phase == phaseWorking {
 			return n.rebaseLocked(p, e)
 		}
-		n.entries[p.ID] = n.newRound(p)
+		n.entries[p.ID] = n.newRound(p, e)
 		return true
 	case agent.StateShell:
 		if e == nil {
@@ -164,7 +221,7 @@ func (n *Notifier) stepRound(snap *pane.Snapshot, p *pane.PaneState) bool {
 			return true
 		}
 		if cur := n.stat(p); cur.Exists && cur != e.Base {
-			n.completeRoundLocked(p, e)
+			n.completeRoundLocked(p, e, cur)
 			return true
 		}
 		return dirty
@@ -172,8 +229,16 @@ func (n *Notifier) stepRound(snap *pane.Snapshot, p *pane.PaneState) bool {
 	return false
 }
 
-func (n *Notifier) newRound(p *pane.PaneState) *entry {
-	return &entry{Phase: phaseWorking, Base: n.stat(p), BasePath: n.reportPath(p)}
+// newRound は working を見て回を始める。前の回が done（件を作った）で、同じパスの最終報告なら、そのとき（Sent）を Base にする。
+// working を最初に見る前に最終報告が書き直されていても、「書き直された」と読むため（Issue #115）。
+// Sent の無い done（#115 より前の台帳）・前の回が無い・パスが違うときは、今の最終報告を Base にする。
+func (n *Notifier) newRound(p *pane.PaneState, prev *entry) *entry {
+	path := n.reportPath(p)
+	base := n.stat(p)
+	if prev != nil && prev.Phase == phaseDone && prev.Sent != nil && prev.BasePath == path {
+		base = *prev.Sent
+	}
+	return &entry{Phase: phaseWorking, Base: base, BasePath: path}
 }
 
 // rebaseLocked は最終報告のパスが Base を取ったときと違えば（ペインの位置がずれたとき）、新しいパスで Base を取り直す。
@@ -188,9 +253,10 @@ func (n *Notifier) rebaseLocked(p *pane.PaneState, e *entry) bool {
 }
 
 // completeRoundLocked は最終報告が書かれた回を終える。本文を 1 回だけ作って outbox に入れ、回を done にする
-// （同じ idle の回では二度と作らない。次の working で新しい回）。台帳へは Observe が書いてから、送りが始まる。
-func (n *Notifier) completeRoundLocked(p *pane.PaneState, e *entry) {
-	e.Phase = phaseDone
+// （同じ idle の回では二度と作らない。次の working で新しい回）。cur は「書けた」と見た最終報告で、次の回の Base になる（Sent）。
+// 台帳へは Observe が書いてから、送りが始まる。
+func (n *Notifier) completeRoundLocked(p *pane.PaneState, e *entry, cur reportStat) {
+	e.Phase, e.Sent = phaseDone, &cur
 	if _, ok := n.o.Config.Target(p.Session); !ok {
 		return // このセッションには送り先が無い（[webhook] もセッションの表も無い、または url が空）。何も作らず、何も送らない
 	}
@@ -202,6 +268,10 @@ func (n *Notifier) completeRoundLocked(p *pane.PaneState, e *entry) {
 	it := &item{EventID: e.EventID, Payload: body}
 	n.outbox[it.EventID] = it
 	n.startItemLocked(it)
+	if n.o.Unaccepted != nil {
+		// 画面が止まった omp は、件を送ったあとも作業が続くかをログで見続ける（10 分の上限を外す。Issue #115。P-107）。
+		n.o.Unaccepted.Retain(p.ID)
+	}
 }
 
 func (n *Notifier) reportPath(p *pane.PaneState) string {

@@ -34,9 +34,12 @@ var defaults = agent.Spec{
 }
 
 // adapter の logDir は omp のログのディレクトリ。空なら ~/.omp/logs（テストだけが替える）。
+// procDir は /proc（開いているファイルの一覧を引く）、sessionsDir は omp のセッションの記録の置き場。空なら /proc と ~/.omp/agent/sessions（テストだけが替える）。
 type adapter struct {
 	*agent.Base
-	logDir string
+	logDir      string
+	procDir     string
+	sessionsDir string
 }
 
 func init() {

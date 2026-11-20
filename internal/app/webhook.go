@@ -5,18 +5,19 @@ import (
 	"log/slog"
 
 	"github.com/ousiassllc/swarm-console/internal/config"
+	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 )
 
 // newWebhook は送り先（[webhook] の url か、[webhook.sessions."<名前>"] の url）が 1 つでもあるときだけ通知を作る。
 // 無ければ nil（何も作らず、何も送らない。FR-STATE-1〜8）。
 // 戻り値の型を *webhook.Notifier にして、nil を pane.SnapshotObserver に入れたとき nil 判定が効かなくなるのを避ける。
-func newWebhook(cfg *config.Config, version string, logger *slog.Logger) (*webhook.Notifier, error) {
+func newWebhook(cfg *config.Config, version string, logger *slog.Logger, un *pane.Unaccepted) (*webhook.Notifier, error) {
 	if !cfg.Webhook.Enabled() {
 		return nil, nil
 	}
 	n, err := webhook.New(webhook.Options{
-		Config: cfg.Webhook, ReportDir: cfg.ReportDir, StatePath: cfg.WebhookStatePath, Version: version, Logger: logger,
+		Config: cfg.Webhook, ReportDir: cfg.ReportDir, StatePath: cfg.WebhookStatePath, Version: version, Logger: logger, Unaccepted: un,
 	})
 	if err != nil {
 		return nil, err
