@@ -154,7 +154,9 @@ Enter が効かないことがある（Issue #101。起動直後の omp は入�
 | `unverified` | `not_found` | 上限までに記録のどこにも現れない（長いコマンドの実行中は、ツールの出力が記録されるのがコマンドの終了後なので、ここになりうる） |
 | `unverified` | `record_unreadable`・`unsupported` | 記録を開けない・読めないエージェント（omp 以外）・pid が分からない。`unsupported` は待たずに返す |
 
-待つ上限は、受理の確認が済んでから `accept_timeout` と `start_timeout` の長いほう（既定 30 秒。新しい設定は増やさない）。`acted`・`ignored`（応答が続いた）が決まれば、上限を待たずに返す（500 ms ごとに記録を読み直す）。決まらなければ最後の読み取りを返し、`ok` は変えない。ただし `acted` のときは、画面が受理を映していなくても（描き直しが止まった omp。Issue #113）受け取っているので `ok`・`accepted` を `true` にする。本文はログに出さず、結果（`reaction`・`basis`・待った時間）だけを INFO に残す。判断の理由は decisions.md P-109。
+待つ上限は、受理の確認が済んでから `accept_timeout` と `start_timeout` の長いほう（既定 30 秒。新しい設定は増やさない）。`acted`・`ignored`（応答が続いた）が決まれば、上限を待たずに返す（500 ms ごとに記録を読み直す）。決まらなければ最後の読み取りを返す。待つ間はペインの排他を外している（貼り付けと受理の確認までが排他の中。`send_escape` など同じペインへの操作を詰まらせない）。本文はログに出さず、結果（`reaction`・`basis`・待った時間）だけを INFO に残す。判断の理由は decisions.md P-109・P-110。
+
+`ok`・`accepted` は Enter の受理（と、`acted` のとき記録上の受け取り）だけを指し、指示が実行されたかは `reaction` で見る。**`reaction: ignored` でも `ok: true` のままになりうる**（[endpoints.md §3](endpoints.md) の「期待した状態にならなければ `ok: false`」は、受理という期待した状態の話）。呼び出し側は `ok: true` だけで成功と判断せず、作業中のペインへ送ったときは `reaction` を見る。`acted` のときは、画面が受理を映していなくても（描き直しが止まった omp。Issue #113）受け取っているので `ok`・`accepted` を `true` にする。
 
 #### `send_escape`
 

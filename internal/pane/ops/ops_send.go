@@ -54,29 +54,16 @@ func (o *Operator) checkBody(text string) error {
 // すでに working・stalled のペインへ送ったときは、受理（もともと working なので、画面だけでは受け取ったか分からない）のあと、
 // エージェントの会話の記録で、指示が実行されたか・無視されたか・確かめられなかったかを返す（Issue #120。decisions.md P-109）。
 // 実行されたと分かれば、画面で受理を確かめられなくても ok・accepted は true にする。
+// ペインの排他は貼り付けと受理の確認までで、反応の待ち（最長 30 秒）の前に外す（待つ間も send_escape など同じペインへの操作を詰まらせない）。
 func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pane.SendResult, error) {
 	if err := o.checkBody(text); err != nil {
 		return pane.SendResult{}, err
 	}
-	unlock, p, err := o.begin(ctx, ref, true)
+	res, p, ad, start, err := o.pasteLocked(ctx, ref, text)
 	if err != nil {
 		return pane.SendResult{}, err
 	}
-	defer unlock()
-	if err := allow(p, agent.StateIdle, agent.StateWorking, agent.StateStalled); err != nil {
-		return pane.SendResult{}, err
-	}
-	ad, err := o.adapterFor(p)
-	if err != nil {
-		return pane.SendResult{}, err
-	}
-	start := o.deps.Clock.Now()
-	sent, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State, o.deps.Cfg.AcceptTimeout)
-	if err != nil {
-		return pane.SendResult{}, err
-	}
-	res := pane.SendResult{OK: accepted, Accepted: accepted, Chars: utf8.RuneCountInString(text)}
-	if sent && (p.State == agent.StateWorking || p.State == agent.StateStalled) {
+	if p.State == agent.StateWorking || p.State == agent.StateStalled {
 		if res.Reaction, res.ReactionBasis, err = o.awaitReaction(ctx, p, ad, text, start); err != nil {
 			return pane.SendResult{}, err
 		}
@@ -90,32 +77,30 @@ func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pan
 	return res, nil
 }
 
-// awaitReaction は、作業中のペインに貼った text が会話の記録にどう現れるかを、since（貼る前の時刻）以降の記録で読み、受理のあとから reactionWindow まで待って返す（Issue #120）。
-// 実行（acted）・無視（ignored）が決まったらそこで返し、決まらなければ最後の読み取り（unverified）を返す。
-// アダプタが記録を読めない種類・pid が分からないときは、待たずに unverified（unsupported）。
-// 画面は見ない（記録が主。tern の画面でも普通の画面でも同じ結果になる）。本文はログに出さない。
-func (o *Operator) awaitReaction(ctx context.Context, p pane.PaneState, ad agent.Adapter, text string, since time.Time) (agent.Reaction, string, error) {
-	rp, ok := ad.(agent.ReactionProbe)
-	if !ok || p.AgentPID == 0 {
-		return agent.ReactionUnverified, agent.BasisUnsupported, nil
-	}
-	last := agent.ReactionReading{Reaction: agent.ReactionUnverified, Basis: agent.BasisNotFound}
-	waitStart := o.deps.Clock.Now()
-	_, err := o.waitFor(ctx, o.reactionWindow(), refreshStep, func(context.Context) bool {
-		last = rp.Reaction(p.AgentPID, since, text)
-		return last.Final
-	})
+// pasteLocked は排他を取って貼り付けと受理の確認までを行う。返す p は送る前のペインの状態、start は貼る前の時刻。
+// 貼り付けに至らなかったとき（sent=false）は反応を待たないよう、p.State を unknown にして返す。
+func (o *Operator) pasteLocked(ctx context.Context, ref pane.Ref, text string) (res pane.SendResult, p pane.PaneState, ad agent.Adapter, start time.Time, err error) {
+	unlock, p, err := o.begin(ctx, ref, true)
 	if err != nil {
-		return "", "", err
+		return res, p, nil, start, err
 	}
-	o.deps.Logger.Info("追加の指示への反応を確かめました", "pane", p.ID, "reaction", last.Reaction, "basis", last.Basis, "elapsed", o.deps.Clock.Now().Sub(waitStart))
-	return last.Reaction, last.Basis, nil
-}
-
-// reactionWindow は、作業中のペインに送った指示への反応を待つ上限（受理を確かめたあとから）。
-// 新しい設定は増やさず、Enter の受理を待つ上限と同じ accept_timeout・start_timeout のうち長いほう（既定 30 秒）にする（P-102 と同じ考え方。P-109）。
-func (o *Operator) reactionWindow() time.Duration {
-	return max(o.deps.Cfg.AcceptTimeout, o.deps.Cfg.StartTimeout)
+	defer unlock()
+	if err := allow(p, agent.StateIdle, agent.StateWorking, agent.StateStalled); err != nil {
+		return res, p, nil, start, err
+	}
+	if ad, err = o.adapterFor(p); err != nil {
+		return res, p, nil, start, err
+	}
+	start = o.deps.Clock.Now()
+	sent, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State, o.deps.Cfg.AcceptTimeout)
+	if err != nil {
+		return res, p, nil, start, err
+	}
+	res = pane.SendResult{OK: accepted, Accepted: accepted, Chars: utf8.RuneCountInString(text)}
+	if !sent {
+		p.State = agent.StateUnknown
+	}
+	return res, p, ad, start, nil
 }
 
 // pasteAndAccept は Paste → 1 秒 → （貼り付けの確認メニューが開いていれば閉じる）→ Enter → 受理待ち。prior は送る前の状態。

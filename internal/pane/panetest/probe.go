@@ -18,6 +18,7 @@ type ProbeAdapter struct {
 	reaction      map[int]agent.ReactionReading
 	reactionCalls []ReactionCall
 	reactionAfter map[int]reactionStep
+	onReaction    func()
 }
 
 type reactionStep struct {
@@ -108,8 +109,21 @@ func (a *ProbeAdapter) SetReactionAfter(pid, calls int, r agent.ReactionReading)
 	a.reactionAfter[pid] = reactionStep{calls: calls, r: r}
 }
 
+// OnReaction は Reaction が呼ばれるたびに（内部の排他の外で）f を呼ぶ。待ちの途中で別の操作を差し込むテスト用。
+func (a *ProbeAdapter) OnReaction(f func()) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.onReaction = f
+}
+
 // Reaction は SetReaction した読み取り。していなければ、記録に現れない（unverified・not_found）。呼び出しは ReactionCalls に残る。
 func (a *ProbeAdapter) Reaction(pid int, since time.Time, text string) agent.ReactionReading {
+	a.mu.Lock()
+	hook := a.onReaction
+	a.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.reactionCalls = append(a.reactionCalls, ReactionCall{PID: pid, Since: since, Text: text})

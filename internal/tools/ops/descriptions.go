@@ -7,7 +7,7 @@ const (
 	descSendText = "ペインのエージェントへ text（またはサーバー上の file）を貼り付けて Enter を送る。" +
 		"許可する制御文字は改行とタブだけ。8000 字まで。Ctrl-C などの特別なキーは送れない。" +
 		"作業中（working・stalled）のペインに足す指示は、task・profile（・extra_rules）で渡すと dispatch と同じ形（追加の指示の見出し＋条件）に組み立てて送り、全文を sent に返す。" +
-		"作業中のペインへ送ったときは、エージェントの会話の記録から、指示が実行された（reaction: acted）・無視された（ignored）・確かめられなかった（unverified）かを reaction と reaction_basis に返す。"
+		"作業中のペインへ送ったときは、エージェントの会話の記録から、指示が実行された（reaction: acted）・無視された（ignored）・確かめられなかった（unverified）かを reaction と reaction_basis に返す。ok・accepted は受理だけを指し、ignored でも ok: true になりうるので、ok だけで成功と判断せず reaction を見る。"
 	descSendEscape = "作業中のエージェントへ Esc を送って中断する。オーナーの OK があるときだけ使う。" +
 		"confirm: true が必須。実行したことはメモのログに自動で残る。"
 	descPaneStart = "shell のペインで cwd へ移動してエージェント（omp・claude・codex）を起動し、タイトルを設定する。" +

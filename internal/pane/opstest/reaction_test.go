@@ -154,3 +154,29 @@ func TestSendTextWhileWorkingUnsupportedAgent(t *testing.T) {
 		t.Fatalf("res = %+v", res)
 	}
 }
+
+// 反応を待つ間は、ペインの排他を持たない（作業中のペインを止める send_escape などを詰まらせない）。
+func TestSendTextReactionWaitDoesNotHoldPaneLock(t *testing.T) {
+	f, probe, ref := workingRig(t)
+	var lockErr error
+	probe.OnReaction(func() {
+		if lockErr != nil {
+			return
+		}
+		unlock, err := f.op.Lock(context.Background(), ref.ID)
+		if err == nil {
+			unlock()
+		}
+		lockErr = err
+	})
+	res := sendWhileWorking(t, f, ref, "追加の指示です") // 反応は決まらず上限まで待つ
+	if res.Reaction != agent.ReactionUnverified {
+		t.Fatalf("res = %+v", res)
+	}
+	if len(probe.ReactionCalls()) == 0 {
+		t.Fatal("反応を待たなかった")
+	}
+	if lockErr != nil {
+		t.Fatalf("反応を待つ間にペインの排他を取れなかった: %v", lockErr)
+	}
+}
