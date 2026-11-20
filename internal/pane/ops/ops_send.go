@@ -119,6 +119,12 @@ func (o *Operator) pasteAndAccept(ctx context.Context, id string, ad agent.Adapt
 		}
 		return false
 	})
+	// 受理を画面で確かめられなかった指示は覚える。画面が起動画面のまま止まっていても、作業していることがある（Issue #113）。
+	if accepted {
+		o.deps.Unaccepted.Clear(id)
+	} else {
+		o.deps.Unaccepted.Mark(id, firstEnter)
+	}
 	if resends > 0 {
 		o.logResendOutcome(id, resends, o.deps.Clock.Now().Sub(firstEnter), accepted, retryErr != nil || err != nil)
 	}

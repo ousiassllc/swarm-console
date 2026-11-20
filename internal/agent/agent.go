@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"sync"
+	"time"
 )
 
 // State はペインの状態（機能要件 §3.1）。
@@ -87,6 +88,14 @@ type PasteMenu interface {
 type Submitter interface {
 	// SubmitFocused は質問カードのカーソルが Submit の行にあるか。ここで Enter を送ると回答が確定する。
 	SubmitFocused(s Screen) bool
+}
+
+// WorkProbe は、画面が作業中を映さなくなっても、エージェント自身が書くログから作業の跡を読めるアダプタが、Adapter に加えて実装する（omp。Issue #113）。
+// omp は負荷が高いと画面の描き直しが止まり、作業中でも起動画面のまま idle と読めることがある。
+type WorkProbe interface {
+	// LastWork は pid のプロセスのログで、since 以降にあった作業（モデルの呼び出し）の最後の時刻。
+	// 起動時の取得や定期の更新など、作業ではない行は数えない。ログが無い・読めない・作業の行が無いときは ok=false。
+	LastWork(pid int, since time.Time) (at time.Time, ok bool)
 }
 
 // Toggler は、複数選択（チェックボックス）の質問を出すエージェントのアダプタが、Adapter に加えて実装する（omp。Issue #111）。

@@ -33,7 +33,11 @@ var defaults = agent.Spec{
 	},
 }
 
-type adapter struct{ *agent.Base }
+// adapter の logDir は omp のログのディレクトリ。空なら ~/.omp/logs（テストだけが替える）。
+type adapter struct {
+	*agent.Base
+	logDir string
+}
 
 func init() {
 	agent.Register(Name, New)

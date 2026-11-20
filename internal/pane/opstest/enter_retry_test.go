@@ -95,3 +95,16 @@ func TestDispatchNeverAcceptedStaysNotOKWithBoundedResends(t *testing.T) {
 		t.Fatalf("決着が 1 秒 + accept_timeout を超えた: %v（NFR-PERF-4）", got)
 	}
 }
+
+// 受理を確かめられなかった指示は覚え（Issue #113。Registry がそのペインだけログを見る）、受理されたら消す。
+func TestUnacceptedSendIsRememberedAndAcceptedForgets(t *testing.T) {
+	f := newFixture(t)
+	ref, p := f.ompLargePaste(t, false)
+	for _, drop := range []int{1 << 30, 0} {
+		p.dropEnters = drop
+		res, err := run(t, f.env.Clock, func() (pane.SendResult, error) { return f.op.SendText(context.Background(), ref, shortRequest()) })
+		if _, marked := f.reg.Deps().Unaccepted.Since(ref.ID); err != nil || res.Accepted == marked {
+			t.Fatalf("accepted=%v 記録=%v err=%v（受理されなかったときだけ覚えるはず）", res.Accepted, marked, err)
+		}
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/tmux"
@@ -53,7 +54,7 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 		return observation{state: agent.StateUnknown}
 	}
 	screen := ScreenOf(text)
-	name, ad := r.identify(p, screen)
+	name, ad, pid := r.identify(p, screen)
 	if ad == nil {
 		o := observation{state: agent.StateUnknown, hash: hashText(strings.Join(screen.Lines, "\n")), readable: true}
 		if isShellCommand(p.CurrentCmd) {
@@ -79,36 +80,79 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 	case agent.StateWorking:
 		o.state = agent.StateWorking
 	}
+	o.state = r.confirmByLog(p.ID, ad, pid, o.state)
 	return o
+}
+
+const (
+	// logWorkWindow は、エージェントのログの最後の作業の行からこの間は、画面が idle でも作業中とみなす（Issue #113）。
+	// 作業中のログは数分あくことがある（長いツールの実行中）ので、あいたら idle に戻り、次の作業の行でまた working になる。
+	logWorkWindow = 2 * time.Minute
+	// unacceptedTTL は、受理を確かめられなかった指示の記録を、最後の作業の行（無ければ Enter）からこの間たっても作業の跡が無ければ捨てる。
+	// 止まっていたペインを、いつまでもログの確認の対象にしない。
+	unacceptedTTL = 10 * time.Minute
+)
+
+// confirmByLog は、指示の Enter を送ったのに受理を画面で確かめられなかったペイン（Unaccepted）だけ、エージェントのログで作業中かを確かめる。
+// omp は負荷が高いと画面の描き直しが止まり、作業中でも起動画面のまま idle と読めるため（Issue #113）。
+// 画面が working・asking と読めたら画面が回復したので記録を捨てる。それ以外の状態・記録の無いペインは何も変えない。
+// 記録があっても、ログに作業の跡が無い（止まっている）なら idle のままにする。
+func (r *SnapshotRegistry) confirmByLog(id string, ad agent.Adapter, pid int, state agent.State) agent.State {
+	since, marked := r.deps.Unaccepted.Since(id)
+	if !marked {
+		return state
+	}
+	if state == agent.StateWorking || state == agent.StateAsking {
+		r.deps.Unaccepted.Clear(id)
+		return state
+	}
+	wp, ok := ad.(agent.WorkProbe)
+	if state != agent.StateIdle || !ok || pid == 0 {
+		return state
+	}
+	now := r.clk.Now()
+	last, worked := wp.LastWork(pid, since)
+	if !worked {
+		last = since
+	}
+	if now.Sub(last) > unacceptedTTL {
+		r.deps.Unaccepted.Clear(id)
+		return state
+	}
+	if worked && now.Sub(last) <= logWorkWindow {
+		return agent.StateWorking
+	}
+	return state
 }
 
 // identify はエージェントを特定する。まず /proc のプロセス木（process_match）、取れなければ画面の特徴（P-06）。
 // 前面コマンドがシェルなら、画面に残った過去の表示で誤判定しないよう画面は見ない。木を読めるときは、木にエージェントが
 // いない（木が空でない）ことも条件にし、読めないときは前面コマンドだけで決める（/proc が読めない環境でも pane_close が誤って
 // exit_timeout にならないように。Issue #35）。
-func (r *SnapshotRegistry) identify(p tmux.PaneInfo, screen agent.Screen) (string, agent.Adapter) {
+// 3 つ目の返り値は、プロセス木から見つけたエージェントの pid（画面で決めたときは 0）。
+func (r *SnapshotRegistry) identify(p tmux.PaneInfo, screen agent.Screen) (string, agent.Adapter, int) {
 	procs, err := r.deps.Host.ProcTree(p.PID)
 	if err != nil {
 		if isShellCommand(p.CurrentCmd) {
-			return "", nil
+			return "", nil, 0
 		}
 	} else {
 		for _, name := range r.names {
 			ad := r.deps.Adapters[name]
 			for _, pr := range procs {
 				if len(pr.Argv) > 0 && ad.MatchProcess(pr.Argv) {
-					return name, ad
+					return name, ad, pr.PID
 				}
 			}
 		}
 		if len(procs) > 0 && isShellCommand(p.CurrentCmd) {
-			return "", nil
+			return "", nil, 0
 		}
 	}
 	for _, name := range r.names {
 		if ad := r.deps.Adapters[name]; ad.MatchScreen(screen) {
-			return name, ad
+			return name, ad, 0
 		}
 	}
-	return "", nil
+	return "", nil, 0
 }
