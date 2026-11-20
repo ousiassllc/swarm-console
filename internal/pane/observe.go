@@ -31,6 +31,7 @@ func isShellCommand(cmd string) bool {
 // observation は 1 ペインの 1 回分の観測（時間に依存する判定の前）。
 type observation struct {
 	agentName string
+	agentPID  int         // プロセス木から見つけたエージェントの pid（画面で決めたときは 0）
 	state     agent.State // working・asking・idle・shell・unknown（stalled は後で決める）
 	activity  string
 	elapsed   string
@@ -66,6 +67,7 @@ func (r *SnapshotRegistry) observe(ctx context.Context, p tmux.PaneInfo) observa
 	det := ad.Detect(screen)
 	o := observation{
 		agentName: name,
+		agentPID:  pid,
 		state:     agent.StateIdle,
 		activity:  det.Activity,
 		elapsed:   det.Elapsed,

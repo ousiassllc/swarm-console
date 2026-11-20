@@ -17,7 +17,13 @@ type DispatchInput struct {
 	Profiles   config.Profiles
 	ReportDir  string
 	Pos        string // 送り先ペインの位置（{report_path} の置換に使う）
+	// FollowUp は作業中のペインに足す追加の指示（send_text の task。Issue #120）。
+	// 見出しだけ「## やること」から followUpHeading に変わり、それ以外は dispatch と同じ形（同じ条件・同じ順）になる。
+	FollowUp bool
 }
+
+// followUpHeading は追加の指示の見出し。dispatch で渡した条件のとおりに続ける追加であることが、見出しだけで読める。
+const followUpHeading = "## 追加の指示（いまの作業への追記。条件は dispatch で渡したものと同じ）"
 
 const reportPathVar = "{report_path}"
 
@@ -33,7 +39,11 @@ func Dispatch(in DispatchInput) (string, error) {
 	if in.Command != "" {
 		b.WriteString(in.Command + "\n\n")
 	}
-	b.WriteString("## やること\n" + in.Task + "\n\n## 条件\n")
+	heading := "## やること"
+	if in.FollowUp {
+		heading = followUpHeading
+	}
+	b.WriteString(heading + "\n" + in.Task + "\n\n## 条件\n")
 	path := pane.ReportPath(in.ReportDir, in.Pos)
 	for _, group := range [][]string{in.Profiles.Common, prof.Rules, in.ExtraRules} {
 		for _, r := range group {

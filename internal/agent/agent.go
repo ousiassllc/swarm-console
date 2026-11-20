@@ -107,6 +107,42 @@ type TurnProbe interface {
 	Turn(pid int, since time.Time) (last time.Time, inTurn, ok bool)
 }
 
+// Reaction は、作業中のエージェントに送った指示への反応（Issue #120。decisions.md P-109）。
+type Reaction string
+
+// 反応の 3 値。判定はエージェント自身の会話の記録だけで行い、画面の文字は使わない。
+const (
+	// ReactionActed は、指示がユーザーの指示として会話に入り、そのあとエージェントが応答した。
+	ReactionActed Reaction = "acted"
+	// ReactionIgnored は、指示がユーザーの指示にならず、ツールの出力など別のものとして記録された（エージェントは外から紛れ込んだ文として扱う）。
+	ReactionIgnored Reaction = "ignored"
+	// ReactionUnverified は、記録から判断できなかった（記録が読めない・上限までに現れない・受け取ったが応答がまだ無い）。
+	ReactionUnverified Reaction = "unverified"
+)
+
+// 反応の根拠（ReactionReading.Basis）。
+const (
+	BasisUserMessage      = "user_message"          // ユーザーの指示として記録され、そのあとの応答がある（acted）
+	BasisToolOutput       = "tool_output"           // ツールの出力に混ざって記録された（ignored）
+	BasisUserMessageNoAns = "user_message_no_reply" // ユーザーの指示として記録されたが、応答がまだ無い（unverified）
+	BasisNotFound         = "not_found"             // 記録に現れなかった（unverified）
+	BasisRecordUnreadable = "record_unreadable"     // 会話の記録を開けなかった（unverified）
+	BasisUnsupported      = "unsupported"           // エージェントが会話の記録を読めない種類・pid が分からない（unverified）
+)
+
+// ReactionReading は 1 回の読み取りの結果。Final が true なら、待っても変わらない。
+type ReactionReading struct {
+	Reaction Reaction
+	Basis    string
+	Final    bool
+}
+
+// ReactionProbe は、会話の記録（omp はセッションの jsonl）に、送った指示がどう記録されたかを読めるアダプタが、Adapter に加えて実装する（omp。Issue #120）。
+type ReactionProbe interface {
+	// Reaction は pid のプロセスの会話の記録の、since 以降で、text（貼り付けた本文）がどう扱われたかを返す。
+	Reaction(pid int, since time.Time, text string) ReactionReading
+}
+
 // Toggler は、複数選択（チェックボックス）の質問を出すエージェントのアダプタが、Adapter に加えて実装する（omp。Issue #111）。
 // 複数選択では、カーソルを選択肢に合わせて Enter を送っても、その選択肢にはチェックが付かないことがあるので、先にチェックを付ける。
 type Toggler interface {

@@ -63,7 +63,7 @@ func (r *SnapshotRegistry) build(ctx context.Context) (*Snapshot, error) {
 			Fixed: fixed,
 			ID:    p.ID, Pos: names[p.ID], Local: locals[p.ID], GlobalPos: names[p.ID], Session: p.Session, Window: p.Window, PaneIndex: p.PaneIndex,
 			Top: p.Top, Left: p.Left,
-			Agent: o.agentName, State: state, Title: p.Title, Cwd: p.CurrentPath,
+			Agent: o.agentName, AgentPID: o.agentPID, State: state, Title: p.Title, Cwd: p.CurrentPath,
 			Elapsed: elapsed, Activity: act, ActivityTrunc: trunc,
 			ChangedAgo: FormatDuration(now.Sub(changedAt)), ScreenHash: hash, ChangedAt: changedAt,
 			ReportExists: ReportExists(r.deps.FS, cfg.ReportDir, names[p.ID]),

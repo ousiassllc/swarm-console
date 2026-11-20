@@ -51,27 +51,56 @@ func (o *Operator) checkBody(text string) error {
 }
 
 // SendText は text を貼り付けて Enter を送る（P-09: idle・working・stalled のみ）。
+// すでに working・stalled のペインへ送ったときは、受理（もともと working なので、画面だけでは受け取ったか分からない）のあと、
+// エージェントの会話の記録で、指示が実行されたか・無視されたか・確かめられなかったかを返す（Issue #120。decisions.md P-109）。
+// 実行されたと分かれば、画面で受理を確かめられなくても ok・accepted は true にする。
+// ペインの排他は貼り付けと受理の確認までで、反応の待ち（最長 30 秒）の前に外す（待つ間も send_escape など同じペインへの操作を詰まらせない）。
 func (o *Operator) SendText(ctx context.Context, ref pane.Ref, text string) (pane.SendResult, error) {
 	if err := o.checkBody(text); err != nil {
 		return pane.SendResult{}, err
 	}
-	unlock, p, err := o.begin(ctx, ref, true)
+	res, p, ad, start, err := o.pasteLocked(ctx, ref, text)
 	if err != nil {
 		return pane.SendResult{}, err
+	}
+	if p.State == agent.StateWorking || p.State == agent.StateStalled {
+		if res.Reaction, res.ReactionBasis, err = o.awaitReaction(ctx, p, ad, text, start); err != nil {
+			return pane.SendResult{}, err
+		}
+		// 会話の記録にユーザーの指示として入り応答もあったなら、画面が受理を映していなくても受け取っている
+		// （画面の描き直しが止まった omp は作業中でも idle と読める。Issue #113）。Unaccepted は消さない（画面はまだ当てにならない）。
+		if res.Reaction == agent.ReactionActed {
+			res.OK, res.Accepted = true, true
+		}
+	}
+	res.State = o.stateOf(ctx, p.ID)
+	return res, nil
+}
+
+// pasteLocked は排他を取って貼り付けと受理の確認までを行う。返す p は送る前のペインの状態、start は貼る前の時刻。
+// 貼り付けに至らなかったとき（sent=false）は反応を待たないよう、p.State を unknown にして返す。
+func (o *Operator) pasteLocked(ctx context.Context, ref pane.Ref, text string) (res pane.SendResult, p pane.PaneState, ad agent.Adapter, start time.Time, err error) {
+	unlock, p, err := o.begin(ctx, ref, true)
+	if err != nil {
+		return res, p, nil, start, err
 	}
 	defer unlock()
 	if err := allow(p, agent.StateIdle, agent.StateWorking, agent.StateStalled); err != nil {
-		return pane.SendResult{}, err
+		return res, p, nil, start, err
 	}
-	ad, err := o.adapterFor(p)
+	if ad, err = o.adapterFor(p); err != nil {
+		return res, p, nil, start, err
+	}
+	start = o.deps.Clock.Now()
+	sent, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State, o.deps.Cfg.AcceptTimeout)
 	if err != nil {
-		return pane.SendResult{}, err
+		return res, p, nil, start, err
 	}
-	_, accepted, err := o.pasteAndAccept(ctx, p.ID, ad, text, p.State, o.deps.Cfg.AcceptTimeout)
-	if err != nil {
-		return pane.SendResult{}, err
+	res = pane.SendResult{OK: accepted, Accepted: accepted, Chars: utf8.RuneCountInString(text)}
+	if !sent {
+		p.State = agent.StateUnknown
 	}
-	return pane.SendResult{OK: accepted, State: o.stateOf(ctx, p.ID), Accepted: accepted, Chars: utf8.RuneCountInString(text)}, nil
+	return res, p, ad, start, nil
 }
 
 // pasteAndAccept は Paste → 1 秒 → （貼り付けの確認メニューが開いていれば閉じる）→ Enter → 受理待ち。prior は送る前の状態。

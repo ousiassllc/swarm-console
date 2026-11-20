@@ -23,7 +23,16 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+	return newFixtureWith(t, nil)
+}
+
+// newFixtureWith は env を作ったあと、tune で設定やアダプタを替えてから Registry・Operator を作る。
+func newFixtureWith(t *testing.T, tune func(*panetest.Env)) *fixture {
+	t.Helper()
 	env := panetest.NewEnv()
+	if tune != nil {
+		tune(env)
+	}
 	logs := &bytes.Buffer{}
 	reg, err := pane.NewRegistry(pane.Deps{
 		Cfg: env.Cfg, Tmux: env.Tmux, Host: env.Host, Adapters: env.Adapters,

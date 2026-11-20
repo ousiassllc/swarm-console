@@ -98,3 +98,32 @@ func TestDispatchDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// Issue #120: 作業中に足す追加の指示は、見出し以外は dispatch と同じ形（同じ条件・同じ順・同じ {report_path} の置換）。
+func TestDispatchFollowUpDiffersOnlyInHeading(t *testing.T) {
+	for _, profile := range []string{"sweep", "fix", "investigate"} {
+		in := render.DispatchInput{
+			Task: "テストを足す。\n2 行目", Profile: profile, ExtraRules: []string{"E", "報告先は {report_path}"},
+			Profiles: testProfiles(), ReportDir: "/r", Pos: "work:B2",
+		}
+		base, err := render.Dispatch(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		in.FollowUp = true
+		follow, err := render.Dispatch(in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		const heading = "## 追加の指示（いまの作業への追記。条件は dispatch で渡したものと同じ）"
+		if !strings.HasPrefix(follow, heading+"\nテストを足す。\n2 行目\n\n## 条件\n") {
+			t.Fatalf("%s: 追加の指示の形が違う:\n%s", profile, follow)
+		}
+		if want := strings.Replace(base, "## やること", heading, 1); follow != want {
+			t.Fatalf("%s: 見出し以外が dispatch と違う\ngot:\n%s\nwant:\n%s", profile, follow, want)
+		}
+		if strings.Contains(follow, "{report_path}") {
+			t.Fatalf("%s: 置換漏れ", profile)
+		}
+	}
+}
