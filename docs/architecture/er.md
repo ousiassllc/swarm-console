@@ -260,3 +260,4 @@ erDiagram
 | 1.20 | 2026-11-19 | §9 webhook の台帳に `asked`（asking の回で `pane.asking` を作った印。ペイン ID → `event_id`。省略可なので版は 2 のまま）と、outbox に `pane.asking` の本文が入ることを追加。FR-STATE-9〜11 | Issue #111 |
 | 1.21 | 2026-11-20 | §9 webhook の台帳に `watch`（受理を確かめられなかった指示の見張り。ペイン ID → `enter`・`retained`・`pid`。省略可なので版は 2 のまま。`watch` を持たない古い台帳もそのまま読める。古いサーバーは `watch` を無視して書き直すときに落とす）を追加。FR-STATE-12 | Issue #118 |
 | 1.22 | 2026-11-21 | §2.2 PANE_NOTE に `model`・`thinking`（起動時に指定した値。指定があった項目だけ書く。`note_set` でも `pane_start` と同じ検査）を追加し、要約に出す項目に足した。既存のメモは移行しない（新しい項目は空のまま） | Issue #124 |
+| 1.23 | 2026-11-22 | §5.1 の手書き専用のキーの列挙に `update_check`・`update_auto`・`usage_check` を足し、期間のキーは 9 つ全部（`update_check_interval`・`usage_interval` を含む）に直す（`internal/config/load.go` の全キーと合わせる） | Issue #132 |
