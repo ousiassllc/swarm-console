@@ -11,7 +11,7 @@
 | 永続（人が編集） | 条件のひな形 `profiles.toml` | `~/.config/swarm-console/profiles.toml` | 644 以下 |
 | 永続（人が編集、任意） | レポートのテンプレート | `~/.config/swarm-console/templates/report.{ja,en}.md` | — |
 | 永続（書き込み。`[webhook] url` か `[webhook.sessions."<名>"] url` を書いたときだけ） | webhook の台帳 `webhook-state.json` | `~/.local/share/swarm-console/webhook-state.json` | 600 |
-| 外部が書く | 最終報告 `<位置>.md` | `/tmp/swarm-console/reports/` | エージェントが書く |
+| 外部が書く | 最終報告 `<位置>.md` | `/tmp/swarm-console/reports/` | エージェントが書く（置き場は自分の uid 所有の 0700・親フォルダも安全であることを起動時に検査） |
 | 永続（書き込み: 自己更新のみ） | 旧バイナリの退避・試運転のマーカー・戻した版の記録 | `~/bin/swarm-console/swarm-console.{old,update-pending,update-failed}`（と一時の `swarm-console.new`） | 600（`.old`・`.new` は 755） |
 | 実行時（メモリ） | スナップショット・ペイン状態 | プロセス内 | — |
 
@@ -265,3 +265,4 @@ erDiagram
 | 1.24 | 2026-11-22 | §5.1 の手書き専用のキーの列挙に `update_check`・`update_auto`・`usage_check` を足し、期間のキーは 9 つ全部（`update_check_interval`・`usage_interval` を含む）に直す（`internal/config/load.go` の全キーと合わせる） | Issue #132 |
 | 1.25 | 2026-11-22 | §3 tokens.toml（er-runtime.md）：`token list` はロックを取らない（`tokens.toml.lock` を開かず作らない）旨に改訂。ロックするのは書く `token add`・`token revoke`・`pair`・`setup` だけ。tokens.toml の項目・権限は変えない | Issue #138 |
 | 1.26 | 2026-11-22 | 永続ファイルの表に `tokens.toml.lock`（権限 600・中身なし・ロック専用。書く CLI だけが作る）を追加（これまで一覧に無く、設定フォルダの「書くファイル」から漏れていた） | Issue #141 |
+| 1.27 | 2026-11-22 | §1 最終報告の権限欄、§5 `config.toml` の検証表に `report_dir` の検査の行、§7 の書き手に、`report_dir` の起動時検査（自分の uid 所有・フォルダ・リンクでない・親フォルダの持ち主／書き込み権／リンクも根へ向かって検査。違えば起動拒否、権限だけなら 0700 に直す）を追加（#128 で入った実装を #137 で親フォルダへ広げた。P-122） | Issue #128・#137・#140 |

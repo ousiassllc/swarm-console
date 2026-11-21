@@ -286,3 +286,4 @@ flowchart TD
 | 1.43 | 2026-11-22 | §3 レイヤー構造のエントリ行の CLI 列挙に `pair` を足す（実装の subcommand と合わせる） | Issue #129 |
 | 1.44 | 2026-11-22 | §5.3 `ask_pick` のシーケンス図を実装（`PickAsk`）に合わせた：複数選択の Space のチェック（付かなければ `cursor_mismatch`）、Submit の Enter、次の質問が開いたときの `ok: false`・`card_closed: false`、`state` は取り直した値。`text`・tern の画面の経路は注記で §6.1・P-113 を指す。コード・設定は変えない | Issue #142 |
 | 1.45 | 2026-11-22 | §7 デプロイ構成の設定の列挙に `tokens.toml.lock`（600・ロック専用）を足す（ER 1.26） | Issue #141 |
+| 1.46 | 2026-11-22 | decisions.md P-122（`report_dir` の起動時検査：自分の uid 所有・リンクでない・0700、親フォルダも根へ向かって検査。検査する理由と見ない範囲）。deployment.md の設定表と config.toml.example の `report_dir` にも検査を追記 | Issue #128・#137・#140 |

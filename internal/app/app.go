@@ -161,9 +161,9 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 	return &App{Cfg: cfg, Registry: reg, Server: srv, logger: logger, update: up, values: col, webhook: wh}, nil
 }
 
-// newAdapters は登録済みの全アダプタを、設定の上書きを適用して作る。正規表現が不正なら起動拒否。
-// prepareReportDir は report_dir を作り、持ち主（uid）・権限（0700）・シンボリックリンクでないことを確かめる。
-// 既定が /tmp 下の予測できるパスなので、他人が先に作った・リンクにしたフォルダは使わない（起動を拒否）。
+// prepareReportDir は report_dir を作り、持ち主（uid）・権限（0700）・シンボリックリンクでないことと、
+// 親フォルダの安全（持ち主・書き込み権。store.CheckDir）を確かめる。
+// 既定が /tmp 下の予測できるパスなので、他人が先に作った・リンクにした・他人が差し替えられるフォルダは使わない（起動を拒否）。
 func prepareReportDir(dir string, uid int) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("最終報告のフォルダを作れません: %w", err)
@@ -174,6 +174,7 @@ func prepareReportDir(dir string, uid int) error {
 	return nil
 }
 
+// newAdapters は登録済みの全アダプタを、設定の上書きを適用して作る。正規表現が不正なら起動拒否。
 func newAdapters(cfg *config.Config) (map[string]agent.Adapter, error) {
 	out := map[string]agent.Adapter{}
 	for _, name := range agent.Names() {
