@@ -74,7 +74,7 @@ DB は使わない（ER ドキュメントは永続ファイルのデータモ�
 
 | レイヤー | 責務 | 主なパッケージ（コンポーネント設計 §2） |
 |---------|------|------------------------------------|
-| エントリ | CLI（`serve`・`setup`・`token`・`version`）、設定読み込み、起動時検証 | `cmd/swarm-console` |
+| エントリ | CLI（`serve`・`setup`・`token`・`pair`・`version`）、設定読み込み、起動時検証 | `cmd/swarm-console` |
 | トランスポート | HTTP、窓口ごとのルーティング、認証、リクエスト上限、監査ログ | `internal/server`、`internal/auth` |
 | ツール | MCP のツール・prompts・resources の登録、引数検証、エラー整形 | `internal/tools`（`toolkit`・`view`・`ops`）、`internal/mcpapi` |
 | ドメイン | ペイン台帳・位置解決・スナップショット・状態判定・メモ・指示組み立て・レンダリング・安全ポリシー | `internal/pane`、`internal/notes`、`internal/render`、`internal/safety` |
@@ -258,3 +258,4 @@ flowchart TD
 | 1.40 | 2026-11-20 | decisions.md P-109（作業中のペインへの `send_text` が、指示を実行したか・無視したか・確かめられなかったかを、omp のセッションの jsonl で返す。判断の根拠・待つ上限・`text` を残す理由・`task` の形） | Issue #120 |
 | 1.41 | 2026-11-20 | decisions.md P-111（omp が tern の画面になる条件と、14:26 以降の不具合との関係。同じ日 14:53 の `statusLine.preset: minimal` も別の原因）・P-112（会話の記録から画面を組み立てて読む）・P-113（tern の画面の限界）・P-114（テスト）。agent-patterns.md に「omp（tern の画面）」を追加 | Issue #121 |
 | 1.42 | 2026-11-21 | decisions.md P-115〜P-121（起動時の `model`・`thinking`：起動行・検査・拒否の順・メモとレポート・列の出し方・実機確認）。`pane_start`・`dispatch` に任意の `model`・`thinking`（API 仕様 1.30、ER 1.22） | Issue #124 |
+| 1.43 | 2026-11-22 | §3 レイヤー構造のエントリ行の CLI 列挙に `pair` を足す（実装の subcommand と合わせる） | Issue #129 |
