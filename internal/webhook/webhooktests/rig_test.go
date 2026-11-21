@@ -194,8 +194,11 @@ func (g *rig) idleRound(sessions ...string) {
 func (g *rig) drain() {
 	g.t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) && !strings.Contains(g.ledger(), `"outbox":{}`) {
-		time.Sleep(10 * time.Millisecond)
+	for !strings.Contains(g.ledger(), `"outbox":{}`) {
+		if time.Now().After(deadline) {
+			g.t.Fatalf("送信が終わりません:\n%s", g.ledger())
+		}
+		time.Sleep(10 * time.Millisecond) // 上限つきのポーリング間隔
 	}
 	g.cancel()
 	g.wait()

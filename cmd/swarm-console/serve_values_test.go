@@ -107,9 +107,7 @@ func TestServeReportValuesFromCollector(t *testing.T) {
 	if n := len(g.values.called()); n != 0 {
 		t.Fatalf("最初の待ちの前に omp を実行した（%d）", n)
 	}
-	for g.values.clk.Waiters() < 2 {
-		time.Sleep(5 * time.Millisecond) // 収集器が待ちに入るまで（上限は go test の timeout）
-	}
+	untilClockWaiting(g.t, g.values.clk, 2) // 収集器が待ちに入るまで
 	g.values.clk.Advance(reportvalues.OmpFirstDelay)
 	got := g.reportJSONUntil("usage・omp が入る", func(m map[string]any) bool {
 		return m["usage"].(map[string]any)["status"] == "ok" && m["omp"].(map[string]any)["status"] == "update_available"
