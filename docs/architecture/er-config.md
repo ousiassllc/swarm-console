@@ -104,7 +104,7 @@ erDiagram
 | 競合 | 読み込み時の内容のハッシュを持ち、書く直前にファイルを読み直して違えば中止する（`serve` や手書きとの競合。上書きしない） |
 | 書き込み | `store.WriteFileAtomic`（一時ファイル → fsync → rename）。既存ファイルの権限は変えない。新規は 600（「644 以下」を満たす） |
 | シンボリックリンク | `config.toml` がシンボリックリンクなら書かずに中止する（rename でリンクが普通のファイルに変わる、リンク先が設定の置き場の外・`~/dotfiles` のことがあるため。NFR-SEC-14）。手で編集してもらう |
-| 手書き専用のキー | 下記が手で書かれていても、`setup` は何も変えずに残す：`tmux_socket`・`default_lang`・期間のキー・`title_prefix`・`file_roots`・`file_get_roots`・`file_get_max_bytes`・`disk_mounts`・`report_dir`・`[webhook]`・`[pane_names]`・`[agents.<name>]` の `command`・`exit_command`・`auth_file` 以外のキー |
+| 手書き専用のキー | 下記が手で書かれていても、`setup` は何も変えずに残す：`tmux_socket`・`default_lang`・期間のキー全部（`poll_interval`・`snapshot_ttl`・`stalled_after`・`layout_warning_ttl`・`accept_timeout`・`start_timeout`・`lock_timeout`・`update_check_interval`・`usage_interval`）・`update_check`・`update_auto`・`usage_check`・`title_prefix`・`file_roots`・`file_get_roots`・`file_get_max_bytes`・`disk_mounts`・`report_dir`・`[webhook]`・`[pane_names]`・`[agents.<name>]` の `command`・`exit_command`・`auth_file` 以外のキー |
 
 ## 6. profiles.toml
 

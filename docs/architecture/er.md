@@ -261,3 +261,4 @@ erDiagram
 | 1.21 | 2026-11-20 | §9 webhook の台帳に `watch`（受理を確かめられなかった指示の見張り。ペイン ID → `enter`・`retained`・`pid`。省略可なので版は 2 のまま。`watch` を持たない古い台帳もそのまま読める。古いサーバーは `watch` を無視して書き直すときに落とす）を追加。FR-STATE-12 | Issue #118 |
 | 1.22 | 2026-11-21 | §2.2 PANE_NOTE に `model`・`thinking`（起動時に指定した値。指定があった項目だけ書く。`note_set` でも `pane_start` と同じ検査）を追加し、要約に出す項目に足した。既存のメモは移行しない（新しい項目は空のまま） | Issue #124 |
 | 1.23 | 2026-11-22 | §3 tokens.toml の書き込みを、`tokens.toml.lock`（権限 600・同じフォルダ）への `flock` でプロセス間も直列化する旨に改訂（これまでは書き込みの直列化がプロセス内だけで、`token add`・`token revoke`・`pair` を同時に走らせると後の書き込みが先の変更を消した）。ロックを取れなければ書かずにエラー。tokens.toml の項目・権限は変えない | Issue #127 |
+| 1.24 | 2026-11-22 | §5.1 の手書き専用のキーの列挙に `update_check`・`update_auto`・`usage_check` を足し、期間のキーは 9 つ全部（`update_check_interval`・`usage_interval` を含む）に直す（`internal/config/load.go` の全キーと合わせる） | Issue #132 |

@@ -113,7 +113,7 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | ER：tokens.toml・実行時のペイン状態 | `docs/architecture/er-runtime.md` | tokens.toml、実行時のペイン状態（メモリ） |
 | ER：config.toml・profiles.toml ほか | `docs/architecture/er-config.md` | config.toml、profiles.toml、最終報告ファイル、自己更新のファイル |
 | API 仕様 | `docs/api/endpoints.md` | 窓口・認証・エラー形式・共通の決まり |
-| API 仕様：ペインを見る・操作する | `docs/api/endpoints-pane.md` | `panes_status`・`pane_tail`・`ask_card`・`report_read`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`file_get`（`session` 引数付き） |
+| API 仕様：ペインを見る・操作する | `docs/api/endpoints-pane.md` | `panes_status`・`pane_tail`・`ask_card`・`report_read`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`file_get`・`dir_list`（この 2 つ以外は `session` 引数付き） |
 | API 仕様：サーバーの状態・メモ | `docs/api/endpoints-state.md` | `sessions_list`・`host_status`・`agent_auth_status`・`note_*` |
 | API 仕様：レポート・指示・prompts・上限 | `docs/api/endpoints-report.md` | `report`・`dispatch`・prompts・resources・上限一覧 |
 | コンポーネント設計 | `docs/components/overview.md` | Go パッケージ構成、アダプタ IF、責務、依存関係、テスト構成 |
@@ -165,3 +165,4 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | 1.8 | 2026-11-05 | ドキュメントマップ：レポートに足す値の集め方にメモリ（`host.mem`）を追記 | Issue #86・#87 |
 | 1.9 | 2026-11-08 | ツール数 19→20（`dir_list`。`/ops` のみ）。`swarm-console pair --scope report\|ops` | Issue #90 |
 | 1.10 | 2026-11-18 | 表示名を「Nefos Hub」（カタカナは「ネフォス」）に変更（Kozue → Nefos）。リポジトリ名・バイナリ名・パス・設定キー・ツール名・API パスは変えない | Issue #107 |
+| 1.11 | 2026-11-22 | ドキュメントマップ：API 仕様（ペイン）の担当ツールに `dir_list` を足す（endpoints-pane.md 冒頭の担当ツールと合わせる）。`session` 引数は `file_get`・`dir_list` が取らないので、その旨に直す | Issue #130 |
