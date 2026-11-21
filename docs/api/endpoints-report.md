@@ -15,7 +15,7 @@
 | `session` | string | 任意 | [API 仕様 §4.1](endpoints.md#41-session-引数と許可セッション)。ペインに関する項目をそのセッションだけに絞る |
 | `lang` | string | 任意 | `ja`（既定、`default_lang` で変更）・`en` |
 
-- `markdown`：`content[0].text` に機能要件 §5.3 の markdown 本文を入れる（他のキーは足さない）。ツールの説明に「返った markdown に手を加えずそのまま表示する」と書く。
+- `markdown`：`content[0].text` に機能要件 §5.3 の markdown 本文を入れる（他のキーは足さない）。ツールの説明に「返った markdown に手を加えずそのまま表示する」と書く。ペインの表は、どれかのペインに起動時の `model`・`thinking`（メモの値）があるときだけ、エージェントの右に列「モデル」「思考」（`en` は `Model`・`Thinking`）を足す。指定のないペインのセルは空文字（`—` にしない）。どのペインにも無ければ列は出さない（表の形は今までのまま。FR-REP-20）。
 - `json`：`panes_status` と同じ構造に、要対応の一覧と、足した値（使用状況・メモリ・CPU・スワップ・ディスク・更新確認・ログイン期限）を入れる。言語に依存しない。値は全部スナップショットに入った値（FR-REP-10）。
 - `session`：`panes`・`layout`・`attention` のペインの項目・`warnings` を、決まったセッションだけに絞る（`pos` はセッション内の位置。`report_waiting` の `detail` のパスのファイル名は全体の位置から付く。§4.1）。`host`・`usage`・`omp`・`update`・`auth` と、ログインの要対応（`auth_expired`・`auth_expiring`）は絞らず全体の値を入れる。markdown も同じ（ペインの表・要対応のペインの項目・警告だけがそのセッション。見出し・使用状況は全体）。`pane` と一緒に指定したときは、`pane` をそのセッションの中で解決する（§4.1）。許可セッションが 2 つ以上のトークンが `session` を省略すると `session_required`。
 
@@ -125,6 +125,8 @@
 | `profile` | string | 必須 | `profiles.toml` のプロファイル名（`sweep`・`fix`・`investigate` ほか） |
 | `extra_rules` | string[] | 任意 | 追加の条件（各 1 行） |
 | `note` | object | 任意 | メモ（`note_set` の `set` と同じ項目）。一緒に保存する |
+| `model` | string | 任意 | `shell` から起動するときの起動時のモデル。規則・旗は [`pane_start`](endpoints-pane.md#pane_start) と同じ。省略（または `null`）で旗なし |
+| `thinking` | string | 任意 | 同じく起動時の思考の強さ。`claude` は `--effort`、`codex` は指定不可（`thinking_not_applicable`）。省略（または `null`）で旗なし |
 
 ```json
 {
@@ -134,6 +136,8 @@
   "note_saved": true
 }
 ```
+
+`shell` から `model`・`thinking` を指定して起動したときだけ、応答に `model`・`thinking`（指定したものだけ）・`start_command`（実際に送った 1 行）が `note_saved` の次に足され、`note` と合わせてメモの `model`・`thinking` に書く（同じ項目を `note` に書いていたら起動時の指定が勝つ）。起動に失敗（`ok: false`）して指示文を送らなかったときは、送った `start_command` は返すがメモは書かない。`start_command` は監査ログに残さない。
 
 #### 指示文の組み立て
 
@@ -159,9 +163,11 @@
 
 | ペインの状態 | 動き |
 |-------------|------|
-| `shell` | `pane_start`（`cwd`・`title`）→ `idle` を待つ → 指示文を送る。`started: true` |
-| `idle` | そのまま指示文を送る。`started: false` |
-| `working`・`asking`・`stalled`・`unknown` | `invalid_state`（何も送らない） |
+| `shell`（`model`・`thinking` なし） | `pane_start`（`cwd`・`title`）→ `idle` を待つ → 指示文を送る。`started: true` |
+| `shell`（あり） | 同じ値で `pane_start` → 指示文を送る。`started: true`。値が不正なら何も送らない（`invalid_model`・`invalid_thinking`・`thinking_not_applicable`。ペインの状態を見る前に決まる） |
+| `idle`（なし） | そのまま指示文を送る。`started: false` |
+| `idle`（`model` または `thinking` あり。どちらか一方でも） | `start_options_not_applicable`。tmux へキーもペーストも送らず、古い最終報告も移さず、メモも更新しない |
+| `working`・`asking`・`stalled`・`unknown` | `invalid_state`（何も送らない）。`model`・`thinking` の有無で緩めない |
 
 送る前に、そのペインの古い最終報告ファイルを `archive/` へ移す。送ったあと（omp の貼り付け確認メニューが開いていれば閉じてから Enter を送る。閉じなければ `sent: true`・`ok: false`・`accepted: false`。`send_text` と同じ。Enter から 2 秒たっても画面が `idle` のままなら、期限の中で 2 秒おきに Enter を送り直す。Issue #101。この期限は、`dispatch` が omp を起動した直後（`started: true`）に限り `start_timeout`（既定 30 秒）まで延びる。Issue #103。送り直しは回数と経過時間をログに残す）、受理を確認し、`note` があれば保存して `note_saved` に入れる。
 

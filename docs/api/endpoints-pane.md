@@ -29,7 +29,8 @@
       "title": "agent: funid #982", "cwd": "/mnt/nvme/ousiassllc/funid-sweep-982",
       "elapsed": "42m", "activity": "Running go test ./...",
       "changed_ago": "20s",
-      "note": {"from": "agent-b", "origin": "agent", "started_by": "かな", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる"}
+      "model": "anthropic/claude-opus-5-5", "thinking": "high",
+      "note": {"from": "agent-b", "origin": "agent", "started_by": "かな", "repo": "ousiassllc/funid", "items": ["#982"], "next": "完了したら #983 を入れる", "model": "anthropic/claude-opus-5-5", "thinking": "high"}
     }
   ],
   "warnings": []
@@ -38,7 +39,8 @@
 
 - `title` は tmux の `pane_title`。omp が tern の画面（TSP）を出しているペインは `""`（最後のフレームの JSON を出さない）。
 - `agent` は `omp`・`claude`・`codex`・`null`。`activity` はエージェントがいま何をしているかの 1 行（取れなければ `null`。120 字で切ったペインにだけ、`note` のあとに `"truncated": true` が付く。切っていなければキーごと出さない）。`report` の JSON の `panes[]` も同じ。
-- `note` はメモの要約（`from`・`origin`・`started_by`・`repo`・`items`・`next` だけ。空の項目は出さない）。`origin` は `user`・`agent`（FR-NOTE-2）。メモがなければ `null`。
+- `note` はメモの要約（`from`・`origin`・`started_by`・`repo`・`items`・`next`・`model`・`thinking` だけ。空の項目は出さない）。`origin` は `user`・`agent`（FR-NOTE-2）。メモがなければ `null`。
+- `model`・`thinking` は、起動時に指定した値（`pane_start`・`dispatch`。メモの同じ値）。`changed_ago` の次、`note` の前に、トップレベルと `note` の両方に同じ値で出る。無ければキーごと出さない。`report` の JSON の `panes[]` も同じ。
 - `warnings[]` は `{"code": "layout_changed", "message": "..."}` の配列（コード：`layout_changed`・`tmux_unavailable`・`session_missing`・`pane_unreadable`）。
 - 応答は 1 つのセッションに絞る（§4.1）。`pos` はそのセッション内の位置（接頭辞なし。3 列×2 段なら `T1`〜`T3`・`B1`〜`B3`）、`layout` はそのセッションのペインから計算し、`host` は全体の負荷のまま。`host.mem_free_gb` は `/proc/meminfo` を読めないとき 0 になり、「空きが 0 GB」と区別する印はない（`report`・`host_status` の `mem.available` で見分ける。P-95）。`warnings` はそのセッションの分と全体の警告（`tmux_unavailable`）だけ。
 
@@ -188,12 +190,29 @@ Enter が効かないことがある（Issue #101。起動直後の omp は入�
 | `agent` | string | 必須 | `omp`・`claude`・`codex` |
 | `cwd` | string | 必須 | 許可したフォルダ（`allowed_roots`）の下の既存ディレクトリ。選べる候補は `dir_list` で調べる |
 | `title` | string | 必須 | 80 字まで、制御文字なし。タイトルは `agent: <title>` になる |
+| `model` | string | 任意 | 起動時のモデル（例 `anthropic/claude-opus-5-5`）。100 字まで、全体が `^[A-Za-z0-9._:/@-]+$`（`@` は omp の `@slow` などのセレクタ用）。空文字は `invalid_model`。カタログとの照合・実在確認はしない。省略（または `null`）すると旗を付けず、エージェントの既定（omp なら `config.yml`）で起動する |
+| `thinking` | string | 任意 | 起動時の思考の強さ。`off`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max`・`auto` のどれかと完全一致（小文字）。空文字・それ以外は `invalid_thinking`。`claude` は `low`・`medium`・`high`・`xhigh`・`max` だけ、`codex` は指定できない（下表）。省略（または `null`）すると旗を付けない |
 
 ```json
 {"ok": true, "state": "idle", "agent": "omp", "cwd": "/mnt/nvme/ousiassllc/funid-sweep-982", "title": "agent: funid #982"}
 ```
 
 `cd <cwd>` → エージェントの起動コマンド、の順に送り、`start_timeout` 以内に `idle` になったかを返す（ならなければ `ok: false`）。`cwd` はシェルに渡す前にクォートし、制御文字・`'` を含むものは `invalid_args`。
+
+**起動時の `model`・`thinking`**（`dispatch` の `shell` からの起動でも同じ。Issue #124）。起動コマンド（`[agents.<name>] command` で上書きしたあとのもの）の末尾に、指定された旗だけを足した 1 行を送る。引用符もほかの旗も足さない。`command` がすでに `--model` を含んでいても末尾に足す（二重指定はクライアントの責任）。
+
+| agent | `model` | `thinking` |
+|-------|---------|------------|
+| `omp` | ` --model=<値>` | ` --thinking=<値>` |
+| `claude` | ` --model=<値>` | ` --effort=<値>`（`low`・`medium`・`high`・`xhigh`・`max` のときだけ。`off`・`minimal`・`auto` は対応する値が無いので `invalid_thinking`。非公式の `--thinking` は使わない） |
+| `codex` | ` --model=<値>`（`-m` は使わない） | 専用の起動旗が無いので `thinking_not_applicable`（汎用の `--config` は使わない） |
+
+- 値は何かを送る前にすべて検査する。1 つでも落ちたら、タイトル・`cd`・起動コマンドのどれも送らず、ペインは変わらない。検査の順は `model` の値（`invalid_model`）→ `thinking` の値（`invalid_thinking`）→ エージェントとの組み合わせ（`claude` の `invalid_thinking`・`codex` の `thinking_not_applicable`）。値の検査はペインの状態を見る前に行う。
+- 指定して起動したときだけ、応答に `model`・`thinking`（指定したものだけ）・`start_command`（実際に送った 1 行）を足し、`ok: true` ならメモの `model`・`thinking`（指定した項目だけ）に書く（`note_saved`。メモを書けなければ `false`）。指定しなければこれらのキーは出さず、メモも作らない。`start_command` は応答だけに出し、監査ログには残さない（FR-SAFE-8）。
+
+```json
+{"ok": true, "state": "idle", "agent": "omp", "cwd": "/mnt/nvme/ousiassllc/funid-sweep-982", "title": "agent: funid #982", "model": "anthropic/claude-opus-5-5", "thinking": "high", "start_command": "omp --model=anthropic/claude-opus-5-5 --thinking=high", "note_saved": true}
+```
 
 #### `pane_close`
 

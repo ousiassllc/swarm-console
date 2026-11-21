@@ -117,7 +117,7 @@
 |------|-----|------|------|
 | `pane` | string | 必須 | |
 | `session` | string | 任意 | [§4.1](endpoints.md#41-session-引数と許可セッション) |
-| `set` | object | 必須 | 書き換える項目だけ。値が `null` ならその項目を消す。キーは ER §2.2 の項目（`updated_at`・`log` は不可） |
+| `set` | object | 必須 | 書き換える項目だけ。値が `null` ならその項目を消す。キーは ER §2.2 の項目（`updated_at`・`log` は不可）。`model`・`thinking` は `pane_start` と同じ検査（`model` は `^[A-Za-z0-9._:/@-]+$` で 100 字まで、`thinking` は許可リストと完全一致。`claude` の制限は見ない）に通る値だけ書ける（通らなければ `invalid_args`）。`null` と空文字は消す |
 
 ```json
 {"ok": true, "note": {"...": "更新後のメモ全体"}}
