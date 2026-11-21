@@ -28,6 +28,19 @@ func TestPrepareReportDir(t *testing.T) {
 			t.Fatalf("err=%v", err)
 		}
 	})
+	t.Run("親フォルダが他人に書ける（非 sticky 0777）なら拒否し、どの親かを示す", func(t *testing.T) {
+		parent := filepath.Join(t.TempDir(), "swarm-console")
+		if err := os.Mkdir(parent, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(parent, 0o777); err != nil { //nolint:gosec // 緩い親を作るテスト
+			t.Fatal(err)
+		}
+		err := prepareReportDir(filepath.Join(parent, "reports"), uid)
+		if err == nil || !strings.Contains(err.Error(), "親フォルダ "+parent) {
+			t.Fatalf("err=%v", err)
+		}
+	})
 }
 
 // report_dir がシンボリックリンクなら New が起動を拒否し、自分所有の 0750 なら 0700 に直して続ける。
