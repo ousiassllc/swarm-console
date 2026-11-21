@@ -40,7 +40,7 @@
 - `title` は tmux の `pane_title`。omp が tern の画面（TSP）を出しているペインは `""`（最後のフレームの JSON を出さない）。
 - `agent` は `omp`・`claude`・`codex`・`null`。`activity` はエージェントがいま何をしているかの 1 行（取れなければ `null`。120 字で切ったペインにだけ、`note` のあとに `"truncated": true` が付く。切っていなければキーごと出さない）。`report` の JSON の `panes[]` も同じ。
 - `note` はメモの要約（`from`・`origin`・`started_by`・`repo`・`items`・`next`・`model`・`thinking` だけ。空の項目は出さない）。`origin` は `user`・`agent`（FR-NOTE-2）。メモがなければ `null`。
-- `model`・`thinking` は、起動時に指定した値（`pane_start`・`dispatch`。メモの同じ値）。`changed_ago` の次、`note` の前に、トップレベルと `note` の両方に同じ値で出る。無ければキーごと出さない。`report` の JSON の `panes[]` も同じ。
+- `model`・`thinking` は、起動時に指定した値（`pane_start`・`dispatch`。メモの同じ値）。`changed_ago` の次、`note` の前に、トップレベルと `note` の両方に同じ値で出る。無ければキーごと出さない。`report` の JSON の `panes[]` も同じ。値はスナップショット（`snapshot_ttl`、既定 2 秒）から読むので、起動・`note_set` の直後は最大 `snapshot_ttl` 遅れて載る（`note_get` は即時。既存の `note` の要約と同じ挙動）。
 - `warnings[]` は `{"code": "layout_changed", "message": "..."}` の配列（コード：`layout_changed`・`tmux_unavailable`・`session_missing`・`pane_unreadable`）。
 - 応答は 1 つのセッションに絞る（§4.1）。`pos` はそのセッション内の位置（接頭辞なし。3 列×2 段なら `T1`〜`T3`・`B1`〜`B3`）、`layout` はそのセッションのペインから計算し、`host` は全体の負荷のまま。`host.mem_free_gb` は `/proc/meminfo` を読めないとき 0 になり、「空きが 0 GB」と区別する印はない（`report`・`host_status` の `mem.available` で見分ける。P-95）。`warnings` はそのセッションの分と全体の警告（`tmux_unavailable`）だけ。
 
