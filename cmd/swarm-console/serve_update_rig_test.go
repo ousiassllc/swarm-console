@@ -204,10 +204,16 @@ func (g *serveRig) untilUpdate(want string) map[string]any {
 // untilWaiting は確認の goroutine が clock の待ちに入るまで待つ（Advance の取りこぼしを防ぐ）。
 func (g *serveRig) untilWaiting(n int) {
 	g.t.Helper()
+	untilClockWaiting(g.t, g.clk, n)
+}
+
+// untilClockWaiting は clk の待ちが n 件になるまで待つ。上限つき（15 秒）。
+func untilClockWaiting(t *testing.T, clk *clock.Fake, n int) {
+	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)
-	for g.clk.Waiters() < n {
+	for clk.Waiters() < n {
 		if time.Now().After(deadline) {
-			g.t.Fatalf("clock の待ちが %d になりません（%d）", n, g.clk.Waiters())
+			t.Fatalf("clock の待ちが %d になりません（%d）", n, clk.Waiters())
 		}
 		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
 	}
