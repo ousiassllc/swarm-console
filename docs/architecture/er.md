@@ -6,6 +6,7 @@
 |------|------|--------|------|
 | 永続（書き込み） | メモと履歴 `notes.json` | `~/.local/share/swarm-console/notes.json` | 600 |
 | 永続（書き込み: CLI のみ） | トークン `tokens.toml` | `~/.config/swarm-console/tokens.toml` | 600（違えば起動拒否） |
+| 永続（書き込み: CLI のみ。ロック専用で中身なし） | `tokens.toml` のロックファイル `tokens.toml.lock`（`token add`・`token revoke`・`pair`・`setup` が書く前に `flock` する。`token list` は作らない・開かない） | `~/.config/swarm-console/tokens.toml.lock` | 600 |
 | 永続（人が編集。`setup` も書く） | 設定 `config.toml` | `~/.config/swarm-console/config.toml` | 644 以下（`setup` が新規に作るときは 600） |
 | 永続（人が編集） | 条件のひな形 `profiles.toml` | `~/.config/swarm-console/profiles.toml` | 644 以下 |
 | 永続（人が編集、任意） | レポートのテンプレート | `~/.config/swarm-console/templates/report.{ja,en}.md` | — |
@@ -262,3 +263,5 @@ erDiagram
 | 1.22 | 2026-11-21 | §2.2 PANE_NOTE に `model`・`thinking`（起動時に指定した値。指定があった項目だけ書く。`note_set` でも `pane_start` と同じ検査）を追加し、要約に出す項目に足した。既存のメモは移行しない（新しい項目は空のまま） | Issue #124 |
 | 1.23 | 2026-11-22 | §3 tokens.toml の書き込みを、`tokens.toml.lock`（権限 600・同じフォルダ）への `flock` でプロセス間も直列化する旨に改訂（これまでは書き込みの直列化がプロセス内だけで、`token add`・`token revoke`・`pair` を同時に走らせると後の書き込みが先の変更を消した）。ロックを取れなければ書かずにエラー。tokens.toml の項目・権限は変えない | Issue #127 |
 | 1.24 | 2026-11-22 | §5.1 の手書き専用のキーの列挙に `update_check`・`update_auto`・`usage_check` を足し、期間のキーは 9 つ全部（`update_check_interval`・`usage_interval` を含む）に直す（`internal/config/load.go` の全キーと合わせる） | Issue #132 |
+| 1.25 | 2026-11-22 | §3 tokens.toml（er-runtime.md）：`token list` はロックを取らない（`tokens.toml.lock` を開かず作らない）旨に改訂。ロックするのは書く `token add`・`token revoke`・`pair`・`setup` だけ。tokens.toml の項目・権限は変えない | Issue #138 |
+| 1.26 | 2026-11-22 | 永続ファイルの表に `tokens.toml.lock`（権限 600・中身なし・ロック専用。書く CLI だけが作る）を追加（これまで一覧に無く、設定フォルダの「書くファイル」から漏れていた） | Issue #141 |

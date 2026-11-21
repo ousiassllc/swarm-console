@@ -76,7 +76,7 @@
 | NFR-OPS-5 | ログは構造化（JSON Lines）で標準エラーへ出し、systemd の journal で見る |
 | NFR-OPS-6 | 新しいエージェントを足すには、アダプタを 1 つ実装して登録するだけで済む構造にする |
 | NFR-OPS-7 | 認証の期限情報（`agent_auth_status`）はファイルの場所を設定で変えられる。取れなければ「不明」を返し、エラーにしない |
-| NFR-OPS-8 | `config.toml` は手書きと `setup` のどちらでも作れ、`setup` は手で書いた内容（コメント・並び・書式・`setup` が聞かないキー）を壊さない（FR-SET-3）。`setup` が書くのは設定の置き場（`~/.config/swarm-console`）の `config.toml` と、発行したときの `tokens.toml` だけ（NFR-SEC-14）。`config.toml` がシンボリックリンクのときは書かず中止する（リンク先が置き場の外のため。P-35） |
+| NFR-OPS-8 | `config.toml` は手書きと `setup` のどちらでも作れ、`setup` は手で書いた内容（コメント・並び・書式・`setup` が聞かないキー）を壊さない（FR-SET-3）。`setup` が書くのは設定の置き場（`~/.config/swarm-console`）の `config.toml` と、発行したときの `tokens.toml`（と、そのロックファイル `tokens.toml.lock`）だけ（NFR-SEC-14）。`config.toml` がシンボリックリンクのときは書かず中止する（リンク先が置き場の外のため。P-35） |
 | NFR-OPS-9 | `setup` は `tmux`・`tailscale` などの外部コマンドを実行せず、ネットワークにも出ない。tailnet の候補はインターフェースの列挙だけで出す（NFR-SEC-7 と同じ方針。P-33） |
 | NFR-OPS-10 | 新しい版の確認と自己更新は `config.toml` の `update_check`（既定 `true`）・`update_check_interval`（既定 `6h`、`1h` 以上）・`update_auto`（既定 `true`）で切り替える。`version --check` は設定に依らず手動で動く（確認だけで入れ替えない。FR-UPD-10・19） |
 | NFR-OPS-11 | リリースの権限：`release.yml` の既定は `contents: read`。書き込み（`contents: write`）を持つのはリリースを作るジョブだけで、ビルドのジョブは書き込みトークンを持たない。PR（フォーク含む）のコードではリリースのワークフローを動かさない。リリースは同時に 1 本だけ（`concurrency`）。タグの版は `vX.Y.Z` だけで、Issue #7 の版の確認が読む形と同じ |
@@ -150,3 +150,4 @@
 | 1.26 | 2026-11-20 | NFR-TEST-19：webhook の確かめる項目に、受理を確かめられず、モデルの呼び出しの行が 10 分以上出ない長いコマンドのあとで最終報告が書かれたら 1 回届くこと・見張りの途中でサーバーを再起動しても 1 回届くこと・実際に作業していないペインを `working` にしないこと・`watch` を持たない古い台帳を読めること（FR-STATE-12。Issue #118）を加える。ほかの項目は変えない | Issue #118 |
 | 1.27 | 2026-11-20 | NFR-PERF-4a：作業中（`working`・`stalled`）のペインへの `send_text` の応答時間に、反応を待つ分（既定で最大 30 秒）を足す。`idle` のペインへの送信と `dispatch` は変えない（FR-O2。Issue #120） | Issue #120 |
 | 1.28 | 2026-11-21 | NFR-SEC-19：起動時の `model`・`thinking` の検査と、起動行をログに残さないことを追加 | Issue #124 |
+| 1.29 | 2026-11-22 | NFR-OPS-8：`setup` が書くファイルに、`tokens.toml` のロックファイル `tokens.toml.lock`（発行時に作る。権限 600・中身なし）を加える。ほかは変えない | Issue #141 |

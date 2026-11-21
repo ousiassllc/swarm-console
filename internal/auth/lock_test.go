@@ -134,7 +134,7 @@ func TestRevokeAndAddAcrossProcessesKeepRevokedAt(t *testing.T) {
 	}
 }
 
-// 別の fd がロックを持っている間、Add・Revoke・List は待ち、解かれたあとで進む。
+// 別の fd がロックを持っている間、Add・Revoke は待ち、解かれたあとで進む（読むだけの List は待たない）。
 func TestLockFileHeldByOtherFdBlocksUntilReleased(t *testing.T) {
 	f := newFixture(t)
 	other, err := os.OpenFile(f.path+lockSuffix, os.O_RDWR|os.O_CREATE, 0o600)
@@ -145,10 +145,12 @@ func TestLockFileHeldByOtherFdBlocksUntilReleased(t *testing.T) {
 	if err := syscall.Flock(int(other.Fd()), syscall.LOCK_EX); err != nil {
 		t.Fatal(err)
 	}
-	done := make(chan error, 3)
+	if _, err := List(f.path); err != nil { // 読むだけなのでロックを待たない（Add・Revoke が待つ前に確かめる）
+		t.Fatalf("ロックを持たれている間の List: %v", err)
+	}
+	done := make(chan error, 2)
 	go func() { _, err := Add(f.path, "late", ScopeReport, baseTime); done <- err }()
 	go func() { done <- Revoke(f.path, "rep", baseTime) }()
-	go func() { _, err := List(f.path); done <- err }()
 	select {
 	case err := <-done:
 		t.Fatalf("ロックを持たれているのに進んだ: %v", err)
@@ -157,7 +159,7 @@ func TestLockFileHeldByOtherFdBlocksUntilReleased(t *testing.T) {
 	if err := syscall.Flock(int(other.Fd()), syscall.LOCK_UN); err != nil {
 		t.Fatal(err)
 	}
-	for range 3 {
+	for range 2 {
 		select {
 		case err := <-done:
 			if err != nil {
@@ -210,5 +212,29 @@ func TestLockFileIs0600BesideTokensAndMissingDirIsNotCreatedByReads(t *testing.T
 	}
 	if _, err := os.Stat(filepath.Dir(missing)); !os.IsNotExist(err) {
 		t.Fatalf("読むだけの操作がフォルダを作った: %v", err)
+	}
+}
+
+// List は読むだけなので、ロックファイルが無くても・設定フォルダに書けなくても成功し、ロックファイルを作らない。
+// （root で走るテストは 0500 でも書けてしまうので、ロックファイルが作られないことを直接確かめる。）
+func TestListNeitherCreatesNorNeedsLockFile(t *testing.T) {
+	f := newFixture(t)
+	if err := os.Remove(f.path + lockSuffix); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Dir(f.path)
+	if err := os.Chmod(dir, 0o500); err != nil { //nolint:gosec // 書けない設定フォルダを作る（ディレクトリ）
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) }) //nolint:gosec // 後始末のためフォルダを戻す
+	infos, err := List(f.path)
+	if err != nil {
+		t.Fatalf("書けない設定フォルダで List が失敗した: %v", err)
+	}
+	if len(infos) == 0 {
+		t.Fatal("List が空を返した")
+	}
+	if _, err := os.Stat(f.path + lockSuffix); !os.IsNotExist(err) {
+		t.Fatalf("List がロックファイルを作った: %v", err)
 	}
 }
