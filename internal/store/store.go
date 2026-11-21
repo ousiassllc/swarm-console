@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 // WriteFileAtomic は同一ディレクトリの一時ファイルに書き、fsync して rename する。
@@ -67,6 +68,35 @@ func CheckMode(path string, want os.FileMode) error {
 	}
 	if got := fi.Mode().Perm(); got != want {
 		return fmt.Errorf("%s: 権限が %04o です（%04o が必要）", path, got, want)
+	}
+	return nil
+}
+
+// CheckDir は path が「シンボリックリンクでないディレクトリで、持ち主が uid」であることを確かめる。
+// 違えばエラー（呼び出し側は起動を拒否する）。権限が want と違うだけなら Chmod で want に直す
+// （エージェントが mkdir -p しただけの 0755 などで、起動不能にしないため）。
+func CheckDir(path string, want os.FileMode, uid int) error {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s: シンボリックリンクです（実体のフォルダが必要）", path)
+	}
+	if !fi.IsDir() {
+		return fmt.Errorf("%s: フォルダではありません", path)
+	}
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return fmt.Errorf("%s: 持ち主を調べられません", path)
+	}
+	if int(st.Uid) != uid {
+		return fmt.Errorf("%s: 持ち主が uid %d です（uid %d が必要）", path, st.Uid, uid)
+	}
+	if fi.Mode().Perm() != want {
+		if err := os.Chmod(path, want); err != nil {
+			return fmt.Errorf("%s: 権限を %04o に直せません: %w", path, want, err)
+		}
 	}
 	return nil
 }
