@@ -287,3 +287,4 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | 1.38 | 2026-11-20 | §3.4 に FR-STATE-13（tern の画面の omp でも、状態・受理の確認・`pane_tail`・`ask_card`・`ask_pick`・webhook が普通の画面と同じに動く。会話の記録から画面を組み立てる） | Issue #121 |
 | 1.39 | 2026-11-21 | FR-O4・FR-O6：`pane_start`・`dispatch`（`shell` から）に任意の `model`・`thinking` を追加（起動コマンドの末尾に旗を足す。`idle` のペインへの指定は `start_options_not_applicable`）。functional-note.md FR-NOTE-2・3：メモに `model`・`thinking`。functional-report.md FR-REP-2・FR-REP-20：ペインの表に「モデル」「思考」の列（どれかのペインに値があるときだけ）。non-functional.md NFR-SEC-19 | Issue #124 |
 | 1.40 | 2026-11-22 | functional-note.md §11.1：`setup` が聞かず手書きだけに残すキーの列挙に `update_check`・`update_auto`・`usage_check` を足し、期間のキーは個数をやめて 9 つ全部（`update_check_interval`・`usage_interval` を含む）を挙げる（`internal/config/load.go` の全キーと合わせる） | Issue #132 |
+| 1.41 | 2026-11-22 | functional-report.md §6.1：`ask_pick` の flowchart に複数選択の Space（チェックを付け、付かなければ `cursor_mismatch`）を足し、戻りを `ok`・`state`（取り直した値）・`card_closed` に直す。コード・設定は変えない | Issue #142 |

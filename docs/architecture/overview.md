@@ -172,21 +172,46 @@ sequenceDiagram
     D->>X: capture-pane
     D->>AD: ParseCard
     AD-->>D: カード（選択肢・カーソル）
+    Note over D,X: tern の画面（native）と text（「その他」に入力）の経路は別。§6.1・P-113 を参照
     D->>AD: PickKeys(card, n)
     AD-->>D: キー列
     loop 最大 3 回
         D->>X: send-keys（キー列）
-        D->>X: capture-pane
+        D->>X: capture-pane（最大 1 秒、合うまで取り直す）
         D->>AD: ParseCard（カーソル確認）
     end
     alt カーソルが n
-        D->>X: send-keys Enter
-        D->>X: カードが閉じ working になるのを待つ
-        D-->>C: {ok: true, state: working}
+        opt 複数選択の質問（Toggler）でまだチェックが無い
+            D->>AD: ToggleKeys(n)
+            D->>X: send-keys Space
+            D->>X: capture-pane（最大 1 秒、チェックが付くまで）
+        end
+        alt チェックが付かない
+            D-->>C: エラー cursor_mismatch（reason: not_checked。Enter は送っていない）
+        else 付いた、または単一選択
+            D->>X: send-keys Enter
+            loop accept_timeout まで
+                D->>X: capture-pane
+                D->>AD: ParseCard・SubmitFocused
+                opt カーソルが Submit の行に移った（omp v19）
+                    D->>X: send-keys Enter（1 回だけ。回答の確定）
+                end
+            end
+            D->>X: 状態を取り直す
+            alt カードが閉じた
+                D-->>C: {ok: true, state: 取り直した状態（working・idle）, card_closed: true}
+            else 次の質問が開いた、または閉じないまま上限
+                D-->>C: {ok: false, state: 取り直した状態（asking など）, card_closed: false}
+            end
+        end
     else 合わない
         D-->>C: エラー cursor_mismatch（Enter は送っていない）
     end
 ```
+
+- 質問が複数のフォームは、選んだ Enter のあとに次の質問が開くので `ok: false`・`card_closed: false` で返る（選んだ分は済んでいる）。次の質問は `ask_card` で読み直して選ぶ。
+- `state` は固定ではなく、待ちのあとに取り直した値。
+- `text`（「その他」に文字を入れる）は、カーソルを「その他」に合わせたあと入力欄へ貼り付けて Enter を送る。tern の画面（`native`）は画面にカーソルもチェックも見えないので、質問が 1 つのフォームの番号指定だけ、確かめずにキー列（Up/Down・Space・Enter・Submit の Enter）を送る（`text` と複数の質問は `custom_not_allowed`・`cursor_mismatch`）。手順の詳細は [機能要件（質問カード）](../requirements/functional-report.md) §6.1、限界は decisions.md P-113。
 
 ## 6. 認証と窓口
 
@@ -259,3 +284,4 @@ flowchart TD
 | 1.41 | 2026-11-20 | decisions.md P-111（omp が tern の画面になる条件と、14:26 以降の不具合との関係。同じ日 14:53 の `statusLine.preset: minimal` も別の原因）・P-112（会話の記録から画面を組み立てて読む）・P-113（tern の画面の限界）・P-114（テスト）。agent-patterns.md に「omp（tern の画面）」を追加 | Issue #121 |
 | 1.42 | 2026-11-21 | decisions.md P-115〜P-121（起動時の `model`・`thinking`：起動行・検査・拒否の順・メモとレポート・列の出し方・実機確認）。`pane_start`・`dispatch` に任意の `model`・`thinking`（API 仕様 1.30、ER 1.22） | Issue #124 |
 | 1.43 | 2026-11-22 | §3 レイヤー構造のエントリ行の CLI 列挙に `pair` を足す（実装の subcommand と合わせる） | Issue #129 |
+| 1.44 | 2026-11-22 | §5.3 `ask_pick` のシーケンス図を実装（`PickAsk`）に合わせた：複数選択の Space のチェック（付かなければ `cursor_mismatch`）、Submit の Enter、次の質問が開いたときの `ok: false`・`card_closed: false`、`state` は取り直した値。`text`・tern の画面の経路は注記で §6.1・P-113 を指す。コード・設定は変えない | Issue #142 |
