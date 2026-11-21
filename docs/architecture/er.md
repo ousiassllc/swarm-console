@@ -132,6 +132,8 @@ erDiagram
         array items "Issue・PR（#982 など）"
         string worktree "作業フォルダ"
         string branch "ブランチ"
+        string model "起動時に指定したモデル"
+        string thinking "起動時に指定した思考の強さ"
         string instruction "指示ファイルのパス"
         object approval "OK の原文（APPROVAL）"
         array rules "守ること"
@@ -154,6 +156,8 @@ erDiagram
 | `items` | string[] | 任意 | 50 件・各 2000 字 | Issue・PR（`["#982"]`） |
 | `worktree` | string | 任意 | 2000 字 | 作業フォルダ |
 | `branch` | string | 任意 | 2000 字 | ブランチ名 |
+| `model` | string | 任意 | 100 字・`^[A-Za-z0-9._:/@-]+$` | 起動時に指定したモデル（`pane_start`・`dispatch` が起動に成功したとき、指定があれば書く。`note_set` でも同じ検査で書ける。`null` と空文字は消す。ほかは `invalid_args`） |
+| `thinking` | string | 任意 | 許可リスト | 起動時に指定した思考の強さ（`off`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max`・`auto` のどれか。`null` と空文字は消す。ほかは `invalid_args`）。`claude` に渡した値は `--effort` の値 |
 | `instruction` | string | 任意 | 2000 字 | 指示ファイルのパス |
 | `approval` | object | 任意 | — | OK の原文（§2.3） |
 | `rules` | string[] | 任意 | 50 件・各 2000 字 | 守ること |
@@ -165,7 +169,7 @@ erDiagram
 | `log` | NOTE_LOG[] | サーバー | 50 行 | `note_log` と `send_escape` の自動記録 |
 
 - キーの値が `null`／未設定は「空」。`note_set` で `null` を渡すと、その項目を消す（JSON から落とす）。
-- `from`・`origin`・`started_by`・`repo`・`items`・`next` が `panes_status`・`report` に要約として出る。
+- `from`・`origin`・`started_by`・`repo`・`items`・`next`・`model`・`thinking` が `panes_status`・`report` に要約として出る（`model`・`thinking` は `panes[]` のトップレベルにも同じ値で出る）。
 
 ### 2.3 REPORT_TO・APPROVAL・NOTE_LOG
 
@@ -255,3 +259,4 @@ erDiagram
 | 1.19 | 2026-11-16 | §5 config.toml の `[webhook]` に、セッションごとの送り先の表 `[webhook.sessions."<名>"]`（キーは `[webhook]` と同じ。名前は `sessions` にあるものだけ）を追加。台帳 §9 の形は変えない | Issue #95 |
 | 1.20 | 2026-11-19 | §9 webhook の台帳に `asked`（asking の回で `pane.asking` を作った印。ペイン ID → `event_id`。省略可なので版は 2 のまま）と、outbox に `pane.asking` の本文が入ることを追加。FR-STATE-9〜11 | Issue #111 |
 | 1.21 | 2026-11-20 | §9 webhook の台帳に `watch`（受理を確かめられなかった指示の見張り。ペイン ID → `enter`・`retained`・`pid`。省略可なので版は 2 のまま。`watch` を持たない古い台帳もそのまま読める。古いサーバーは `watch` を無視して書き直すときに落とす）を追加。FR-STATE-12 | Issue #118 |
+| 1.22 | 2026-11-21 | §2.2 PANE_NOTE に `model`・`thinking`（起動時に指定した値。指定があった項目だけ書く。`note_set` でも `pane_start` と同じ検査）を追加し、要約に出す項目に足した。既存のメモは移行しない（新しい項目は空のまま） | Issue #124 |

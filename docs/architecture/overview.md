@@ -257,3 +257,4 @@ flowchart TD
 | 1.39 | 2026-11-20 | decisions.md P-108（受理を確かめられなかった dispatch のあと、長いコマンドの間も会話の記録＝omp のセッションの jsonl の最後が番の途中なら `working` と読む。見張りを台帳の `watch` に持ち、サーバーの再起動をまたぐ。台帳の版は 2 のまま） | Issue #118 |
 | 1.40 | 2026-11-20 | decisions.md P-109（作業中のペインへの `send_text` が、指示を実行したか・無視したか・確かめられなかったかを、omp のセッションの jsonl で返す。判断の根拠・待つ上限・`text` を残す理由・`task` の形） | Issue #120 |
 | 1.41 | 2026-11-20 | decisions.md P-111（omp が tern の画面になる条件と、14:26 以降の不具合との関係。同じ日 14:53 の `statusLine.preset: minimal` も別の原因）・P-112（会話の記録から画面を組み立てて読む）・P-113（tern の画面の限界）・P-114（テスト）。agent-patterns.md に「omp（tern の画面）」を追加 | Issue #121 |
+| 1.42 | 2026-11-21 | decisions.md P-115〜P-121（起動時の `model`・`thinking`：起動行・検査・拒否の順・メモとレポート・列の出し方・実機確認）。`pane_start`・`dispatch` に任意の `model`・`thinking`（API 仕様 1.30、ER 1.22） | Issue #124 |

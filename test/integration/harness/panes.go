@@ -19,6 +19,8 @@ type Pane struct {
 	Elapsed    *string        `json:"elapsed"`
 	Activity   *string        `json:"activity"`
 	ChangedAgo *string        `json:"changed_ago"`
+	Model      string         `json:"model"`
+	Thinking   string         `json:"thinking"`
 	Note       map[string]any `json:"note"`
 }
 

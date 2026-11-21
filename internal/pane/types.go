@@ -158,6 +158,8 @@ type StartResult struct {
 	Agent string
 	Cwd   string
 	Title string // "agent: ..." 付きの最終タイトル
+	// StartCommand は model・thinking を指定して起動したときだけ、実際に送った起動コマンドの 1 行（指定なしは ""）。
+	StartCommand string
 }
 
 // CloseResult は pane_close の結果。
@@ -174,6 +176,8 @@ type DispatchArgs struct {
 	Cwd   string // shell のとき必須。検証済み（safety.CheckCWD 済み）
 	Title string // shell のとき必須
 	Text  string // 組み立て後の全文（8000 字以内・制御文字検証済み）
+	// Start は shell のペインを起動するときの model・thinking（検証済み。idle のペインに指定すると start_options_not_applicable）。
+	Start agent.StartOptions
 }
 
 // DispatchResult は dispatch の結果。メモの保存は呼び出し側（tools）が行う。
@@ -185,6 +189,8 @@ type DispatchResult struct {
 	// Sent は指示文を実際に貼り付けて Enter を送ったか。呼び出し側はこれでメモの保存と sent を決める
 	// （スナップショットが古くて shell と見た idle のペインでも、貼ったなら true）。
 	Sent bool
+	// StartCommand は shell から起動し、model・thinking を指定したときだけ、実際に送った起動コマンドの 1 行（それ以外は ""）。
+	StartCommand string
 }
 
 // Ops は操作側（機能要件 §4.2）。どの操作も同じペインについて排他（lock_timeout 超過で apperr.BusyTimeout）。
@@ -193,7 +199,7 @@ type Ops interface {
 	PickAsk(ctx context.Context, ref Ref, n int, text string) (PickResult, error)
 	SendText(ctx context.Context, ref Ref, text string) (SendResult, error)
 	Escape(ctx context.Context, ref Ref) (EscapeResult, error)
-	Start(ctx context.Context, ref Ref, agentName, cwd, title string) (StartResult, error)
+	Start(ctx context.Context, ref Ref, agentName, cwd, title string, opts agent.StartOptions) (StartResult, error)
 	Close(ctx context.Context, ref Ref) (CloseResult, error)
 	Dispatch(ctx context.Context, ref Ref, a DispatchArgs) (DispatchResult, error)
 }

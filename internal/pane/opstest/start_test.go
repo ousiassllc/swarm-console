@@ -30,7 +30,7 @@ func TestStart(t *testing.T) {
 	f := newFixture(t)
 	ref := f.shellThatStarts(panetest.ScreenIdle("omp"))
 	res, err := run(t, f.env.Clock, func() (pane.StartResult, error) {
-		return f.op.Start(context.Background(), ref, "omp", "/mnt/nvme/work dir", "funid #982")
+		return f.op.Start(context.Background(), ref, "omp", "/mnt/nvme/work dir", "funid #982", agent.StartOptions{})
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestStartTimesOutWaitingForIdle(t *testing.T) {
 	f := newFixture(t)
 	ref := f.shellThatStarts("") // 起動しない
 	res, err := run(t, f.env.Clock, func() (pane.StartResult, error) {
-		return f.op.Start(context.Background(), ref, "omp", "/work", "t")
+		return f.op.Start(context.Background(), ref, "omp", "/work", "t", agent.StartOptions{})
 	})
 	if err != nil || res.OK || res.State != agent.StateShell {
 		t.Fatalf("res=%+v err=%v", res, err)
@@ -67,7 +67,7 @@ func TestStartStopsWaitingWhenAsking(t *testing.T) {
 	f := newFixture(t)
 	ref := f.shellThatStarts(panetest.ScreenAsk("omp", "このフォルダを信頼しますか？", 1, false, "はい", "いいえ"))
 	res, err := run(t, f.env.Clock, func() (pane.StartResult, error) {
-		return f.op.Start(context.Background(), ref, "omp", "/work", "t")
+		return f.op.Start(context.Background(), ref, "omp", "/work", "t", agent.StartOptions{})
 	})
 	if err != nil || res.OK || res.State != agent.StateAsking {
 		t.Fatalf("res=%+v err=%v", res, err)
@@ -95,7 +95,7 @@ func TestStartRejections(t *testing.T) {
 		{"title に制御文字", "omp", "/work", "a\x07b", apperr.InvalidArgs},
 	}
 	for _, tc := range cases {
-		if _, err := f.op.Start(ctx, ref, tc.agent, tc.cwd, tc.title); code(err) != tc.want {
+		if _, err := f.op.Start(ctx, ref, tc.agent, tc.cwd, tc.title, agent.StartOptions{}); code(err) != tc.want {
 			t.Errorf("%s: err = %v", tc.name, err)
 		}
 	}
@@ -104,7 +104,9 @@ func TestStartRejections(t *testing.T) {
 	for range 80 {
 		long += "あ"
 	}
-	_, err := run(t, f.env.Clock, func() (pane.StartResult, error) { return f.op.Start(ctx, ref, "omp", "/work", long) })
+	_, err := run(t, f.env.Clock, func() (pane.StartResult, error) {
+		return f.op.Start(ctx, ref, "omp", "/work", long, agent.StartOptions{})
+	})
 	if code(err) == apperr.InvalidArgs {
 		t.Errorf("80 字は通るはず: %v", err)
 	}
@@ -118,7 +120,7 @@ func TestStartRequiresShell(t *testing.T) {
 		"asking":  panetest.ScreenAsk("omp", "q", 1, false, "A"),
 	} {
 		ref := f.single(screen, []string{"omp"})
-		_, err := f.op.Start(context.Background(), ref, "omp", "/work", "t")
+		_, err := f.op.Start(context.Background(), ref, "omp", "/work", "t", agent.StartOptions{})
 		if code(err) != apperr.InvalidState {
 			t.Errorf("%s: err = %v", name, err)
 		}

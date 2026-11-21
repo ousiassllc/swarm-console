@@ -11,11 +11,13 @@ type Summary struct {
 	Repo      string   `json:"repo,omitempty"`
 	Items     []string `json:"items,omitempty"`
 	Next      string   `json:"next,omitempty"`
+	Model     string   `json:"model,omitempty"`
+	Thinking  string   `json:"thinking,omitempty"`
 }
 
 // IsZero は要約が空かを返す。
 func (s Summary) IsZero() bool {
-	return s.From == "" && s.Origin == "" && s.StartedBy == "" && s.Repo == "" && len(s.Items) == 0 && s.Next == ""
+	return s.From == "" && s.Origin == "" && s.StartedBy == "" && s.Repo == "" && len(s.Items) == 0 && s.Next == "" && s.Model == "" && s.Thinking == ""
 }
 
 // ArchiveMeta は履歴へ移すときに添える、閉じたときのペイン情報（ER §2.4）。

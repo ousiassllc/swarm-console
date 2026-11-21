@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
 )
@@ -90,7 +91,9 @@ func TestStartCancelNeverLeavesTextWithoutEnter(t *testing.T) {
 			cancel()
 		}
 	})
-	_, _ = run(t, f.env.Clock, func() (pane.StartResult, error) { return f.op.Start(ctx, ref, "omp", "/work", "t") })
+	_, _ = run(t, f.env.Clock, func() (pane.StartResult, error) {
+		return f.op.Start(ctx, ref, "omp", "/work", "t", agent.StartOptions{})
+	})
 	assertEveryLiteralHasEnter(t, f)
 	if n := f.env.Tmux.CountKeys("Enter"); n != 2 {
 		t.Fatalf("cd と起動コマンドの Enter が欠けた: ops = %v", opStrings(f))

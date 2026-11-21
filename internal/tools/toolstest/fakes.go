@@ -79,6 +79,7 @@ type Ops struct {
 	LastAgent    string
 	LastCwd      string
 	LastTitle    string
+	LastStart    agent.StartOptions
 	LastDispatch pane.DispatchArgs
 }
 
@@ -117,8 +118,8 @@ func (o *Ops) Escape(_ context.Context, ref pane.Ref) (pane.EscapeResult, error)
 }
 
 // Start は記録して StartResを返す。
-func (o *Ops) Start(_ context.Context, ref pane.Ref, agentName, cwd, title string) (pane.StartResult, error) {
-	o.LastAgent, o.LastCwd, o.LastTitle = agentName, cwd, title
+func (o *Ops) Start(_ context.Context, ref pane.Ref, agentName, cwd, title string, opts agent.StartOptions) (pane.StartResult, error) {
+	o.LastAgent, o.LastCwd, o.LastTitle, o.LastStart = agentName, cwd, title, opts
 	return o.StartRes, o.record("Start", ref)
 }
 

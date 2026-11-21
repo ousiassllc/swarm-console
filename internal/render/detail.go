@@ -18,6 +18,8 @@ const (
 	fItems
 	fWorktree
 	fBranch
+	fModel
+	fThinking
 	fInstruction
 	fApproval
 	fRules
@@ -116,6 +118,8 @@ func newNoteView(n *notes.Note, l locale) *noteView {
 	add(fItems, strings.Join(n.Items, ", "))
 	add(fWorktree, n.Worktree)
 	add(fBranch, n.Branch)
+	add(fModel, n.Model)
+	add(fThinking, n.Thinking)
 	add(fInstruction, n.Instruction)
 	if a := n.Approval; a != nil {
 		add(fApproval, approvalText(a))

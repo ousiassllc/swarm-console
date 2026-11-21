@@ -21,16 +21,19 @@ type jsonLayout struct {
 }
 
 type jsonPane struct {
-	Pos        string         `json:"pos"`
-	ID         string         `json:"id"`
-	Agent      *string        `json:"agent"`
-	State      string         `json:"state"`
-	Title      string         `json:"title"`
-	Cwd        string         `json:"cwd"`
-	Elapsed    *string        `json:"elapsed"`
-	Activity   *string        `json:"activity"`
-	ChangedAgo *string        `json:"changed_ago"`
-	Note       *notes.Summary `json:"note"`
+	Pos        string  `json:"pos"`
+	ID         string  `json:"id"`
+	Agent      *string `json:"agent"`
+	State      string  `json:"state"`
+	Title      string  `json:"title"`
+	Cwd        string  `json:"cwd"`
+	Elapsed    *string `json:"elapsed"`
+	Activity   *string `json:"activity"`
+	ChangedAgo *string `json:"changed_ago"`
+	// Model・Thinking は起動時に指定した値（メモの同じ値。無ければキーごと出さない）。
+	Model    string         `json:"model,omitempty"`
+	Thinking string         `json:"thinking,omitempty"`
+	Note     *notes.Summary `json:"note"`
 	// Truncated は activity を上限で切ったときだけ true（API 仕様 §4。切っていなければキーごと出さない）。
 	Truncated bool `json:"truncated,omitempty"`
 }
@@ -94,6 +97,7 @@ func newJSONPane(p *pane.PaneState) jsonPane {
 	if p.Note != nil && !p.Note.IsZero() {
 		n := *p.Note
 		jp.Note = &n
+		jp.Model, jp.Thinking = n.Model, n.Thinking
 	}
 	return jp
 }

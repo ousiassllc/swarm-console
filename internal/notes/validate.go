@@ -8,6 +8,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 )
 
@@ -115,6 +116,10 @@ func parseChange(key string, raw json.RawMessage) (change, error) {
 	switch key {
 	case "origin":
 		return parseOrigin(raw)
+	case "model":
+		return parseChecked(key, raw, agent.ValidModel, func(n *Note, v string) { n.Model = v })
+	case "thinking":
+		return parseChecked(key, raw, agent.ValidThinking, func(n *Note, v string) { n.Thinking = v })
 	case "report_to":
 		return parseReportTo(raw)
 	case "approval":
@@ -154,6 +159,25 @@ func parseOrigin(raw json.RawMessage) (change, error) {
 		return change{}, invalid(key, reasonBad)
 	}
 	return change{key: key, apply: func(n *Note) { n.Origin = s }, strs: []string{s}}, nil
+}
+
+// parseChecked は model・thinking のように、pane_start・dispatch と同じ検査（agent.ValidModel・ValidThinking）に通る値だけを許す文字列項目。
+// null と空文字は消す（origin と同じ）。検査に通らない値は invalid_args。
+func parseChecked(key string, raw json.RawMessage, valid func(string) bool, set func(*Note, string)) (change, error) {
+	if isNull(raw) {
+		return change{key: key, apply: func(n *Note) { set(n, "") }}, nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return change{}, invalid(key, reasonType)
+	}
+	if s == "" {
+		return change{key: key, apply: func(n *Note) { set(n, "") }}, nil
+	}
+	if !valid(s) {
+		return change{}, invalid(key, reasonBad)
+	}
+	return change{key: key, apply: func(n *Note) { set(n, s) }, strs: []string{s}}, nil
 }
 
 func parseArray(key string, raw json.RawMessage, f func(*Note) *[]string) (change, error) {

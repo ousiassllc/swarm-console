@@ -66,9 +66,9 @@ func Install(t testing.TB, dir string) (binDir string) {
 
 // Event は --log に残った出来事 1 件。
 type Event struct {
-	Kind string // PASTE・CUSTOM・PICK・SUBMIT・ESCAPE
+	Kind string // PASTE・CUSTOM・ARGS・PICK・SUBMIT・ESCAPE
 	N    int    // PICK の番号
-	Text string // PASTE・CUSTOM の本文（貼り付けの CR は LF にそろえてある）
+	Text string // PASTE・CUSTOM の本文（ARGS は受け取った起動時の旗を改行でつないだもの）（貼り付けの CR は LF にそろえてある）
 }
 
 // ReadLog は --log のファイルを読む。ファイルがまだなければ空を返す。
@@ -94,7 +94,7 @@ func ReadLog(path string) ([]Event, error) {
 		kind, arg, _ := strings.Cut(strings.TrimSuffix(head, "\n"), " ")
 		e := Event{Kind: kind}
 		switch kind {
-		case "PASTE", "CUSTOM":
+		case "PASTE", "CUSTOM", "ARGS":
 			n, err := strconv.Atoi(arg)
 			if err != nil {
 				return out, fmt.Errorf("ログの長さが読めません: %q", head)

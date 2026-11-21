@@ -16,6 +16,9 @@ func TestParseArgs(t *testing.T) {
 		{[]string{"claude", "ask-custom", "--tick", "50ms", "--log", "/tmp/l"}, options{agent: "claude", scenario: "ask-custom", tick: 50 * time.Millisecond, log: "/tmp/l"}},
 		{[]string{"omp", "ask-frozen", "--raw", "/tmp/k"}, options{agent: "omp", scenario: "ask-frozen", tick: time.Second, raw: "/tmp/k"}},
 		{[]string{"fakeagent", "--log", "/tmp/l", "codex", "working"}, options{agent: "codex", scenario: "working", tick: time.Second, log: "/tmp/l"}},
+		// 本物のエージェントの起動時の旗は受け取る（起動行に足される）。
+		{[]string{"omp", "idle", "--model=anthropic/claude-opus-5-5", "--thinking=high"}, options{agent: "omp", scenario: "idle", tick: time.Second, model: "anthropic/claude-opus-5-5", thinking: "high"}},
+		{[]string{"claude", "idle", "--effort=max"}, options{agent: "claude", scenario: "idle", tick: time.Second, effort: "max"}},
 	}
 	for _, tt := range ok {
 		got, err := parseArgs(tt.args)

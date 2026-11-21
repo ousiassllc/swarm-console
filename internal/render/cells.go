@@ -31,6 +31,14 @@ func truncate(s string, n int) string {
 	return string(r[:n-1]) + ellipsis
 }
 
+// blankCell は cell と同じ整形で、空のときは「—」にせず空文字を返す。
+func blankCell(s string) string {
+	if strings.TrimSpace(flatten(s)) == "" {
+		return ""
+	}
+	return cell(s)
+}
+
 // cell は表のセル用に整える。空は「—」、長いものは 80 字で「…」、`|` はエスケープ。
 func cell(s string) string {
 	s = strings.TrimSpace(flatten(s))

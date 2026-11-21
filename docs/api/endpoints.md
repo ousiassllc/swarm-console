@@ -122,6 +122,10 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | `unsupported_type` | `file_get` で取れる種類ではない。`details.reason` は `extension`（拡張子が png・jpg・jpeg・webp・gif・mp4 以外）・`content`（先頭バイトが拡張子の形式と合わない）・`not_regular`（ディレクトリ・FIFO・デバイスなど通常ファイルでない） | `file_get` |
 | `too_large` | `file_get` のファイルが `file_get_max_bytes`（既定 20 MiB）を超える。`details.max` は上限（バイト） | `file_get` |
 | `secret_detected` | 秘密に見える文字列（`details.field` に項目名だけ） | `note_set`・`note_log`・`dispatch` |
+| `invalid_model` | `model` が文字種（`^[A-Za-z0-9._:/@-]+$`）か長さ（100 字）に合わない、または空文字（`details.field` は `model`） | `pane_start`・`dispatch` |
+| `invalid_thinking` | `thinking` が空、許可リスト（`off`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max`・`auto`）の外、または `claude` で `off`・`minimal`・`auto`（`details.field` は `thinking`） | `pane_start`・`dispatch` |
+| `thinking_not_applicable` | そのエージェントに `thinking` の専用の起動旗が無い（今は `codex`。`details.field` は `thinking`）。キーは送らない | `pane_start`・`dispatch` |
+| `start_options_not_applicable` | 起動済み（`idle`）のペインへの `dispatch` に `model` または `thinking` が付いた。メッセージ `すでに起動中のペインには model / thinking を指定できません`。キーもペーストも送らない | `dispatch` |
 | `busy_timeout` | 同じペインの前の操作が `lock_timeout` 内に終わらない | 操作系全部 |
 | `exit_timeout` | `pane_close` の終了コマンドを送ったあと、`accept_timeout` 内にペインが `shell` へ戻らない（`details.state` は最後に見た状態。`cd ~` 以降は送っていない） | `pane_close` |
 | `tmux_error` | tmux の呼び出しに失敗 | 全部 |
@@ -198,3 +202,4 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.27 | 2026-11-19 | endpoints-pane.md `ask_pick`：omp v19 の質問フォームは選んだ Enter のあと `Submit` の行へ移るので、もう 1 回 Enter を送って確定する。複数選択は Space でチェックを付けてから Enter。質問が複数のフォームは、次の質問が開いたら `card_closed: false` ですぐ返す（`ask_card` は開いている質問だけを返す） | Issue #111 |
 | 1.28 | 2026-11-20 | endpoints-pane.md `send_text`：`task`・`profile`・`extra_rules`（`dispatch` と同じ形に組み立てて貼る。見出しだけ「## 追加の指示（…）」。全文を `sent` に返す）と、作業中（`working`・`stalled`）のペインへ送ったときの `reaction`（`acted`・`ignored`・`unverified`）・`reaction_basis` を追加（会話の記録で判断。待つ上限は `start_timeout`〜`accept_timeout` の長いほう。`acted` なら `ok`・`accepted` は `true`）。`text`・`file` の使い方と `idle` のペインへの動きは変えない（decisions.md P-109） | Issue #120 |
 | 1.29 | 2026-11-20 | endpoints-pane.md：`panes_status` の `title` は、omp が tern の画面（TSP）を出しているペインでは `""`。`pane_tail`・`ask_card` はその画面でも会話の記録から読む。`ask_pick` は tern の画面では質問 1 つの番号選択だけ（質問が 2 つ以上は `cursor_mismatch`、`text` は `custom_not_allowed`） | Issue #121 |
+| 1.30 | 2026-11-21 | endpoints-pane.md `pane_start`・endpoints-report.md `dispatch`：任意の `model`・`thinking` を追加（起動コマンドの末尾に ` --model=<値>`、omp は ` --thinking=<値>`、claude は ` --effort=<値>`（`low`〜`max` だけ）。codex の `thinking` は不可）。応答に `model`・`thinking`・`start_command`、メモ・`panes_status`・`report`（json・markdown の列）に `model`・`thinking`。エラーコード `invalid_model`・`invalid_thinking`・`thinking_not_applicable`・`start_options_not_applicable` を追加（decisions.md P-115〜P-121）。endpoints-state.md `note_set`：`model`・`thinking` の検査。指定しない呼び出しの応答・golden は変えない | Issue #124 |

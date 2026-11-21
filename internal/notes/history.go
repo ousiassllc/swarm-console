@@ -139,7 +139,7 @@ func (s *fileStore) Summaries() map[string]Summary {
 	defer s.mu.RUnlock()
 	out := make(map[string]Summary, len(s.data.Panes))
 	for id, n := range s.data.Panes {
-		sum := Summary{From: n.From, Origin: n.Origin, StartedBy: n.StartedBy, Repo: n.Repo, Items: cloneStrings(n.Items), Next: n.Next}
+		sum := Summary{From: n.From, Origin: n.Origin, StartedBy: n.StartedBy, Repo: n.Repo, Items: cloneStrings(n.Items), Next: n.Next, Model: n.Model, Thinking: n.Thinking}
 		if !sum.IsZero() {
 			out[id] = sum
 		}

@@ -18,15 +18,17 @@ const rfc3339 = "2006-01-02T15:04:05-07:00"
 
 // view はテンプレートに渡す値。文字列はすべて整形・エスケープ済み。
 type view struct {
-	At        string
-	Load1     string
-	MemFree   string
-	CPU       string // 「42%」または「取得できず」
-	Swap      string
-	Disk      string
-	Updates   string
-	Login     string
-	Panes     []rowView
+	At      string
+	Load1   string
+	MemFree string
+	CPU     string // 「42%」または「取得できず」
+	Swap    string
+	Disk    string
+	Updates string
+	Login   string
+	Panes   []rowView
+	// ModelCols は表に「モデル」「思考」の列を出すか。どのペインにも model・thinking が無ければ出さない（表の形は変えない）。
+	ModelCols bool
 	Attention []string
 	Usage     usageView
 	Warnings  []string
@@ -35,6 +37,8 @@ type view struct {
 
 type rowView struct {
 	Pos, Agent, State, Elapsed, From, Repo, Activity, Next string
+	// Model・Thinking は値が無ければ空文字（「—」にしない）。
+	Model, Thinking string
 }
 
 // round1 は小数 1 桁に丸める（panes_status の load1・mem_free_gb）。
@@ -51,6 +55,7 @@ func newRow(p *pane.PaneState, l locale) rowView {
 		r.From = fromCell(n)
 		r.Repo = cell(strings.TrimSpace(n.Repo + " " + strings.Join(n.Items, ", ")))
 		r.Next = cell(n.Next)
+		r.Model, r.Thinking = blankCell(n.Model), blankCell(n.Thinking)
 	}
 	return r
 }
@@ -88,7 +93,9 @@ func newView(in *ReportInput, l locale, target *pane.PaneState) *view {
 		Usage:   l.usageView(snap),
 	}
 	for i := range snap.Panes {
-		v.Panes = append(v.Panes, newRow(&snap.Panes[i], l))
+		row := newRow(&snap.Panes[i], l)
+		v.ModelCols = v.ModelCols || row.Model != "" || row.Thinking != ""
+		v.Panes = append(v.Panes, row)
 	}
 	for _, a := range attentionItems(snap.Panes, in.ReportDir, snap.Auth) {
 		v.Attention = append(v.Attention, l.attentionText(a, snap.At))

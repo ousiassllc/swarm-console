@@ -12,6 +12,7 @@ import (
 //	PICK <番号>\n
 //	SUBMIT\n
 //	ESCAPE\n
+//	ARGS <バイト数>\n<受け取った --model=・--thinking=・--effort= を改行でつないだもの>\n   （--model・--thinking・--effort が付いて起動したときだけ）
 //	PASTE_MENU_ENTER\n   （omp の貼り付け確認メニューが開いている間に Enter が届いた。送信にならない）
 func appendLog(path string, e event) error {
 	if path == "" {
@@ -23,7 +24,7 @@ func appendLog(path string, e event) error {
 	}
 	var werr error
 	switch e.kind {
-	case "PASTE", "CUSTOM":
+	case "PASTE", "CUSTOM", "ARGS":
 		_, werr = fmt.Fprintf(f, "%s %d\n%s\n", e.kind, len(e.text), e.text)
 	case "PICK":
 		_, werr = fmt.Fprintf(f, "PICK %d\n", e.n)
