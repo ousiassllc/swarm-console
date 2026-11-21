@@ -17,8 +17,10 @@ const lockSuffix = ".lock"
 // ロックファイル（<path>.lock、権限 600）への flock(LOCK_EX) で直列化する。
 // ロックを取れなければ unlock は nil でエラーを返す（呼び出し側は何も書かない）。
 //
-// create が true ならフォルダ（700）とロックファイルを無ければ作る。false でフォルダが無ければ、
-// tokens.toml もあり得ないのでロックなしで通す（読むだけの List・Revoke がフォルダを作らないため）。
+// create が true ならフォルダ（700）とロックファイルを無ければ作る（Add）。
+// false でフォルダが無ければ、tokens.toml もあり得ないのでロックなしで通す（Revoke がフォルダを作らないため。
+// 読んだあとの readRecords が「トークンが無い」を返す）。フォルダがあれば Revoke は書く経路なので、
+// ロックファイルは無ければ作り、取れなければ失敗する。読むだけの List はロックを取らず、lockTokens を通らない。
 func lockTokens(path string, create bool) (unlock func(), err error) {
 	manageMu.Lock()
 	f, err := openLockFile(path+lockSuffix, create)

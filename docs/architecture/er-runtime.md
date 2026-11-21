@@ -48,7 +48,7 @@ revoked_at = "2026-11-02T09:00:00+09:00"
 | 平文 | 保存しない。`token add`（と `pair`）が `sc_` ＋ base64url(32 バイト) を生成し、標準出力に 1 度だけ出す（`pair` は接続文字列の中に入れる）。`token list` はハッシュも平文も出さない |
 | 失効 | `token revoke <名前>` が `revoked_at` を付ける。失効済みは一致しても 401 |
 | 照合 | 受け取ったトークンの SHA-256 を、全エントリの `hash` と定数時間比較（早期終了なし）。失効済みは一致扱いにしない |
-| 書き込み | CLI だけが書く。一時ファイル → rename、権限 600。`token add`・`token revoke`・`token list`・`pair`・`setup` は、同じフォルダのロックファイル `tokens.toml.lock`（権限 600。NFR-SEC-14 の置き場の中）に `flock(LOCK_EX)` を取ってから「読む → 変更 → 書く」を行う（プロセス内の `sync.Mutex` と併用）。別プロセスが同時に走っても互いの変更（追記・`revoked_at`）を失わせない。ロックを取れなければ書かずにエラー（Issue #127） |
+| 書き込み | CLI だけが書く。一時ファイル → rename、権限 600。`token add`・`token revoke`・`pair`・`setup` は、同じフォルダのロックファイル `tokens.toml.lock`（権限 600。NFR-SEC-14 の置き場の中）に `flock(LOCK_EX)` を取ってから「読む → 変更 → 書く」を行う（プロセス内の `sync.Mutex` と併用）。別プロセスが同時に走っても互いの変更（追記・`revoked_at`）を失わせない。ロックを取れなければ書かずにエラー（Issue #127）。読むだけの `token list` はロックファイルを開かず作らない（書き込みは rename なので読み手は常に旧内容か新内容の全体を読む。書けない置き場・別ユーザーでも読める。Issue #138） |
 | 許可セッション | `allowed_sessions`（string 配列、任意）。キーが無ければ `config.toml` の `sessions` 全部。あるときは 1 要素以上（空配列は読み込みで拒否）・各要素は非空で `.`・`:`・制御文字を含まない・重複なし（`CheckSessions` と同じ文字規則）。実効の許可セッションは `allowed_sessions` と `sessions` の共通部分で、ツールの呼び出しごとに求める（`auth.Client.AllowedSessions`：`nil` は「`sessions` 全部」、値があれば明示のリスト）。`token add --sessions 0,1` が書く（省略ならキーを書かない）。変えるには `token revoke` してから `token add --sessions` で発行し直す（FR-SESS-1〜3・P-76〜P-78） |
 | 起動検証 | 権限が 600 でない・TOML が壊れている・未知の `scope`・不正な `allowed_sessions`（空配列・重複・不正な文字）は起動拒否。`serve` の起動時は、さらに `allowed_sessions` に `config.toml` の `sessions` にない名前があれば起動拒否（エラーにトークン名とセッション名を出し、ハッシュは出さない）。起動後の再読み込みで食い違ったときは警告ログだけを出し、実効の許可セッションは共通部分にする（P-76） |
 
