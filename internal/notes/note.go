@@ -40,6 +40,8 @@ type Note struct {
 	Items       []string   `json:"items,omitempty"`
 	Worktree    string     `json:"worktree,omitempty"`
 	Branch      string     `json:"branch,omitempty"`
+	Model       string     `json:"model,omitempty"`
+	Thinking    string     `json:"thinking,omitempty"`
 	Instruction string     `json:"instruction,omitempty"`
 	Approval    *Approval  `json:"approval,omitempty"`
 	Rules       []string   `json:"rules,omitempty"`

@@ -31,7 +31,10 @@ var (
 type options struct {
 	agent, scenario, log string
 	raw                  string // 受け取った入力をそのまま追記するファイル（空なら記録しない）
-	tick                 time.Duration
+	// 本物のエージェントの起動時の旗。受け付けて、1 つでも付いていたら起動時に ARGS として --log へ残す
+	// （シェルが起動行をどう語に分けたかを、テストが確かめるため）。
+	model, thinking, effort string
+	tick                    time.Duration
 }
 
 func main() {
@@ -47,6 +50,9 @@ func parseArgs(args []string) (options, error) {
 	fs.SetOutput(io.Discard)
 	fs.DurationVar(&o.tick, "tick", time.Second, "working のスピナーのコマを変える間隔")
 	fs.StringVar(&o.log, "log", "", "貼り付け・選択などを追記するファイル")
+	fs.StringVar(&o.model, "model", "", "起動時のモデル（受け取るだけ）")
+	fs.StringVar(&o.thinking, "thinking", "", "起動時の思考の強さ（omp。受け取るだけ）")
+	fs.StringVar(&o.effort, "effort", "", "起動時の思考の強さ（claude。受け取るだけ）")
 	fs.StringVar(&o.raw, "raw", "", "受け取った入力のバイト列をそのまま追記するファイル")
 	// フラグは位置引数の前後どちらにも書ける（`omp ask --tick 50ms`）。
 	var pos []string
@@ -92,6 +98,15 @@ func run(args []string, stdin *os.File, stdout io.Writer) error {
 	}
 	defer restore()
 	var logErr error
+	var flags []string
+	for _, f := range []struct{ name, v string }{{"model", o.model}, {"thinking", o.thinking}, {"effort", o.effort}} {
+		if f.v != "" {
+			flags = append(flags, "--"+f.name+"="+f.v)
+		}
+	}
+	if len(flags) > 0 {
+		logErr = appendLog(o.log, event{kind: "ARGS", text: strings.Join(flags, "\n")})
+	}
 	m := newMachine(o.agent, o.scenario, func(e event) {
 		if err := appendLog(o.log, e); err != nil && logErr == nil {
 			logErr = err

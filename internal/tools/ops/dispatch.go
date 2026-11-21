@@ -25,6 +25,9 @@ type dispatchArgs struct {
 	Profile    *string                    `json:"profile"`
 	ExtraRules []string                   `json:"extra_rules"`
 	Note       map[string]json.RawMessage `json:"note"`
+	// Model・Thinking は shell のペインを起動するときの指定。nil（省略・null）は旗を付けない。
+	Model    *string `json:"model"`
+	Thinking *string `json:"thinking"`
 }
 
 type dispatchJSON struct {
@@ -34,6 +37,10 @@ type dispatchJSON struct {
 	Started   bool   `json:"started"`
 	Sent      string `json:"sent"`
 	NoteSaved bool   `json:"note_saved"`
+	// 以下は model・thinking を指定して shell から起動したときだけ出す。
+	Model        string `json:"model,omitempty"`
+	Thinking     string `json:"thinking,omitempty"`
+	StartCommand string `json:"start_command,omitempty"`
 }
 
 func (e *env) dispatchTool() toolkit.Tool {
@@ -52,6 +59,8 @@ func (e *env) dispatchTool() toolkit.Tool {
 			"profile":     toolkit.StrProp("profiles.toml のプロファイル名"),
 			"extra_rules": toolkit.StrArrayProp("追加の条件（各 1 行）"),
 			"note":        toolkit.ObjectProp("一緒に保存するメモ（note_set の set と同じ項目）"),
+			"model":       toolkit.StrProp(modelPropDesc + "。shell のペインを起動するときだけ。idle などの起動済みペインに付けると start_options_not_applicable"),
+			"thinking":    toolkit.StrProp(thinkingPropDesc + "。shell のペインを起動するときだけ"),
 		}),
 		Handler: e.dispatch,
 	}
@@ -80,7 +89,11 @@ func (e *env) dispatch(ctx context.Context, c auth.Client, raw json.RawMessage) 
 	if err := e.Safety.CheckText(text); err != nil {
 		return toolkit.Result{}, apperr.As(err)
 	}
-	args := pane.DispatchArgs{Agent: *a.Agent, Text: text}
+	opts, err := agent.NewStartOptions(*a.Agent, a.Model, a.Thinking)
+	if err != nil {
+		return toolkit.Result{}, apperr.As(err)
+	}
+	args := pane.DispatchArgs{Agent: *a.Agent, Text: text, Start: opts}
 	if args.Cwd, args.Title, err = e.dispatchTarget(ctx, ref, &a); err != nil {
 		return toolkit.Result{}, err
 	}
@@ -92,7 +105,10 @@ func (e *env) dispatch(ctx context.Context, c auth.Client, raw json.RawMessage) 
 	// 送信が行われたのは、指示文を実際に貼ったとき（Ops が事実で埋める）。
 	// shell で起動に失敗したときは何も送っていない（指示文もメモも残さない）。
 	if res.Sent {
-		out.Sent, out.NoteSaved = text, e.saveNote(ctx, ref.ID, a.Note)
+		out.Sent, out.NoteSaved = text, e.saveNote(ctx, ref.ID, startNote(a.Note, opts))
+	}
+	if res.StartCommand != "" {
+		out.Model, out.Thinking, out.StartCommand = opts.Model, opts.Thinking, res.StartCommand
 	}
 	return toolkit.MarshalResult(out)
 }

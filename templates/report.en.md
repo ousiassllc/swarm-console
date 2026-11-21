@@ -8,9 +8,9 @@
 
 ## Panes
 
-| Pos | Agent | State | Elapsed | From | Repo / Issue | Doing now | Next |
-|-----|-------|-------|---------|------|--------------|-----------|------|
-{{range .Panes}}| {{.Pos}} | {{.Agent}} | {{.State}} | {{.Elapsed}} | {{.From}} | {{.Repo}} | {{.Activity}} | {{.Next}} |
+| Pos | Agent |{{if .ModelCols}} Model | Thinking |{{end}} State | Elapsed | From | Repo / Issue | Doing now | Next |
+|-----|-------|{{if .ModelCols}}-------|----------|{{end}}-------|---------|------|--------------|-----------|------|
+{{range .Panes}}| {{.Pos}} | {{.Agent}} |{{if $.ModelCols}} {{.Model}} | {{.Thinking}} |{{end}} {{.State}} | {{.Elapsed}} | {{.From}} | {{.Repo}} | {{.Activity}} | {{.Next}} |
 {{end}}
 ## Needs attention
 

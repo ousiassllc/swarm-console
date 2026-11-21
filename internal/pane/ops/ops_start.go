@@ -46,8 +46,13 @@ func containsRune(s string, r rune) bool {
 }
 
 // Start は shell のペインで cwd へ移動してエージェントを起動し、idle を待つ。
-func (o *Operator) Start(ctx context.Context, ref pane.Ref, agentName, cwd, title string) (pane.StartResult, error) {
+// opts があれば起動コマンドの末尾に旗を足す（値は何かを送る前に検査し、通らなければペインに何も送らない）。
+func (o *Operator) Start(ctx context.Context, ref pane.Ref, agentName, cwd, title string, opts agent.StartOptions) (pane.StartResult, error) {
 	ad, err := o.checkStartArgs(agentName, cwd, title)
+	if err != nil {
+		return pane.StartResult{}, err
+	}
+	line, err := opts.Command(agentName, ad.StartCommand())
 	if err != nil {
 		return pane.StartResult{}, err
 	}
@@ -59,18 +64,19 @@ func (o *Operator) Start(ctx context.Context, ref pane.Ref, agentName, cwd, titl
 	if err := allow(p, agent.StateShell); err != nil {
 		return pane.StartResult{}, err
 	}
-	return o.startLocked(ctx, p, agentName, ad, cwd, title)
+	return o.startLocked(ctx, p, agentName, line, opts, cwd, title)
 }
 
-// startLocked は排他を取った状態で起動する。タイトル → cd → 起動コマンドの順に送り、start_timeout まで idle を待つ。
+// startLocked は排他を取った状態で起動する。タイトル → cd → 起動コマンド line の順に送り、start_timeout まで idle を待つ。
 // 待ちの途中で asking（フォルダ信頼の確認など）になったら待たずに ok=false で返す。
-func (o *Operator) startLocked(ctx context.Context, p pane.PaneState, name string, ad agent.Adapter, cwd, title string) (pane.StartResult, error) {
+// opts が空でなければ、結果に実際に送った line を載せる。
+func (o *Operator) startLocked(ctx context.Context, p pane.PaneState, name, line string, opts agent.StartOptions, cwd, title string) (pane.StartResult, error) {
 	full := o.deps.Cfg.TitlePrefix + title
 	tm := o.deps.Tmux
 	if err := tm.SetTitle(ctx, p.ID, full); err != nil {
 		return pane.StartResult{}, pane.TmuxError(err)
 	}
-	for i, cmd := range []string{"cd '" + cwd + "'", ad.StartCommand()} {
+	for i, cmd := range []string{"cd '" + cwd + "'", line} {
 		if err := tm.SendLiteral(ctx, p.ID, cmd); err != nil {
 			return pane.StartResult{}, pane.TmuxError(err)
 		}
@@ -103,5 +109,9 @@ func (o *Operator) startLocked(ctx context.Context, p pane.PaneState, name strin
 	if err != nil {
 		return pane.StartResult{}, err
 	}
-	return pane.StartResult{OK: idle && !asked, State: last, Agent: name, Cwd: cwd, Title: full}, nil
+	res := pane.StartResult{OK: idle && !asked, State: last, Agent: name, Cwd: cwd, Title: full}
+	if !opts.IsZero() {
+		res.StartCommand = line
+	}
+	return res, nil
 }

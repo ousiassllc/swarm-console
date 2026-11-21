@@ -37,6 +37,10 @@ const (
 	UnsupportedType      Code = "unsupported_type"
 	TooLarge             Code = "too_large"
 	SecretDetected       Code = "secret_detected"
+	InvalidModel         Code = "invalid_model"
+	InvalidThinking      Code = "invalid_thinking"
+	StartOptionsNA       Code = "start_options_not_applicable"
+	ThinkingNA           Code = "thinking_not_applicable"
 	BusyTimeout          Code = "busy_timeout"
 	ExitTimeout          Code = "exit_timeout"
 	TmuxError            Code = "tmux_error"
@@ -70,6 +74,10 @@ var messages = map[Code]string{ //nolint:gosec // G101 の誤検知（unauthoriz
 	UnsupportedType:      "取得できる画像・動画ではありません",
 	TooLarge:             "ファイルが上限サイズを超えています",
 	SecretDetected:       "秘密に見える文字列が含まれているため拒否しました",
+	InvalidModel:         "model が正しくありません（英数字と . _ : / @ - だけ、100 字まで）",
+	InvalidThinking:      "thinking が正しくありません",
+	StartOptionsNA:       "すでに起動中のペインには model / thinking を指定できません",
+	ThinkingNA:           "このエージェントには thinking を指定できません",
 	BusyTimeout:          "同じペインの前の操作が終わりませんでした",
 	ExitTimeout:          "エージェントが時間内に終了せず、shell に戻りませんでした（cd ~ 以降は送っていません）",
 	TmuxError:            "tmux の呼び出しに失敗しました",

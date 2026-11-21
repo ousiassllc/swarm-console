@@ -33,14 +33,23 @@ func (o *Operator) Dispatch(ctx context.Context, ref pane.Ref, a pane.DispatchAr
 		if p.Agent != a.Agent {
 			return res, apperr.New(apperr.InvalidArgs, "field", "agent")
 		}
+		// 起動済みのペインに起動時の指定は効かない。何も送らない。
+		if !a.Start.IsZero() {
+			return res, apperr.New(apperr.StartOptionsNA)
+		}
 	case agent.StateShell:
 		if _, err := o.checkStartArgs(a.Agent, a.Cwd, a.Title); err != nil {
 			return res, err
 		}
-		st, err := o.startLocked(ctx, p, a.Agent, ad, a.Cwd, a.Title)
+		line, err := a.Start.Command(a.Agent, ad.StartCommand())
 		if err != nil {
 			return res, err
 		}
+		st, err := o.startLocked(ctx, p, a.Agent, line, a.Start, a.Cwd, a.Title)
+		if err != nil {
+			return res, err
+		}
+		res.StartCommand = st.StartCommand
 		if !st.OK {
 			res.State = st.State
 			return res, nil

@@ -11,12 +11,18 @@ const (
 	descSendEscape = "作業中のエージェントへ Esc を送って中断する。オーナーの OK があるときだけ使う。" +
 		"confirm: true が必須。実行したことはメモのログに自動で残る。"
 	descPaneStart = "shell のペインで cwd へ移動してエージェント（omp・claude・codex）を起動し、タイトルを設定する。" +
-		"cwd は許可されたフォルダの下の既存ディレクトリだけ。"
+		"cwd は許可されたフォルダの下の既存ディレクトリだけ。" +
+		"model・thinking を指定すると起動コマンドの末尾に旗を足す（省略すると足さず、エージェントの既定で起動する）。" +
+		"指定して起動したときは、応答に model・thinking・start_command（実際に送った 1 行）を返し、メモの model・thinking に書く。"
 	descPaneClose = "idle または shell のペインのエージェントを終了し、画面を片づけてタイトルを消す。" +
 		"終了コマンドのあとは shell に戻るまで待ってから片づける（上限までに戻らなければ exit_timeout で、cd ~ 以降は送らない）。" +
 		"片づけを確かめられたら、メモを履歴へ移し最終報告ファイルをアーカイブする。"
 	descDispatch = "空きペイン（shell または idle）へ、決まった形の指示文（command・やること・条件）を組み立てて送る。" +
-		"shell なら先にエージェントを起動する。note があれば一緒に保存する。送った指示文の全文を sent に返す。"
+		"shell なら先にエージェントを起動する（model・thinking を指定すれば起動コマンドの末尾に旗を足す。省略すると足さない）。note があれば一緒に保存する。送った指示文の全文を sent に返す。" +
+		"model・thinking を指定して起動したときは、応答に model・thinking・start_command を返し、メモにも書く。idle のペインに指定すると start_options_not_applicable で、何も送らない。"
+	modelPropDesc    = "起動時のモデル。英数字と . _ : / @ - だけ・100 字まで（例 anthropic/claude-opus-5-5）。照合・実在確認はしない。省略すると旗を付けない"
+	thinkingPropDesc = "起動時の思考の強さ。off・minimal・low・medium・high・xhigh・max・auto のどれか（小文字）。" +
+		"omp は --thinking。claude は --effort で、low・medium・high・xhigh・max だけ（off・minimal・auto は invalid_thinking）。codex は指定できない（thinking_not_applicable）。省略すると旗を付けない"
 	descNoteSet = "ペインのメモを、渡した項目だけ書き換える。値が null ならその項目を消す。秘密に見える文字列は拒否する。"
 	descNoteLog = "ペインのメモのログに、時刻つきで 1 行（500 字まで）足す。直近 50 行を残す。"
 	descFileGet = "サーバー上の画像・動画（png・jpg・jpeg・webp・gif・mp4）を 1 つ、base64 で返す（path・mime・size・sha256・data_base64）。" +
