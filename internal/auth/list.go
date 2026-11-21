@@ -16,8 +16,11 @@ type Info struct {
 // List は path の tokens.toml にあるトークンを、書かれた順（発行順）で返す。ファイルが無ければ空。
 // 検証は Open と同じ（権限が 600 でない・不正な内容はエラー）。ハッシュは返さない。
 func List(path string) ([]Info, error) {
-	manageMu.Lock()
-	defer manageMu.Unlock()
+	unlock, err := lockTokens(path, false)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	recs, err := readRecords(path)
 	if err != nil {
 		return nil, err

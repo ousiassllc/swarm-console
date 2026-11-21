@@ -15,10 +15,12 @@ import (
 // ErrNameInUse は Add の name が既に使われている（失効済みを含む）ときのエラー。errors.Is で判定する。
 var ErrNameInUse = errors.New("名前が既に使われています")
 
-// manageMu は Add / Revoke の読み → 書きをプロセス内で直列化する。
+// manageMu は tokens.toml の読み → 書きをプロセス内で直列化する。
+// 別プロセスとは直列化されない（flock は lockTokens が取る。同じプロセスの goroutine 同士は flock では直列化されないので、こちらも要る）。
 var manageMu sync.Mutex
 
 // Add は新しいトークンを発行して tokens.toml に追記し、平文を返す。
+// 読み → 書きは tokens.toml.lock の flock でプロセス間も直列化する（取れなければ何も書かずにエラー）。
 // 平文は保存しない（返すだけ）。name は一意で、失効済みの名前も再利用できない。
 // sessions があればそのセッションだけを許可する（allowed_sessions）。無ければキーを書かず、config の sessions すべてを許可する。
 func Add(path, name string, scope Scope, now time.Time, sessions ...string) (string, error) {
@@ -33,8 +35,11 @@ func Add(path, name string, scope Scope, now time.Time, sessions ...string) (str
 	if !validScope(scope) {
 		return "", fmt.Errorf("scope は %s か %s にしてください", ScopeReport, ScopeOps)
 	}
-	manageMu.Lock()
-	defer manageMu.Unlock()
+	unlock, err := lockTokens(path, true)
+	if err != nil {
+		return "", err
+	}
+	defer unlock()
 	recs, err := readRecords(path)
 	if err != nil {
 		return "", err
@@ -64,10 +69,13 @@ func Add(path, name string, scope Scope, now time.Time, sessions ...string) (str
 }
 
 // Revoke は name のトークンに revoked_at を付ける。
-// 存在しない名前・既に失効済みの名前はエラー。
+// 存在しない名前・既に失効済みの名前はエラー。Add と同じロックで直列化する。
 func Revoke(path, name string, now time.Time) error {
-	manageMu.Lock()
-	defer manageMu.Unlock()
+	unlock, err := lockTokens(path, false)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	recs, err := readRecords(path)
 	if err != nil {
 		return err

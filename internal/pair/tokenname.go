@@ -48,7 +48,7 @@ func tokenBase(deps Deps, scope auth.Scope) string {
 }
 
 // addToken は scope の token を発行する。名前がぶつかったら末尾に -2・-3… を付けて空いている名前を探す
-// （失効済みの名前も再利用できないため）。ぶつかりは auth.Add のロック内で判定されるので、同時に走っても重ならない。
+// （失効済みの名前も再利用できないため）。ぶつかりは auth.Add のロック（プロセス内の mutex と tokens.toml.lock の flock）の中で判定されるので、別プロセスが同時に走っても重ならない。
 // sessions が nil なら allowed_sessions を書かない（config.toml の sessions すべて）。
 func addToken(path, base string, scope auth.Scope, sessions []string, now time.Time) (name, plain string, err error) {
 	for n := 1; n <= nameTries; n++ {
