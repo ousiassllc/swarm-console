@@ -259,3 +259,4 @@ flowchart TD
 | 1.41 | 2026-11-20 | decisions.md P-111（omp が tern の画面になる条件と、14:26 以降の不具合との関係。同じ日 14:53 の `statusLine.preset: minimal` も別の原因）・P-112（会話の記録から画面を組み立てて読む）・P-113（tern の画面の限界）・P-114（テスト）。agent-patterns.md に「omp（tern の画面）」を追加 | Issue #121 |
 | 1.42 | 2026-11-21 | decisions.md P-115〜P-121（起動時の `model`・`thinking`：起動行・検査・拒否の順・メモとレポート・列の出し方・実機確認）。`pane_start`・`dispatch` に任意の `model`・`thinking`（API 仕様 1.30、ER 1.22） | Issue #124 |
 | 1.43 | 2026-11-22 | §3 レイヤー構造のエントリ行の CLI 列挙に `pair` を足す（実装の subcommand と合わせる） | Issue #129 |
+| 1.44 | 2026-11-22 | decisions.md P-122（`report_dir` の起動時検査：自分の uid 所有・リンクでない・0700、親フォルダも根へ向かって検査。検査する理由と見ない範囲）。deployment.md の設定表と config.toml.example の `report_dir` にも検査を追記 | Issue #128・#137・#140 |
