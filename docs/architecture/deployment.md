@@ -10,7 +10,7 @@
 |------|------|
 | 実行場所 | example-host（tmux サーバーと同じホスト、同じユーザー） |
 | バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から。最初の導入は `make install`。Releases への掲載は main の CI 成功ごとに自動。`serve` が自分で入れ替える。`update_auto = false` のときは手で入れ替え）。同じフォルダに `swarm-console.new`・`.old`・`.update-pending`・`.update-failed` が一時的にできる（ER §8） |
-| 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`templates/`（任意） |
+| 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`tokens.toml.lock`（600・中身なし・ロック専用。`token add` などが書く前に作る。ER §1）・`templates/`（任意） |
 | データ | `~/.local/share/swarm-console/notes.json`（600） |
 | 通知の台帳 | `~/.local/share/swarm-console/webhook-state.json`（600。`[webhook] url` を書いたときだけできる。FR-STATE-2・9〜11） |
 | 最終報告 | `/tmp/swarm-console/reports/<位置>.md`（エージェントが書く）、`archive/`（サーバーが移す） |
