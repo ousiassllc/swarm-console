@@ -3,7 +3,6 @@ package omp
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,15 +10,13 @@ import (
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/agent/omp/transcript"
 )
 
 var _ agent.TurnProbe = (*adapter)(nil)
 
-// セッションの記録の末尾から読む量の下限と上限。1 行（ツールの結果）が数十〜百 KB になることがあるので、見つからなければ上限まで倍に広げる。
-const (
-	sessionTailMin = 64 << 10
-	sessionTailMax = 2 << 20
-)
+// セッションの記録の末尾から読む量の下限。上限は transcript.TailMax。1 行（ツールの結果）が数十〜百 KB になることがあるので、見つからなければ上限まで倍に広げる。
+const sessionTailMin = 64 << 10
 
 // sessionMessage は omp のセッションの記録（1 行 1 JSON）のうち、やり取り（"type":"message"）の読む項目。
 type sessionMessage struct {
@@ -95,40 +92,26 @@ func isSessionFile(root, path string) bool {
 // lastTurnIn は path の末尾から後ろ向きに読み、since 以降の最後のやり取りで番が終わっているかを返す。
 // ユーザー（user）・ツールの結果（toolResult）・ツールの呼び出し（assistant で stopReason=toolUse）は番の途中。
 // モデルの最終の応答（stop）・中断（aborted）・失敗（error）は番の終わり。それ以外の役（developer・custom）は番の判定に使わない。
-// 末尾 sessionTailMin から読み始め、やり取りが見つからなければ倍にして sessionTailMax まで広げる（ツールの結果の 1 行が数十 KB になるため）。
+// 末尾 sessionTailMin から読み始め、やり取りが見つからなければ倍にして transcript.TailMax まで広げる（ツールの結果の 1 行が数十 KB になるため）。
 func lastTurnIn(path string, since time.Time) (last time.Time, inTurn, ok bool) {
 	f, err := os.Open(path) //nolint:gosec // 名前は /proc/<pid>/fd が指す、~/.omp/agent/sessions の下のセッションの記録だけ
 	if err != nil {
 		return time.Time{}, false, false
 	}
 	defer func() { _ = f.Close() }()
-	st, err := f.Stat()
+	var found bool
+	err = transcript.GrowTail(f, sessionTailMin, transcript.TailMax, func(buf []byte, _ bool) bool {
+		last, inTurn, ok, found = lastTurnInTail(buf, since)
+		return found
+	})
 	if err != nil {
 		return time.Time{}, false, false
 	}
-	for n := int64(sessionTailMin); ; n *= 2 {
-		n = min(n, sessionTailMax)
-		last, inTurn, ok, found := lastTurnTail(f, st.Size(), n, since)
-		if found || n >= sessionTailMax || n >= st.Size() {
-			return last, inTurn, ok
-		}
-	}
+	return last, inTurn, ok
 }
 
-// lastTurnTail は f の末尾 n バイトからやり取りを探す。found=false は、読んだ範囲に見つからず、もっと前を読む価値があること。
-func lastTurnTail(f *os.File, size, n int64, since time.Time) (last time.Time, inTurn, ok, found bool) {
-	off := max(size-n, 0)
-	buf := make([]byte, size-off)
-	if _, err := f.ReadAt(buf, off); err != nil && err != io.EOF {
-		return time.Time{}, false, false, true
-	}
-	if off > 0 { // 読み始めで切れた最初の行は捨てる
-		i := bytes.IndexByte(buf, '\n')
-		if i < 0 {
-			return time.Time{}, false, false, false
-		}
-		buf = buf[i+1:]
-	}
+// lastTurnInTail は buf（末尾の窓の中の完全な行）からやり取りを探す。found=false は、読んだ範囲に見つからず、もっと前を読む価値があること。
+func lastTurnInTail(buf []byte, since time.Time) (last time.Time, inTurn, ok, found bool) {
 	for end := len(buf); end > 0; {
 		start := bytes.LastIndexByte(buf[:end], '\n') + 1
 		line := buf[start:end]
