@@ -82,6 +82,7 @@ swarm-console/
 │   │   └── ops/              操作の実行（`pane.Ops` の実装。Linterly のディレクトリ上限のため分離）
 │   ├── agent/                Adapter インターフェース、レジストリ、共通ヘルパー
 │   │   ├── omp/
+│   │   │   └── transcript/   会話の記録（セッションの jsonl）の末尾の読み取りと、`ask` ツールの引数の解析（tern の画面の土台。Issue #121）
 │   │   ├── claude/
 │   │   └── codex/
 │   ├── notes/                メモ・履歴、検証、秘密検出
@@ -99,6 +100,8 @@ swarm-console/
 │   └── app/                  配線（設定・アダプタ・tmux・pane・tools・mcpapi・server の組み立て）
 ├── templates/                report.ja.md・report.en.md（go:embed の既定。dispatch の指示文はテンプレートではなく `profiles.toml` の条件から `render` が組み立てる）
 ├── testdata/screens/         実画面サンプル（omp/ claude/ codex/）
+├── testdata/native/          tern の画面の実機サンプル（`omp/`：会話の記録 `session.jsonl` と画面 `classic-*.txt`・`title-*.txt`。decisions.md P-114）
+├── testdata/config/          手書きの config.toml の見本（`handwritten.toml`。`setup` の編集テスト）
 ├── test/fakeagent/           擬似エージェント（サンプル画面を出し、キーに反応する）
 ├── test/integration/         実 tmux ＋ fakeagent ＋ MCP クライアントの統合・受け入れテスト
 │   └── filegetintegration/   `file_get` の統合テスト（Linterly のディレクトリ上限のため分離）
@@ -166,7 +169,7 @@ type Key struct {
 }
 
 // 任意のインターフェース（アダプタが Adapter に加えて実装する）：
-//   PasteMenu・Submitter・Toggler・WorkProbe・TurnProbe（omp）、
+//   PasteMenu・Submitter・Toggler・WorkProbe・TurnProbe・ReactionProbe（omp。Issue #120）、
 //   Native（omp。Issue #121）：tern の画面（TSP）のペインを会話の記録から読む。
 type Native interface {
     NativeTitle(title string) bool                           // pane_title が tern の画面か（omp は "tsp;" で始まる）
