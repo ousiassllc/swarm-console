@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ousiassllc/swarm-console/internal/config/configtest"
 )
 
 func TestPrepareReportDir(t *testing.T) {
@@ -43,7 +45,7 @@ func TestPrepareReportDir(t *testing.T) {
 	})
 }
 
-// report_dir がシンボリックリンクなら New が起動を拒否し、自分所有の 0750 なら 0700 に直して続ける。
+// report_dir が /tmp/swarm-console の外なら New が起動を拒否する。シンボリックリンクなら拒否し、自分所有の 0750 なら 0700 に直して続ける。
 func TestNewChecksReportDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -58,11 +60,17 @@ func TestNewChecksReportDir(t *testing.T) {
 	}
 	logger := slog.New(slog.DiscardHandler)
 
-	target := filepath.Join(home, "target")
+	base := filepath.Dir(configtest.ReportDir(t)) // /tmp/swarm-console の下のテスト専用フォルダ
+
+	if _, err := New(write(filepath.Join(home, "reports")), "test", logger); err == nil || !strings.Contains(err.Error(), "/tmp/swarm-console の下") {
+		t.Fatalf("/tmp/swarm-console の外の report_dir で起動できてしまいます: err=%v", err)
+	}
+
+	target := filepath.Join(base, "target")
 	if err := os.Mkdir(target, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	link := filepath.Join(home, "link")
+	link := filepath.Join(base, "link")
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +78,7 @@ func TestNewChecksReportDir(t *testing.T) {
 		t.Fatalf("リンクの report_dir で起動できてしまいます: err=%v", err)
 	}
 
-	loose := filepath.Join(home, "loose")
+	loose := filepath.Join(base, "loose")
 	if err := os.Mkdir(loose, 0o750); err != nil {
 		t.Fatal(err)
 	}

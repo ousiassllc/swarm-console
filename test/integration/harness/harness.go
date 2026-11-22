@@ -16,6 +16,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/config/configtest"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 )
 
@@ -115,7 +116,7 @@ func Prepare(t *testing.T, o Options) *H {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	h := &H{
 		T: t, Dir: dir, Work: filepath.Join(dir, "work"), Files: filepath.Join(dir, "files"),
-		Outside: filepath.Join(dir, "outside"), Reports: filepath.Join(dir, "reports"), Logs: filepath.Join(dir, "logs"),
+		Outside: filepath.Join(dir, "outside"), Reports: configtest.ReportDir(t), Logs: filepath.Join(dir, "logs"),
 		Addr: FreeAddr(t), Config: filepath.Join(dir, "config.toml"),
 		tokens: map[string]string{}, buf: &lockedBuffer{}, clients: map[string]*Client{},
 	}

@@ -87,8 +87,8 @@
 # host_status が見るマウント。既定 ["/", "/mnt/nvme"]
 # disk_mounts = ["/", "/mnt/nvme"]
 
-# 最終報告ファイルを置くフォルダ。既定 "/tmp/swarm-console/reports"
-# 起動時に、自分の uid 所有・リンクでない・親フォルダも他人が書けない（sticky の /tmp を除く）ことを検査し、違えば起動しない（権限だけなら 0700 に直す）
+# 最終報告ファイルを置くフォルダ。既定 "/tmp/swarm-console/reports"。/tmp/swarm-console の下のフォルダだけ（外は起動しない。NFR-SEC-14）
+# 起動時に、自分の uid 所有・リンクでない・親フォルダも他人が書けない（sticky の /tmp と、グループが自分専用（gid == uid）の親のグループ書き込みを除く）ことを検査し、違えば起動しない（権限だけなら 0700 に直す）
 # report_dir = "/tmp/swarm-console/reports"
 
 # --- ペインが idle になってレポートが書けたときの webhook（FR-STATE-1〜8） ---

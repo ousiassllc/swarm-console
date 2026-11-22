@@ -287,3 +287,4 @@ flowchart TD
 | 1.44 | 2026-11-22 | §5.3 `ask_pick` のシーケンス図を実装（`PickAsk`）に合わせた：複数選択の Space のチェック（付かなければ `cursor_mismatch`）、Submit の Enter、次の質問が開いたときの `ok: false`・`card_closed: false`、`state` は取り直した値。`text`・tern の画面の経路は注記で §6.1・P-113 を指す。コード・設定は変えない | Issue #142 |
 | 1.45 | 2026-11-22 | §7 デプロイ構成の設定の列挙に `tokens.toml.lock`（600・ロック専用）を足す（ER 1.26） | Issue #141 |
 | 1.46 | 2026-11-22 | decisions.md P-122（`report_dir` の起動時検査：自分の uid 所有・リンクでない・0700、親フォルダも根へ向かって検査。検査する理由と見ない範囲）。deployment.md の設定表と config.toml.example の `report_dir` にも検査を追記 | Issue #128・#137・#140 |
+| 1.47 | 2026-11-22 | decisions.md P-122：親フォルダのグループ書き込みは gid == uid（自分専用グループ）のときだけ許し、gid != uid の 0775 は拒否のまま・エラーに直し方を出す（Issue #143）。P-123（`report_dir` は `/tmp/swarm-console` の下だけ。NFR-SEC-14。Issue #136）を追加。NFR-SEC-20・NFR-AVL-11・NFR-TEST-20 を要件に追加したので、P-122 に要件 ID を足す（Issue #144）。deployment.md の `report_dir` の行も合わせる | Issue #136・#143・#144 |

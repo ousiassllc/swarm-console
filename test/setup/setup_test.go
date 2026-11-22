@@ -14,6 +14,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/ousiassllc/swarm-console/internal/config/configtest"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 )
 
@@ -96,7 +97,7 @@ func TestSetupNewFileThenServe(t *testing.T) {
 	}
 
 	// 手で足すキー（聞かないキー）と共存して、そのまま serve が起動できる。
-	extra := "\ntmux_socket = \"" + tm.Socket + "\"\nreport_dir = \"" + filepath.Join(home, "reports") + "\"\ndisk_mounts = [\"/\"]\n"
+	extra := "\ntmux_socket = \"" + tm.Socket + "\"\nreport_dir = \"" + configtest.ReportDir(t) + "\"\ndisk_mounts = [\"/\"]\n"
 	appendFile(t, cfg, extra)
 	serveStarts(t, home, cfg, addr)
 }

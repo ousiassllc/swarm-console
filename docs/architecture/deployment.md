@@ -65,7 +65,7 @@ WantedBy=default.target
 | `file_get_roots` | `[]`（なし） | `file_get` の許可リストに足す根。ペインの `cwd` の下と `report_dir` の下は書かなくても常に取れる（ただし `cwd` が `/` やホームそのものなら、その `cwd` は除く。ここに書いた根はそのまま許可。P-91） |
 | `file_get_max_bytes` | `20971520`（20 MiB。1〜104857600） | `file_get` が返す 1 ファイルの上限（P-91） |
 | `disk_mounts` | `["/", "/mnt/nvme"]` | `host_status` が見るマウント |
-| `report_dir` | `/tmp/swarm-console/reports` | 最終報告の置き場。起動時に作り、持ち主（自分の uid）・フォルダであること・`report_dir` 自身がシンボリックリンクでないことを検査し、親フォルダも根へ向かって検査する（違えば起動拒否。親の条件は [er-config.md](er-config.md) §5）。権限が 0700 でなければ 0700 に直す |
+| `report_dir` | `/tmp/swarm-console/reports` | 最終報告の置き場。`/tmp/swarm-console` の下のフォルダだけ（外は起動拒否。NFR-SEC-14・P-123）。起動時に作り、持ち主（自分の uid）・フォルダであること・`report_dir` 自身がシンボリックリンクでないことを検査し、親フォルダも根へ向かって検査する（違えば起動拒否。親の条件は [er-config.md](er-config.md) §5。NFR-SEC-20）。権限が 0700 でなければ 0700 に直す |
 | `update_check` | `true` | `serve` が GitHub Releases で新しい版を確認する（FR-UPD） |
 | `update_check_interval` | `6h`（1h 以上） | 確認の間隔 |
 | `usage_check` | `true` | `serve` が `omp usage --json` で使用状況を取る（FR-REP-12）。`omp` の確認（FR-REP-15）は `update_check` に従う |

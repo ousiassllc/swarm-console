@@ -117,6 +117,8 @@ func checkDir(path string, want os.FileMode, uid, rootUID int) error {
 // （リンク自体は拒否しない。攻撃者がリンクを張っても、解決先の持ち主・権限で拒否される）。
 // 各親は「持ち主が uid か rootUID」で、グループ／その他が書ける場合は sticky ビット付きのものだけ許す
 // （/tmp 相当。sticky なら、他人は中の他人のエントリを rename／unlink できない）。
+// ただし親のグループが uid と同じ（自分専用グループ。UPG の慣習。RHEL・Fedora 系の既定 umask 002 で作ったフォルダは 0775）なら、
+// グループ書き込みは見ない（その他書き込みは従来どおり sticky 無しで拒否）。グループが uid と違えば共有グループかもしれないので拒否する。
 // rootUID 所有の親（/・/home・/tmp など）に届いたら、そこで止める。
 func checkAncestors(path string, uid, rootUID int) error {
 	resolved, err := filepath.EvalSymlinks(path)
@@ -136,8 +138,17 @@ func checkAncestors(path string, uid, rootUID int) error {
 		if owner != uid && owner != rootUID {
 			return fmt.Errorf("親フォルダ %s: 持ち主が uid %d です（uid %d か root が必要）", dir, owner, uid)
 		}
-		if fi.Mode().Perm()&0o022 != 0 && fi.Mode()&os.ModeSticky == 0 {
-			return fmt.Errorf("親フォルダ %s: 他のユーザーが書ける権限（%04o）です", dir, fi.Mode().Perm())
+		perm := fi.Mode().Perm()
+		writable := perm & 0o022
+		if int(st.Gid) == uid { // 自分専用グループ（UPG）。グループに他人はいないので、グループ書き込みは見ない
+			writable &^= 0o020
+		}
+		if writable != 0 && fi.Mode()&os.ModeSticky == 0 {
+			fix := "g-w"
+			if writable&0o002 != 0 {
+				fix = "go-w"
+			}
+			return fmt.Errorf("親フォルダ %s: 他のユーザーが書ける権限（%04o）です（chmod %s %s で直せます）", dir, perm, fix, dir)
 		}
 		if owner == rootUID || dir == filepath.Dir(dir) {
 			return nil

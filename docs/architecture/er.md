@@ -266,3 +266,4 @@ erDiagram
 | 1.25 | 2026-11-22 | §3 tokens.toml（er-runtime.md）：`token list` はロックを取らない（`tokens.toml.lock` を開かず作らない）旨に改訂。ロックするのは書く `token add`・`token revoke`・`pair`・`setup` だけ。tokens.toml の項目・権限は変えない | Issue #138 |
 | 1.26 | 2026-11-22 | 永続ファイルの表に `tokens.toml.lock`（権限 600・中身なし・ロック専用。書く CLI だけが作る）を追加（これまで一覧に無く、設定フォルダの「書くファイル」から漏れていた） | Issue #141 |
 | 1.27 | 2026-11-22 | ファイル一覧の最終報告の権限欄、§5 `config.toml` の検証表に `report_dir` の検査の行、§7 の書き手に、`report_dir` の起動時検査（自分の uid 所有・フォルダ・リンクでない・親フォルダの持ち主／書き込み権／リンクも根へ向かって検査。違えば起動拒否、権限だけなら 0700 に直す）を追加（#128 で入った実装を #137 で親フォルダへ広げた。P-122） | Issue #128・#137・#140 |
+| 1.28 | 2026-11-22 | §5 `config.toml`（er-config.md）：`report_dir` は `/tmp/swarm-console` の下だけ（P-123）、親フォルダの検査はグループ書き込みを gid == uid のときだけ許す（gid != uid の 0775 は拒否。P-122）。NFR-SEC-20 を参照に足す | Issue #136・#143・#144 |

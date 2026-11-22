@@ -99,8 +99,44 @@ func buildPaths(r *rawConfig, c *Config, home string) error {
 	if dir == "" {
 		dir = defaultReportDir
 	}
-	c.ReportDir, err = ExpandPath("report_dir", dir, home)
-	return err
+	if c.ReportDir, err = ExpandPath("report_dir", dir, home); err != nil {
+		return err
+	}
+	return checkReportDir(c.ReportDir)
+}
+
+// ReportRoot は report_dir を置ける唯一の根（NFR-SEC-14 の書き込み先 /tmp/swarm-console）。
+const ReportRoot = "/tmp/swarm-console"
+
+// checkReportDir は Clean 済みの report_dir が ReportRoot の下（ReportRoot 自身は不可）にあることを確かめる。
+// 文字列の上（.. は Clean 済み）と、シンボリックリンクを解決した実パスの上の両方で見る（リンクで外へ出させない）。
+func checkReportDir(dir string) error {
+	if !isUnder(dir, ReportRoot) || !isUnder(resolveExisting(dir), resolveExisting(ReportRoot)) {
+		return fmt.Errorf("report_dir は %s の下のフォルダにしてください（NFR-SEC-14。指定: %s）", ReportRoot, dir)
+	}
+	return nil
+}
+
+// isUnder は Clean 済みの p が root の厳密な下（root 自身は含まない）にあるかを返す。
+func isUnder(p, root string) bool {
+	return strings.HasPrefix(p, root+string(filepath.Separator))
+}
+
+// resolveExisting は p の存在する最も深い祖先のシンボリックリンクを解決し、残りをそのまま足す。
+// まだ無いフォルダ（起動時に作る report_dir）でも、途中のリンクで外へ出るパスを見抜くため。
+func resolveExisting(p string) string {
+	rest := ""
+	for cur := p; ; {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(r, rest)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
 }
 
 func dedupe(in []string) []string {

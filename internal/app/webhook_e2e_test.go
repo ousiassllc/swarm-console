@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/config/configtest"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 	"github.com/ousiassllc/swarm-console/test/fakeagent/fakeagenttest"
@@ -84,15 +85,16 @@ func (r *receiver) payloads() []webhook.Payload {
 
 // rig は一時 HOME・実 tmux のペイン 1 つ・動かした App。
 type rig struct {
-	t      *testing.T
-	app    *App
-	tm     *tmuxtest.Server
-	pane   string            // 最初のセッションのペイン
-	panes  map[string]string // セッション名 → ペイン ID
-	home   string
-	logs   *syncBuf
-	cancel context.CancelFunc
-	done   chan error
+	t       *testing.T
+	app     *App
+	tm      *tmuxtest.Server
+	pane    string            // 最初のセッションのペイン
+	panes   map[string]string // セッション名 → ペイン ID
+	home    string
+	reports string // report_dir（/tmp/swarm-console の下）
+	logs    *syncBuf
+	cancel  context.CancelFunc
+	done    chan error
 }
 
 func startRig(t *testing.T, webhookCfg string) *rig { return startRigSessions(t, webhookCfg, "0") }
@@ -113,6 +115,7 @@ func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...str
 	bin := fakeagenttest.Install(t, t.TempDir()) // HOME を替える前に go build する
 	tm := tmuxtest.New(t)
 	home := t.TempDir()
+	reports := configtest.ReportDir(t)
 	t.Setenv("HOME", home)
 	var lc net.ListenConfig
 	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
@@ -131,7 +134,7 @@ func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...str
 		sessionsCfg = "sessions = [" + strings.Join(quoted, ", ") + "]\n"
 	}
 	body := fmt.Sprintf("listen_addr = %q\ntmux_socket = %q\nreport_dir = %q\nupdate_check = false\nusage_check = false\n%s%s",
-		addr, tm.Socket, filepath.Join(home, "reports"), sessionsCfg, webhookCfg)
+		addr, tm.Socket, reports, sessionsCfg, webhookCfg)
 	if err := os.WriteFile(cfgPath, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +152,7 @@ func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...str
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	g := &rig{t: t, app: a, tm: tm, pane: pane, panes: panes, home: home, logs: logs, cancel: cancel, done: make(chan error, 1)}
+	g := &rig{t: t, app: a, tm: tm, pane: pane, panes: panes, home: home, reports: reports, logs: logs, cancel: cancel, done: make(chan error, 1)}
 	go func() { g.done <- a.Run(ctx) }()
 	t.Cleanup(g.stop)
 	return g
@@ -184,7 +187,7 @@ func (g *rig) until(want agent.State) {
 func (g *rig) idleRound() {
 	g.t.Helper()
 	g.until(agent.StateWorking)
-	if err := os.WriteFile(filepath.Join(g.home, "reports", "T1.md"), []byte("done\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(g.reports, "T1.md"), []byte("done\n"), 0o600); err != nil {
 		g.t.Fatal(err)
 	}
 	g.tm.Run("send-keys", "-t", g.pane, "Escape")
@@ -236,7 +239,7 @@ func TestAppWebhookPostsOnceAndKeepsSecretsOutOfLogs(t *testing.T) {
 	}
 	pl := hits[0]
 	if pl.Event != webhook.EventPaneIdleReport || pl.Session != "0" || pl.Pane != "T1" || pl.PaneID != g.pane || pl.EventID == "" ||
-		pl.ReportPath != filepath.Join(g.home, "reports", "T1.md") || pl.StateChangedAt == "" {
+		pl.ReportPath != filepath.Join(g.reports, "T1.md") || pl.StateChangedAt == "" {
 		t.Errorf("payload = %+v", pl)
 	}
 	// 送り終えた項目は outbox から消え、回は done になる（再起動しても二重に送らない）。

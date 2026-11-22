@@ -99,7 +99,7 @@ allowed_roots = ["` + root + `/", "~/work"]
 denied_paths = ["` + root + `/co//../co", "~/dotfiles"]
 file_roots = ["/tmp/x/../"]
 disk_mounts = ["/var/"]
-report_dir = "~/reports"
+report_dir = "/tmp/swarm-console/custom/../reports"
 
 [pane_names]
 "work:0.1" = "main"
@@ -136,7 +136,7 @@ exit_command = "/exit"
 		{"DeniedPaths", cfg.DeniedPaths, []string{resolvePath(root) + "/co", filepath.Join(home, "dotfiles")}},
 		{"FileRoots", cfg.FileRoots, []string{"/tmp"}},
 		{"DiskMounts", cfg.DiskMounts, []string{"/var"}},
-		{"ReportDir", cfg.ReportDir, filepath.Join(home, "reports")},
+		{"ReportDir", cfg.ReportDir, "/tmp/swarm-console/reports"},
 		{"PaneNames", cfg.PaneNames, map[string]string{"work:0.1": "main", "0:1.0": "Docs_2"}},
 	}
 	for _, c := range checks {
@@ -205,6 +205,12 @@ func TestLoadRejects(t *testing.T) {
 		{"denied_paths に ~user", minimal + "denied_paths = [\"~root/x\"]\n", "~/ の形"},
 		{"file_roots に制御文字", minimal + "file_roots = [\"/tmp/a\\u0001\"]\n", "制御文字"},
 		{"report_dir 相対", minimal + "report_dir = \"reports\"\n", "絶対パス"},
+		{"report_dir が /tmp/swarm-console の外（/etc/x）", minimal + "report_dir = \"/etc/x\"\n", "/tmp/swarm-console の下"},
+		{"report_dir が ~（ホームそのもの）", minimal + "report_dir = \"~\"\n", "/tmp/swarm-console の下"},
+		{"report_dir が /", minimal + "report_dir = \"/\"\n", "/tmp/swarm-console の下"},
+		{"report_dir が .. で外へ出る", minimal + "report_dir = \"/tmp/swarm-console/../x\"\n", "/tmp/swarm-console の下"},
+		{"report_dir が /tmp/swarm-console そのもの", minimal + "report_dir = \"/tmp/swarm-console\"\n", "/tmp/swarm-console の下"},
+		{"report_dir が接頭辞だけ同じ兄弟", minimal + "report_dir = \"/tmp/swarm-console-x/reports\"\n", "/tmp/swarm-console の下"},
 		{"pane_names のキー形式", minimal + "[pane_names]\nfoo = \"x\"\n", "pane_names のキー"},
 		{"pane_names のセッション外", minimal + "[pane_names]\n\"zz:0.1\" = \"x\"\n", "pane_names のキー"},
 		{"agents.<name> 未対応", minimal + "[agents.gpt]\ncommand = \"x\"\n", "未対応"},
@@ -244,6 +250,39 @@ func unwrapAll(err error) error {
 			return err
 		}
 		err = u.Unwrap()
+	}
+}
+
+// report_dir は /tmp/swarm-console の下だけ（NFR-SEC-14）。既定と下のフォルダは通り、リンクで外へ出るものは拒否する。
+func TestLoadReportDirUnderTmpRoot(t *testing.T) {
+	for _, dir := range []string{"/tmp/swarm-console/reports", "/tmp/swarm-console/foo", "/tmp/swarm-console/a/b/c"} {
+		cfg, _, err := writeConfig(t, minimal+"report_dir = \""+dir+"\"\n")
+		if err != nil {
+			t.Fatalf("%s: %v", dir, err)
+		}
+		if cfg.ReportDir != dir {
+			t.Fatalf("ReportDir = %q, want %q", cfg.ReportDir, dir)
+		}
+	}
+
+	// /tmp/swarm-console の下にある、外へのリンク（宛先が無い下位のパスも）は、解決した先で判定して拒否する。
+	if err := os.MkdirAll(ReportRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	base, err := os.MkdirTemp(ReportRoot, "cfgtest-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(base) })
+	link := filepath.Join(base, "out")
+	if err := os.Symlink(t.TempDir(), link); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{link, filepath.Join(link, "reports")} {
+		_, _, err := writeConfig(t, minimal+"report_dir = \""+dir+"\"\n")
+		if err == nil || !strings.Contains(err.Error(), "/tmp/swarm-console の下") {
+			t.Fatalf("%s: err=%v", dir, err)
+		}
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/clock"
+	"github.com/ousiassllc/swarm-console/internal/config/configtest"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck/updatechecktest"
 )
 
@@ -71,7 +72,7 @@ func newServeRigOnSocket(t *testing.T, current, extraConfig, socket string) *ser
 	g.exe = filepath.Join(g.binDir, "swarm-console")
 	g.writeFile(g.exe, oldBin, 0o755)
 	body := fmt.Sprintf("listen_addr = %q\ntmux_socket = %q\nreport_dir = %q\nallowed_roots = [%q]\nfile_roots = [%q]\n%s",
-		g.addr, socket, filepath.Join(home, "reports"), home, home, extraConfig)
+		g.addr, socket, configtest.ReportDir(t), home, home, extraConfig)
 	g.writeFile(g.cfg, body, 0o600)
 	_, out, _ := runCLI(t, "token", "add", "boss", "--scope", "ops", "--config", g.cfg)
 	g.token = strings.TrimSpace(out)

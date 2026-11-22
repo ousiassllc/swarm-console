@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -76,6 +77,20 @@ func TestCheckDir(t *testing.T) {
 	})
 }
 
+// gidOf は path のグループ ID を返す。
+func gidOf(t *testing.T, path string) int {
+	t.Helper()
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		t.Fatal("Stat_t を取れません")
+	}
+	return int(st.Gid)
+}
+
 // mkdirMode は umask に左右されず mode のフォルダを作る。
 func mkdirMode(t *testing.T, path string, mode os.FileMode) {
 	t.Helper()
@@ -140,9 +155,28 @@ func TestCheckDirAncestors(t *testing.T) {
 		reject(t, leaf, me, 0, parent, "書ける権限")
 		reject(t, leaf, me, me, parent, "書ける権限")
 	})
-	t.Run("親が自分所有の 0775（グループ書き込み可）なら拒否", func(t *testing.T) {
+	// 親の持ち主は常に me。uid 引数にグループ ID（gid）を渡すと「自分の uid == 親の gid（自分専用グループ）」を、
+	// gid+1 を渡すと「uid != 親の gid（共有グループ）」を作れる。root と見なす uid を me にして、持ち主の検査は通す。
+	t.Run("親が 0775 で gid==uid（自分専用グループ）なら通る", func(t *testing.T) {
 		parent, leaf := setup(t, 0o775)
-		reject(t, leaf, me, 0, parent, "書ける権限")
+		if err := checkAncestors(leaf, gidOf(t, parent), me); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("親が 0775 で gid!=uid（共有グループ）なら拒否し、直し方を示す", func(t *testing.T) {
+		parent, leaf := setup(t, 0o775)
+		err := checkAncestors(leaf, gidOf(t, parent)+1, me)
+		if err == nil || !strings.Contains(err.Error(), parent) || !strings.Contains(err.Error(), "書ける権限") ||
+			!strings.Contains(err.Error(), "chmod g-w "+parent) {
+			t.Fatalf("err=%v", err)
+		}
+	})
+	t.Run("親が 0777（他人書き込み可）なら gid==uid でも拒否", func(t *testing.T) {
+		parent, leaf := setup(t, 0o777)
+		err := checkAncestors(leaf, gidOf(t, parent), me)
+		if err == nil || !strings.Contains(err.Error(), parent) || !strings.Contains(err.Error(), "書ける権限") {
+			t.Fatalf("err=%v", err)
+		}
 	})
 	t.Run("親が他人所有の sticky 0777 は拒否（持ち主の検査が先）", func(t *testing.T) {
 		parent, leaf := setup(t, 0o777|os.ModeSticky)
