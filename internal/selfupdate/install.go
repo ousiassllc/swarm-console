@@ -21,11 +21,14 @@ func releaseBase(tag string) string {
 // assetName は tag のバイナリのアセット名（P-57）。
 func assetName(tag string) string { return binName + "_" + tag + "_linux_amd64" }
 
+// userAgent はダウンロードで送る User-Agent。確認（updatecheck）と同じ swarm-console/<動いている版>（NFR-SEC-15）。
+func (u *Updater) userAgent() string { return "swarm-console/" + u.o.Current }
+
 // install は SHA256SUMS → バイナリ（.new）→ 検証 → .old → マーカー → rename を、この順に行う（FR-UPD-14・15）。
 // どこで失敗しても本体は旧バイナリのままで、.new とマーカーは消す。成功したときだけ .new は無い（rename 済み）。
 func (u *Updater) install(ctx context.Context, tag string) (err error) {
 	asset := assetName(tag)
-	sumsBody, err := download(ctx, u.client, releaseBase(tag)+"SHA256SUMS", maxSumsBytes)
+	sumsBody, err := download(ctx, u.client, releaseBase(tag)+"SHA256SUMS", u.userAgent(), maxSumsBytes)
 	if err != nil {
 		return err
 	}
@@ -64,7 +67,7 @@ func (u *Updater) install(ctx context.Context, tag string) (err error) {
 
 // fetchBinary はバイナリを newPath に書きながら SHA-256 を計算し、want と一致したら fsync して閉じる。
 func (u *Updater) fetchBinary(ctx context.Context, url, newPath, want string) error {
-	body, err := download(ctx, u.client, url, maxBinaryBytes)
+	body, err := download(ctx, u.client, url, u.userAgent(), maxBinaryBytes)
 	if err != nil {
 		return err
 	}

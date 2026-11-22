@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/agent/omp/transcript"
 )
 
 // Issue #120: 作業中の omp に貼った指示が、セッションの記録の中でどう扱われたか（実行・無視・確かめられない）を読む。
@@ -90,7 +91,7 @@ func TestReactionUnreadableRecord(t *testing.T) {
 func TestReactionReadsPastLargeToolResult(t *testing.T) {
 	g := newSessRig(t)
 	path := filepath.Join(g.dir, "2026-11-20T12-00-00-000Z_big.jsonl")
-	big := strings.Repeat("x", 3*sessionTailMin)
+	big := strings.Repeat("x", 3*transcript.TailMin)
 	g.write(path, textMsg(1, "user", "最初の依頼"), textMsg(11, "user", followUp), textMsg(12, "toolResult", big), textMsg(13, "assistant", "足します"))
 	g.open(4242, 5, path)
 	got := g.a.Reaction(4242, at(10), followUp)
