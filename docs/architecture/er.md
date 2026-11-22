@@ -6,11 +6,12 @@
 |------|------|--------|------|
 | 永続（書き込み） | メモと履歴 `notes.json` | `~/.local/share/swarm-console/notes.json` | 600 |
 | 永続（書き込み: CLI のみ） | トークン `tokens.toml` | `~/.config/swarm-console/tokens.toml` | 600（違えば起動拒否） |
+| 永続（書き込み: CLI のみ。ロック専用で中身なし） | `tokens.toml` のロックファイル `tokens.toml.lock`（`token add`・`token revoke`・`pair`・`setup` が書く前に `flock` する。`token list` は作らない・開かない） | `~/.config/swarm-console/tokens.toml.lock` | 600 |
 | 永続（人が編集。`setup` も書く） | 設定 `config.toml` | `~/.config/swarm-console/config.toml` | 644 以下（`setup` が新規に作るときは 600） |
 | 永続（人が編集） | 条件のひな形 `profiles.toml` | `~/.config/swarm-console/profiles.toml` | 644 以下 |
 | 永続（人が編集、任意） | レポートのテンプレート | `~/.config/swarm-console/templates/report.{ja,en}.md` | — |
 | 永続（書き込み。`[webhook] url` か `[webhook.sessions."<名>"] url` を書いたときだけ） | webhook の台帳 `webhook-state.json` | `~/.local/share/swarm-console/webhook-state.json` | 600 |
-| 外部が書く | 最終報告 `<位置>.md` | `/tmp/swarm-console/reports/` | エージェントが書く |
+| 外部が書く | 最終報告 `<位置>.md` | `/tmp/swarm-console/reports/` | エージェントが書く（置き場は自分の uid 所有の 0700・親フォルダも安全であることを起動時に検査） |
 | 永続（書き込み: 自己更新のみ） | 旧バイナリの退避・試運転のマーカー・戻した版の記録 | `~/bin/swarm-console/swarm-console.{old,update-pending,update-failed}`（と一時の `swarm-console.new`） | 600（`.old`・`.new` は 755） |
 | 実行時（メモリ） | スナップショット・ペイン状態 | プロセス内 | — |
 
@@ -260,3 +261,9 @@ erDiagram
 | 1.20 | 2026-11-19 | §9 webhook の台帳に `asked`（asking の回で `pane.asking` を作った印。ペイン ID → `event_id`。省略可なので版は 2 のまま）と、outbox に `pane.asking` の本文が入ることを追加。FR-STATE-9〜11 | Issue #111 |
 | 1.21 | 2026-11-20 | §9 webhook の台帳に `watch`（受理を確かめられなかった指示の見張り。ペイン ID → `enter`・`retained`・`pid`。省略可なので版は 2 のまま。`watch` を持たない古い台帳もそのまま読める。古いサーバーは `watch` を無視して書き直すときに落とす）を追加。FR-STATE-12 | Issue #118 |
 | 1.22 | 2026-11-21 | §2.2 PANE_NOTE に `model`・`thinking`（起動時に指定した値。指定があった項目だけ書く。`note_set` でも `pane_start` と同じ検査）を追加し、要約に出す項目に足した。既存のメモは移行しない（新しい項目は空のまま） | Issue #124 |
+| 1.23 | 2026-11-22 | §3 tokens.toml の書き込みを、`tokens.toml.lock`（権限 600・同じフォルダ）への `flock` でプロセス間も直列化する旨に改訂（これまでは書き込みの直列化がプロセス内だけで、`token add`・`token revoke`・`pair` を同時に走らせると後の書き込みが先の変更を消した）。ロックを取れなければ書かずにエラー。tokens.toml の項目・権限は変えない | Issue #127 |
+| 1.24 | 2026-11-22 | §5.1 の手書き専用のキーの列挙に `update_check`・`update_auto`・`usage_check` を足し、期間のキーは 9 つ全部（`update_check_interval`・`usage_interval` を含む）に直す（`internal/config/load.go` の全キーと合わせる） | Issue #132 |
+| 1.25 | 2026-11-22 | §3 tokens.toml（er-runtime.md）：`token list` はロックを取らない（`tokens.toml.lock` を開かず作らない）旨に改訂。ロックするのは書く `token add`・`token revoke`・`pair`・`setup` だけ。tokens.toml の項目・権限は変えない | Issue #138 |
+| 1.26 | 2026-11-22 | 永続ファイルの表に `tokens.toml.lock`（権限 600・中身なし・ロック専用。書く CLI だけが作る）を追加（これまで一覧に無く、設定フォルダの「書くファイル」から漏れていた） | Issue #141 |
+| 1.27 | 2026-11-22 | ファイル一覧の最終報告の権限欄、§5 `config.toml` の検証表に `report_dir` の検査の行、§7 の書き手に、`report_dir` の起動時検査（自分の uid 所有・フォルダ・リンクでない・親フォルダの持ち主／書き込み権／リンクも根へ向かって検査。違えば起動拒否、権限だけなら 0700 に直す）を追加（#128 で入った実装を #137 で親フォルダへ広げた。P-122） | Issue #128・#137・#140 |
+| 1.28 | 2026-11-22 | §5 `config.toml`（er-config.md）：`report_dir` は `/tmp/swarm-console` の下だけ（P-123）、親フォルダの検査はグループ書き込みを gid == uid のときだけ許す（gid != uid の 0775 は拒否。P-122）。NFR-SEC-20 を参照に足す | Issue #136・#143・#144 |

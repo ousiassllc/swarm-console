@@ -10,7 +10,7 @@
 |------|------|
 | 実行場所 | example-host（tmux サーバーと同じホスト、同じユーザー） |
 | バイナリ | `~/bin/swarm-console/swarm-console`（GitHub Releases から。最初の導入は `make install`。Releases への掲載は main の CI 成功ごとに自動。`serve` が自分で入れ替える。`update_auto = false` のときは手で入れ替え）。同じフォルダに `swarm-console.new`・`.old`・`.update-pending`・`.update-failed` が一時的にできる（ER §8） |
-| 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`templates/`（任意） |
+| 設定 | `~/.config/swarm-console/`：`config.toml`・`profiles.toml`・`tokens.toml`（600）・`tokens.toml.lock`（600・中身なし・ロック専用。`token add` などが書く前に作る。ER のファイル一覧）・`templates/`（任意） |
 | データ | `~/.local/share/swarm-console/notes.json`（600） |
 | 通知の台帳 | `~/.local/share/swarm-console/webhook-state.json`（600。`[webhook] url` を書いたときだけできる。FR-STATE-2・9〜11） |
 | 最終報告 | `/tmp/swarm-console/reports/<位置>.md`（エージェントが書く）、`archive/`（サーバーが移す） |
@@ -65,7 +65,7 @@ WantedBy=default.target
 | `file_get_roots` | `[]`（なし） | `file_get` の許可リストに足す根。ペインの `cwd` の下と `report_dir` の下は書かなくても常に取れる（ただし `cwd` が `/` やホームそのものなら、その `cwd` は除く。ここに書いた根はそのまま許可。P-91） |
 | `file_get_max_bytes` | `20971520`（20 MiB。1〜104857600） | `file_get` が返す 1 ファイルの上限（P-91） |
 | `disk_mounts` | `["/", "/mnt/nvme"]` | `host_status` が見るマウント |
-| `report_dir` | `/tmp/swarm-console/reports` | 最終報告の置き場 |
+| `report_dir` | `/tmp/swarm-console/reports` | 最終報告の置き場。`/tmp/swarm-console` の下のフォルダだけ（外は起動拒否。NFR-SEC-14・P-123）。起動時に作り、持ち主（自分の uid）・フォルダであること・`report_dir` 自身がシンボリックリンクでないことを検査し、親フォルダも根へ向かって検査する（違えば起動拒否。親の条件は [er-config.md](er-config.md) §5。NFR-SEC-20）。権限が 0700 でなければ 0700 に直す |
 | `update_check` | `true` | `serve` が GitHub Releases で新しい版を確認する（FR-UPD） |
 | `update_check_interval` | `6h`（1h 以上） | 確認の間隔 |
 | `usage_check` | `true` | `serve` が `omp usage --json` で使用状況を取る（FR-REP-12）。`omp` の確認（FR-REP-15）は `update_check` に従う |

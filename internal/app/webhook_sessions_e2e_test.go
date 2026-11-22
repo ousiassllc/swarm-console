@@ -23,7 +23,7 @@ func (g *rig) idleRoundAll(sessions ...string) {
 		g.untilPane(g.panes[s], agent.StateWorking)
 	}
 	for _, s := range sessions {
-		if err := os.WriteFile(filepath.Join(g.home, "reports", s+"_T1.md"), []byte("done "+s+"\n"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(g.reports, s+"_T1.md"), []byte("done "+s+"\n"), 0o600); err != nil {
 			g.t.Fatal(err)
 		}
 		g.tm.Run("send-keys", "-t", g.panes[s], "Escape")
@@ -101,7 +101,7 @@ func TestAppWebhookSessionsPostOnceToTheirOwnURLs(t *testing.T) {
 	if h0[0].EventID == h1[0].EventID {
 		t.Errorf("event_id が同じです: %s", h0[0].EventID)
 	}
-	if want := filepath.Join(g.home, "reports", "1_T1.md"); h1[0].ReportPath != want {
+	if want := filepath.Join(g.reports, "1_T1.md"); h1[0].ReportPath != want {
 		t.Errorf("セッション 1 の report_path = %s, want %s", h1[0].ReportPath, want)
 	}
 	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {

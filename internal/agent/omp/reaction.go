@@ -3,13 +3,13 @@ package omp
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"os"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/agent/omp/transcript"
 )
 
 var _ agent.ReactionProbe = (*adapter)(nil)
@@ -125,46 +125,29 @@ func normalizeForMatch(s string) string {
 }
 
 // recordsSince は path の末尾から、since 以降の本文を持つ行を記録の順に返す。
-// 末尾 sessionTailMin から読み始め、since より前の行に届かなければ倍にして sessionTailMax まで広げる（ツールの結果の 1 行が数十〜百 KB になるため）。
+// 末尾 sessionTailMin から読み始め、since より前の行に届かなければ倍にして transcript.TailMax まで広げる（ツールの結果の 1 行が数十〜百 KB になるため）。
 func recordsSince(path string, since time.Time) ([]seenRecord, bool) {
 	f, err := os.Open(path) //nolint:gosec // 名前は /proc/<pid>/fd が指す、~/.omp/agent/sessions の下のセッションの記録だけ
 	if err != nil {
 		return nil, false
 	}
 	defer func() { _ = f.Close() }()
-	st, err := f.Stat()
+	var recs []seenRecord
+	err = transcript.GrowTail(f, sessionTailMin, transcript.TailMax, func(buf []byte, atStart bool) bool {
+		var reachedOlder bool
+		recs, reachedOlder = recordsInTail(buf, atStart, since)
+		return reachedOlder
+	})
 	if err != nil {
 		return nil, false
 	}
-	for n := int64(sessionTailMin); ; n *= 2 {
-		n = min(n, sessionTailMax)
-		recs, reachedOlder, ok := recordsInTail(f, st.Size(), n, since)
-		if !ok {
-			return nil, false
-		}
-		if reachedOlder || n >= sessionTailMax || n >= st.Size() {
-			return recs, true
-		}
-	}
+	return recs, true
 }
 
-// recordsInTail は f の末尾 n バイトを読み、since 以降の行を返す。reachedOlder は since より前の行まで読めたか（これ以上遡らなくてよいか）。
-func recordsInTail(f *os.File, size, n int64, since time.Time) (recs []seenRecord, reachedOlder, ok bool) {
-	off := max(size-n, 0)
-	buf := make([]byte, size-off)
-	if _, err := f.ReadAt(buf, off); err != nil && err != io.EOF {
-		return nil, false, false
-	}
-	if off > 0 { // 読み始めで切れた最初の行は捨てる
-		i := bytes.IndexByte(buf, '\n')
-		if i < 0 {
-			return nil, false, true
-		}
-		buf = buf[i+1:]
-	}
-	if off == 0 {
-		reachedOlder = true // ファイルの先頭まで読んだ
-	}
+// recordsInTail は buf（末尾の窓の中の完全な行。atStart は窓がファイルの先頭に届いたこと）から since 以降の行を返す。
+// reachedOlder は since より前の行まで読めたか（これ以上遡らなくてよいか）。
+func recordsInTail(buf []byte, atStart bool, since time.Time) (recs []seenRecord, reachedOlder bool) {
+	reachedOlder = atStart // ファイルの先頭まで読んだ
 	for len(buf) > 0 {
 		line := buf
 		if i := bytes.IndexByte(buf, '\n'); i >= 0 {
@@ -189,7 +172,7 @@ func recordsInTail(f *os.File, size, n int64, since time.Time) (recs []seenRecor
 		}
 		recs = append(recs, toSeenRecord(r))
 	}
-	return recs, reachedOlder, true
+	return recs, reachedOlder
 }
 
 func hasRecordPrefix(line []byte) bool {

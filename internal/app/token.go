@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -32,6 +33,18 @@ func TokenAdd(configPath, name string, scope auth.Scope, sessions []string, stdo
 	}
 	_, _ = fmt.Fprintf(stderr, "トークン %q（%s）を発行しました。平文は今回しか表示されません。\n", name, scope)
 	return nil
+}
+
+// ParseSessions は --sessions（カンマ区切り）を分ける（前後の空白は除く）。空の要素は使い方の誤り。
+// 呼び出し側が使い方の誤りとして包む（token add は usageError、pair は flag の解析エラーとして ErrUsage）。
+func ParseSessions(s string) ([]string, error) {
+	parts := strings.Split(s, ",")
+	for i, p := range parts {
+		if parts[i] = strings.TrimSpace(p); parts[i] == "" {
+			return nil, errors.New("カンマ区切りのセッション名にしてください（例: 0,1）")
+		}
+	}
+	return parts, nil
 }
 
 // TokenRevoke はトークンを失効させる（`token revoke`。再起動なしで次のリクエストから効く。NFR-SEC-6）。

@@ -25,6 +25,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/reportvalues"
 	"github.com/ousiassllc/swarm-console/internal/safety"
 	"github.com/ousiassllc/swarm-console/internal/server"
+	"github.com/ousiassllc/swarm-console/internal/store"
 	"github.com/ousiassllc/swarm-console/internal/tmux"
 	"github.com/ousiassllc/swarm-console/internal/tools"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
@@ -111,8 +112,8 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 		return nil, fmt.Errorf("notes.json を開けません: %w", err)
 	}
 	// 最終報告の置き場（NFR-SEC-14 が許す書き込み先）。エージェントが書くので、先に作っておく。
-	if err := os.MkdirAll(cfg.ReportDir, 0o700); err != nil {
-		return nil, fmt.Errorf("最終報告のフォルダを作れません: %w", err)
+	if err := prepareReportDir(cfg.ReportDir, os.Getuid()); err != nil {
+		return nil, err
 	}
 	policy := safety.NewPolicy(cfg)
 	hostReader := host.NewReader(clk)
@@ -158,6 +159,19 @@ func New(configPath, version string, logger *slog.Logger, opts ...Option) (*App,
 		return nil, err
 	}
 	return &App{Cfg: cfg, Registry: reg, Server: srv, logger: logger, update: up, values: col, webhook: wh}, nil
+}
+
+// prepareReportDir は report_dir を作り、持ち主（uid）・権限（0700）・シンボリックリンクでないことと、
+// 親フォルダの安全（持ち主・書き込み権。store.CheckDir）を確かめる。
+// 既定が /tmp 下の予測できるパスなので、他人が先に作った・リンクにした・他人が差し替えられるフォルダは使わない（起動を拒否）。
+func prepareReportDir(dir string, uid int) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("最終報告のフォルダを作れません: %w", err)
+	}
+	if err := store.CheckDir(dir, 0o700, uid); err != nil {
+		return fmt.Errorf("最終報告のフォルダを使えません: %w", err)
+	}
+	return nil
 }
 
 // newAdapters は登録済みの全アダプタを、設定の上書きを適用して作る。正規表現が不正なら起動拒否。

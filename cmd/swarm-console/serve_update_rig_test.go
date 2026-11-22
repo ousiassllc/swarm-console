@@ -19,6 +19,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/clock"
+	"github.com/ousiassllc/swarm-console/internal/config/configtest"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck/updatechecktest"
 )
 
@@ -71,7 +72,7 @@ func newServeRigOnSocket(t *testing.T, current, extraConfig, socket string) *ser
 	g.exe = filepath.Join(g.binDir, "swarm-console")
 	g.writeFile(g.exe, oldBin, 0o755)
 	body := fmt.Sprintf("listen_addr = %q\ntmux_socket = %q\nreport_dir = %q\nallowed_roots = [%q]\nfile_roots = [%q]\n%s",
-		g.addr, socket, filepath.Join(home, "reports"), home, home, extraConfig)
+		g.addr, socket, configtest.ReportDir(t), home, home, extraConfig)
 	g.writeFile(g.cfg, body, 0o600)
 	_, out, _ := runCLI(t, "token", "add", "boss", "--scope", "ops", "--config", g.cfg)
 	g.token = strings.TrimSpace(out)
@@ -204,10 +205,16 @@ func (g *serveRig) untilUpdate(want string) map[string]any {
 // untilWaiting は確認の goroutine が clock の待ちに入るまで待つ（Advance の取りこぼしを防ぐ）。
 func (g *serveRig) untilWaiting(n int) {
 	g.t.Helper()
+	untilClockWaiting(g.t, g.clk, n)
+}
+
+// untilClockWaiting は clk の待ちが n 件になるまで待つ。上限つき（15 秒）。
+func untilClockWaiting(t *testing.T, clk *clock.Fake, n int) {
+	t.Helper()
 	deadline := time.Now().Add(15 * time.Second)
-	for g.clk.Waiters() < n {
+	for clk.Waiters() < n {
 		if time.Now().After(deadline) {
-			g.t.Fatalf("clock の待ちが %d になりません（%d）", n, g.clk.Waiters())
+			t.Fatalf("clock の待ちが %d になりません（%d）", n, clk.Waiters())
 		}
 		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
 	}

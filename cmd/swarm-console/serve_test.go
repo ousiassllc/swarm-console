@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/ousiassllc/swarm-console/internal/config/configtest"
 )
 
 type lockedBuffer struct {
@@ -83,7 +85,7 @@ func TestServeEndToEnd(t *testing.T) {
 	addr := freeAddr(t)
 	cfg := filepath.Join(dir, "config.toml")
 	body := fmt.Sprintf("listen_addr = %q\ntmux_socket = %q\nreport_dir = %q\nallowed_roots = [%q]\nfile_roots = [%q]\n",
-		addr, fmt.Sprintf("sc-serve-test-%d", os.Getpid()), filepath.Join(dir, "reports"), dir, dir)
+		addr, fmt.Sprintf("sc-serve-test-%d", os.Getpid()), configtest.ReportDir(t), dir, dir)
 	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}

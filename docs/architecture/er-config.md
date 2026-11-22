@@ -70,7 +70,8 @@ erDiagram
 | `default_lang` | 省略（`ja`）か `"ja"`・`"en"`。それ以外は起動拒否 |
 | `pane_names` | キーは `<セッション>:<ウィンドウ>.<ペイン番号>`（`^(.+):([0-9]+)\.([0-9]+)$`）の形で、セッションは `sessions` のどれか（FR-POS-5）。名前は `^[A-Za-z][A-Za-z0-9_-]*$`（英字始まりなので tmux のペイン ID の `%` 始まりとは重ならない）で、自動名（`T1`・`B2`・`R12` など）と衝突せず、名前どうしも大文字小文字を区別せず重ならない。どれかに反したら起動拒否 |
 | `allowed_roots` | 1 つ以上（空配列は起動拒否）。書かなければ既定を使う。`pane_start`・`dispatch` の `cwd` を許す根で、`dir_list`（`/ops` のみ。`cwd` に選べるディレクトリの一覧）が一覧する範囲と、`path` を省略したときに返す一覧そのものにも使う（`denied_paths` と合わせて `cwd` の判定と共通） |
-| `allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths`・`disk_mounts`・`report_dir` | 絶対パス（空文字・制御文字を含むもの・相対パスは不可）。`~` は `~` 単体（ホームそのもの）か `~/…` の形だけで、`~user` のような他ユーザー形式は不可。`~` は展開。`report_dir` は 1 つの文字列で、省略か空文字なら既定（`/tmp/swarm-console/reports`）。`allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths` の比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file`・`file_get` と `dir_list` の `path`） |
+| `allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths`・`disk_mounts`・`report_dir` | 絶対パス（空文字・制御文字を含むもの・相対パスは不可）。`~` は `~` 単体（ホームそのもの）か `~/…` の形だけで、`~user` のような他ユーザー形式は不可。`~` は展開。`report_dir` は 1 つの文字列で、省略か空文字なら既定（`/tmp/swarm-console/reports`）。`report_dir` は `/tmp/swarm-console` の**下**のフォルダだけ（NFR-SEC-14。`/tmp/swarm-console` 自身・外のパス・`..` やシンボリックリンクで外へ出るパスは `config.Load` が拒否。P-123）。`allowed_roots`・`file_roots`・`file_get_roots`・`denied_paths` の比較は `filepath.Clean` ＋ シンボリックリンク解決後。`denied_paths` は一致または配下を拒否（`cwd`・`file`・`file_get` と `dir_list` の `path`） |
+| `report_dir` の検査 | 起動時に `report_dir` を作ったあと、次を検査する（NFR-SEC-20）。違えば起動拒否（エラーに原因のフォルダのパスを出す）。権限だけが 0700 でなければ 0700 に直す（エージェントが `mkdir -p` しただけの 0755 などで起動不能にしないため）。<br>・`report_dir` 自身：フォルダであること・シンボリックリンクでないこと・持ち主が自分の uid であること。<br>・親フォルダ（`report_dir` の実パスから根へ向かって、root 所有のフォルダ（`/`・`/home`・`/tmp` など）に届くまで。それより上は見ない）：持ち主が自分の uid か root であること。グループ／その他が書ける権限があるときは、sticky ビット付き（`/tmp` 相当）のときだけ許す。ただしグループが自分の uid と同じ自分専用グループ（gid == uid。UPG）の親は、グループ書き込み（0775 など）を許す（その他書き込みは従来どおり拒否）。gid が uid と違う 0775 の親（共有グループかもしれない）は拒否し、エラーに直し方（`chmod g-w <フォルダ>`）を出す（P-122）。祖先にシンボリックリンクがあるのは拒否しない（macOS の `/tmp` → `/private/tmp` など）が、先に解決した実パスの祖先を検査する。<br>既定が `/tmp` 下の予測できるパスなので、他人が先に作った・リンクにした・あとから差し替えられるフォルダは使わない（P-122）。検査は起動時の 1 回だけ |
 | `denied_paths` の既定 | 既定は `["~/dotfiles"]`。`config.toml` に書いたら既定と**入れ替わる**（足されない。書き方の例は [環境構築](../environment/setup.md#ローカルで動かす)）。P-29 |
 | 期間 | `time.ParseDuration` 形式。`poll_interval` ≥ 1s、`snapshot_ttl` ≥ 100ms、`update_check_interval` ≥ 1h、`usage_interval` ≥ 1m。`stalled_after`・`layout_warning_ttl`・`accept_timeout`・`start_timeout`・`lock_timeout` は 0 より大きい期間（下限は決めていない） |
 | `title_prefix` | 改行・制御文字を含まない 1 行 |
@@ -104,7 +105,7 @@ erDiagram
 | 競合 | 読み込み時の内容のハッシュを持ち、書く直前にファイルを読み直して違えば中止する（`serve` や手書きとの競合。上書きしない） |
 | 書き込み | `store.WriteFileAtomic`（一時ファイル → fsync → rename）。既存ファイルの権限は変えない。新規は 600（「644 以下」を満たす） |
 | シンボリックリンク | `config.toml` がシンボリックリンクなら書かずに中止する（rename でリンクが普通のファイルに変わる、リンク先が設定の置き場の外・`~/dotfiles` のことがあるため。NFR-SEC-14）。手で編集してもらう |
-| 手書き専用のキー | 下記が手で書かれていても、`setup` は何も変えずに残す：`tmux_socket`・`default_lang`・期間のキー・`title_prefix`・`file_roots`・`file_get_roots`・`file_get_max_bytes`・`disk_mounts`・`report_dir`・`[webhook]`・`[pane_names]`・`[agents.<name>]` の `command`・`exit_command`・`auth_file` 以外のキー |
+| 手書き専用のキー | 下記が手で書かれていても、`setup` は何も変えずに残す：`tmux_socket`・`default_lang`・期間のキー全部（`poll_interval`・`snapshot_ttl`・`stalled_after`・`layout_warning_ttl`・`accept_timeout`・`start_timeout`・`lock_timeout`・`update_check_interval`・`usage_interval`）・`update_check`・`update_auto`・`usage_check`・`title_prefix`・`file_roots`・`file_get_roots`・`file_get_max_bytes`・`disk_mounts`・`report_dir`・`[webhook]`・`[pane_names]`・`[agents.<name>]` の `command`・`exit_command`・`auth_file` 以外のキー |
 
 ## 6. profiles.toml
 
@@ -163,7 +164,7 @@ rules = [
 | 項目 | 内容 |
 |------|------|
 | パス | `<report_dir>/<位置>.md`（`<位置>` はセッション内の位置ではなく全体の位置。既定セッションは `T1`、それ以外は `1:T1`。位置の `:`・`/`・`\` はすべて `_`。`/`・`\` はパスの外へ出さないため。例 `work:B2` → `work_B2.md`、`1:T1` → `1_T1.md`、`a/b:T1` → `a_b_T1.md`）。別のセッションの `T1` と衝突しない（FR-SESS-7・P-82） |
-| 書き手 | エージェント（指示文の最後の条件で書かせる）。サーバーは読むだけ（`report_read`） |
+| 書き手 | エージェント（指示文の最後の条件で書かせる）。サーバーは読むだけ（`report_read`）。置き場は起動時に検査する（`report_dir` が自分の uid 所有の 0700 のフォルダ（リンクでない）で、親フォルダも他人が差し替えられないこと。違えば起動拒否。§5・P-122） |
 | 移動 | `dispatch`・`pane_close` が古いファイルを `<report_dir>/archive/<位置>-<unix 秒>.md` へ移す（サーバーが書く唯一の操作）。アーカイブ名の `<位置>` も上のパスと同じ規則（`:`・`/`・`\` → `_`。例 `a_b_T1-1730000000.md`） |
 | 読み取り上限 | 20,000 字。超えたら先頭から切って `truncated: true` |
 | 存在判定 | 通常ファイルがあれば `report_exists: true`。空ファイルは存在扱い。シンボリックリンクは辿らず「無し」（P-30） |

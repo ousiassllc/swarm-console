@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/app"
@@ -78,7 +77,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return err
 	})
 	fs.Func("sessions", "許可セッション（カンマ区切り。省略は config.toml の sessions すべて）", func(s string) (err error) {
-		opts.Sessions, err = parseSessions(s)
+		opts.Sessions, err = app.ParseSessions(s)
 		return err
 	})
 	fs.BoolVar(&opts.QR, "qr", false, "同じ接続文字列の QR を標準エラーに出す（標準出力は接続文字列の 1 行のまま）")
@@ -105,17 +104,6 @@ func parseScope(s string) (auth.Scope, error) {
 		return scope, nil
 	}
 	return "", fmt.Errorf("report か ops にしてください（%q）", s)
-}
-
-// parseSessions は --sessions（カンマ区切り）を分ける。空の要素は使い方の誤り。
-func parseSessions(s string) ([]string, error) {
-	parts := strings.Split(s, ",")
-	for i, p := range parts {
-		if parts[i] = strings.TrimSpace(p); parts[i] == "" {
-			return nil, errors.New("カンマ区切りのセッション名にしてください（例: 0,1）")
-		}
-	}
-	return parts, nil
 }
 
 // issue は接続文字列を作れることを先に確かめてから token を発行し、接続文字列を stdout へ 1 行だけ出す。

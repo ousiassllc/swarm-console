@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"io"
-	"strings"
 
 	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/auth"
@@ -33,8 +32,8 @@ func runToken(args []string, stdout, stderr io.Writer) error {
 		}
 		var list []string
 		if flagSet(fs, "sessions") {
-			if list, err = parseSessions(*sessions); err != nil {
-				return err
+			if list, err = app.ParseSessions(*sessions); err != nil {
+				return usageError("--sessions: %v", err)
 			}
 		}
 		sc := auth.Scope(*scope)
@@ -69,15 +68,4 @@ func flagSet(fs *flag.FlagSet, name string) bool {
 	set := false
 	fs.Visit(func(f *flag.Flag) { set = set || f.Name == name })
 	return set
-}
-
-// parseSessions は --sessions（カンマ区切り）を分ける。空の要素は使い方の誤り。
-func parseSessions(s string) ([]string, error) {
-	parts := strings.Split(s, ",")
-	for i, p := range parts {
-		if parts[i] = strings.TrimSpace(p); parts[i] == "" {
-			return nil, usageError("--sessions はカンマ区切りのセッション名です（例: 0,1）")
-		}
-	}
-	return parts, nil
 }
