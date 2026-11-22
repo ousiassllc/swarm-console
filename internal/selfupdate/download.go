@@ -53,9 +53,9 @@ func allowedURL(req *http.Request) bool {
 	return u.Scheme == "https" && allowedHosts[u.Hostname()] && (u.Port() == "" || u.Port() == "443") && u.User == nil
 }
 
-// download は url を GET し、200 の本文を返す（Body は呼び出し側が閉じる）。
+// download は url を GET し、200 の本文を返す（Body は呼び出し側が閉じる）。User-Agent は userAgent（NFR-SEC-15）。
 // 404 は asset_missing、それ以外の失敗は download。ctx が終わっていれば ctx.Err() を返す（SIGTERM での中断）。
-func download(ctx context.Context, c *http.Client, url string, limit int64) (io.ReadCloser, error) {
+func download(ctx context.Context, c *http.Client, url, userAgent string, limit int64) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fail(ReasonDownload)
@@ -63,7 +63,7 @@ func download(ctx context.Context, c *http.Client, url string, limit int64) (io.
 	if !allowedURL(req) {
 		return nil, fail(ReasonDownload)
 	}
-	req.Header.Set("User-Agent", "swarm-console")
+	req.Header.Set("User-Agent", userAgent)
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, abortOr(ctx, ReasonDownload)

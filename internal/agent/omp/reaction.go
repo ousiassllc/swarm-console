@@ -125,7 +125,7 @@ func normalizeForMatch(s string) string {
 }
 
 // recordsSince は path の末尾から、since 以降の本文を持つ行を記録の順に返す。
-// 末尾 sessionTailMin から読み始め、since より前の行に届かなければ倍にして transcript.TailMax まで広げる（ツールの結果の 1 行が数十〜百 KB になるため）。
+// 末尾 transcript.TailMin から読み始め、since より前の行に届かなければ倍にして transcript.TailMax まで広げる（ツールの結果の 1 行が数十〜百 KB になるため）。
 func recordsSince(path string, since time.Time) ([]seenRecord, bool) {
 	f, err := os.Open(path) //nolint:gosec // 名前は /proc/<pid>/fd が指す、~/.omp/agent/sessions の下のセッションの記録だけ
 	if err != nil {
@@ -133,7 +133,7 @@ func recordsSince(path string, since time.Time) ([]seenRecord, bool) {
 	}
 	defer func() { _ = f.Close() }()
 	var recs []seenRecord
-	err = transcript.GrowTail(f, sessionTailMin, transcript.TailMax, func(buf []byte, atStart bool) bool {
+	err = transcript.GrowTail(f, transcript.TailMin, transcript.TailMax, func(buf []byte, atStart bool) bool {
 		var reachedOlder bool
 		recs, reachedOlder = recordsInTail(buf, atStart, since)
 		return reachedOlder

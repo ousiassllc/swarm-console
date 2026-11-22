@@ -12,12 +12,8 @@ import (
 
 var messagePrefix = []byte(`{"type":"message"`)
 
-const (
-	// transcriptTailMin は会話の記録（セッションの jsonl）の末尾から読む量の下限（上限は TailMax）。やり取りが見つからなければ上限まで倍に広げる。
-	transcriptTailMin = 256 << 10
-	// transcriptMessages は画面を組み立てるために読むやり取りの上限（新しいほうから）。
-	transcriptMessages = 40
-)
+// transcriptMessages は画面を組み立てるために読むやり取りの上限（新しいほうから）。
+const transcriptMessages = 40
 
 // Message は会話の記録のやり取り 1 つ（"type":"message" の行）。
 type Message struct {
@@ -63,7 +59,7 @@ func Read(path string) (msgs []Message, ok bool) {
 		return nil, false
 	}
 	defer func() { _ = f.Close() }()
-	err = GrowTail(f, transcriptTailMin, TailMax, func(buf []byte, _ bool) bool {
+	err = GrowTail(f, TailMin, TailMax, func(buf []byte, _ bool) bool {
 		msgs = parseMessages(buf)
 		return len(msgs) > 0
 	})

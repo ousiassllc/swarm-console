@@ -130,3 +130,13 @@ func TestGrowTail(t *testing.T) {
 		}
 	})
 }
+
+// 末尾読みの窓の下限・上限は、session.go・reaction.go・Read が同じ定数を使う（Issue #149）。値を変えるときはここも意識して変える。
+func TestTailBounds(t *testing.T) {
+	if TailMin != 256<<10 {
+		t.Errorf("TailMin = %d, want %d（256 KiB）", TailMin, 256<<10)
+	}
+	if TailMax != 2<<20 {
+		t.Errorf("TailMax = %d, want %d（2 MiB）", TailMax, 2<<20)
+	}
+}

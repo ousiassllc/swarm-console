@@ -15,9 +15,6 @@ import (
 
 var _ agent.TurnProbe = (*adapter)(nil)
 
-// セッションの記録の末尾から読む量の下限。上限は transcript.TailMax。1 行（ツールの結果）が数十〜百 KB になることがあるので、見つからなければ上限まで倍に広げる。
-const sessionTailMin = 64 << 10
-
 // sessionMessage は omp のセッションの記録（1 行 1 JSON）のうち、やり取り（"type":"message"）の読む項目。
 type sessionMessage struct {
 	Timestamp string `json:"timestamp"`
@@ -92,7 +89,7 @@ func isSessionFile(root, path string) bool {
 // lastTurnIn は path の末尾から後ろ向きに読み、since 以降の最後のやり取りで番が終わっているかを返す。
 // ユーザー（user）・ツールの結果（toolResult）・ツールの呼び出し（assistant で stopReason=toolUse）は番の途中。
 // モデルの最終の応答（stop）・中断（aborted）・失敗（error）は番の終わり。それ以外の役（developer・custom）は番の判定に使わない。
-// 末尾 sessionTailMin から読み始め、やり取りが見つからなければ倍にして transcript.TailMax まで広げる（ツールの結果の 1 行が数十 KB になるため）。
+// 末尾 transcript.TailMin から読み始め、やり取りが見つからなければ倍にして transcript.TailMax まで広げる（ツールの結果の 1 行が数十 KB になるため）。
 func lastTurnIn(path string, since time.Time) (last time.Time, inTurn, ok bool) {
 	f, err := os.Open(path) //nolint:gosec // 名前は /proc/<pid>/fd が指す、~/.omp/agent/sessions の下のセッションの記録だけ
 	if err != nil {
@@ -100,7 +97,7 @@ func lastTurnIn(path string, since time.Time) (last time.Time, inTurn, ok bool) 
 	}
 	defer func() { _ = f.Close() }()
 	var found bool
-	err = transcript.GrowTail(f, sessionTailMin, transcript.TailMax, func(buf []byte, _ bool) bool {
+	err = transcript.GrowTail(f, transcript.TailMin, transcript.TailMax, func(buf []byte, _ bool) bool {
 		last, inTurn, ok, found = lastTurnInTail(buf, since)
 		return found
 	})

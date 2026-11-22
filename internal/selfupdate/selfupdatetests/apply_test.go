@@ -79,6 +79,25 @@ func TestApplyRequestsOnlyDerivedURLs(t *testing.T) {
 	}
 }
 
+// ダウンロード（SHA256SUMS とバイナリ）の User-Agent は、確認（updatecheck）と同じ swarm-console/<動いている版>（NFR-SEC-15。Issue #148）。
+func TestApplyDownloadUserAgent(t *testing.T) {
+	g := newRig(t)
+	g.serve(okRelease(newVersion, newContent))
+	if err := g.apply(newVersion); err != nil {
+		t.Fatal(err)
+	}
+	reqs := g.origin.Requests()
+	if len(reqs) != 2 {
+		t.Fatalf("要求 = %+v", reqs)
+	}
+	want := "swarm-console/" + curVersion
+	for _, r := range reqs {
+		if got := r.Header.Values("User-Agent"); len(got) != 1 || got[0] != want {
+			t.Errorf("%s の User-Agent = %q, want %q", r.Path, got, want)
+		}
+	}
+}
+
 // 実体は許可ホスト（objects.githubusercontent.com・release-assets.githubusercontent.com）へのリダイレクトで取れる。
 func TestApplyFollowsAllowedRedirects(t *testing.T) {
 	for _, host := range []string{"objects.githubusercontent.com", "release-assets.githubusercontent.com"} {
