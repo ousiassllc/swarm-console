@@ -1,8 +1,10 @@
-package pane
+package reportfilestest
 
 import (
 	"testing"
 	"time"
+
+	"github.com/ousiassllc/swarm-console/internal/pane"
 )
 
 func TestFormatDuration(t *testing.T) {
@@ -15,7 +17,7 @@ func TestFormatDuration(t *testing.T) {
 		{time.Hour, "1h00m"}, {65 * time.Minute, "1h05m"}, {26*time.Hour + 3*time.Minute, "26h03m"},
 	}
 	for _, tc := range tests {
-		if got := FormatDuration(tc.d); got != tc.want {
+		if got := pane.FormatDuration(tc.d); got != tc.want {
 			t.Errorf("FormatDuration(%v) = %q, want %q", tc.d, got, tc.want)
 		}
 	}
