@@ -9,31 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ousiassllc/swarm-console/internal/config/configtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
-
-type lockedBuffer struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (l *lockedBuffer) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.Write(p)
-}
-
-func (l *lockedBuffer) String() string {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.String()
-}
 
 type bearerTransport struct{ token string }
 
@@ -95,7 +78,7 @@ func TestServeEndToEnd(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	var stderr lockedBuffer
+	var stderr testutil.LockedBuffer
 	done := make(chan int, 1)
 	go func() { done <- run(ctx, []string{"serve", "--config", cfg}, &bytes.Buffer{}, &stderr) }()
 	waitListening(ctx, t, addr, done)

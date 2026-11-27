@@ -19,6 +19,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/config/configtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 	"github.com/ousiassllc/swarm-console/test/fakeagent/fakeagenttest"
@@ -180,7 +181,7 @@ func (g *rig) state() agent.State {
 
 func (g *rig) until(want agent.State) {
 	g.t.Helper()
-	tmuxtest.Eventually(g.t, "ペインが "+string(want)+" になる", func() bool { return g.state() == want })
+	testutil.Eventually(g.t, "ペインが "+string(want)+" になる", func() bool { return g.state() == want })
 }
 
 // idleRound は serve が working と見たあと、最終報告を書いて Esc で idle にする。
@@ -230,7 +231,7 @@ func TestAppWebhookPostsOnceAndKeepsSecretsOutOfLogs(t *testing.T) {
 	g := startRig(t, webhookCfg(rcv.srv.URL+"/"+e2ePath))
 
 	g.idleRound()
-	tmuxtest.Eventually(t, "webhook が届く", func() bool { return len(rcv.payloads()) >= 1 })
+	testutil.Eventually(t, "webhook が届く", func() bool { return len(rcv.payloads()) >= 1 })
 	g.settle()
 
 	hits := rcv.payloads()
@@ -243,7 +244,7 @@ func TestAppWebhookPostsOnceAndKeepsSecretsOutOfLogs(t *testing.T) {
 		t.Errorf("payload = %+v", pl)
 	}
 	// 送り終えた項目は outbox から消え、回は done になる（再起動しても二重に送らない）。
-	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+	testutil.Eventually(t, "台帳の送信が済む", func() bool {
 		l := g.ledger()
 		return strings.Contains(l, `"phase":"done"`) && strings.Contains(l, `"outbox":{}`)
 	})
@@ -258,7 +259,7 @@ func TestAppWebhookFailureIsLoggedWithoutSecrets(t *testing.T) {
 	g := startRig(t, webhookCfg(down.srv.URL+"/"+e2ePath))
 
 	g.idleRound()
-	tmuxtest.Eventually(t, "送れなかったことがログに出る", func() bool { return strings.Contains(g.logs.String(), `"msg":"webhook を送れませんでした"`) })
+	testutil.Eventually(t, "送れなかったことがログに出る", func() bool { return strings.Contains(g.logs.String(), `"msg":"webhook を送れませんでした"`) })
 	g.stop()
 	logs := g.logs.String()
 	assertNoSecrets(t, "ログ", logs)
@@ -266,7 +267,7 @@ func TestAppWebhookFailureIsLoggedWithoutSecrets(t *testing.T) {
 		t.Errorf("回数がログにありません:\n%s", logs)
 	}
 	// 諦めた項目は outbox から消え、回は done のまま残る（二度と送らない）。
-	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+	testutil.Eventually(t, "台帳の送信が済む", func() bool {
 		l := g.ledger()
 		return strings.Contains(l, `"phase":"done"`) && strings.Contains(l, `"outbox":{}`)
 	})

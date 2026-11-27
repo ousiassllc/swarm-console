@@ -5,11 +5,11 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
 	"github.com/ousiassllc/swarm-console/internal/reportvalues"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // fakeValues は serve が持つ最後の結果。set で差し替える。
@@ -81,15 +81,9 @@ func TestSnapshotWithoutValuesIsPendingAndDoesNotSampleCPU(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { defer close(done); _ = r.Run(ctx) }()
-	deadline := time.Now().Add(5 * time.Second)
-	for env.Host.Samples() == 0 {
-		if time.Now().After(deadline) {
-			t.Fatal("サンプラーが CPU をサンプルしない")
-		}
-		time.Sleep(time.Millisecond) // 上限つきのポーリング
-	}
+	testutil.Eventually(t, "サンプラーが CPU をサンプルする", func() bool { return env.Host.Samples() > 0 })
 	cancel()
-	<-done
+	testutil.Recv(t, done, "サンプラーの Run が止まる")
 }
 
 // ホストの状態を読めなかったとき、ディスクは設定したマウントを残して「取得できず」にする（空の一覧にしない。FR-REP-11）。

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/test/fakeagent/fakeagenttest"
 )
 
@@ -82,7 +83,7 @@ func (h *H) PosOf(id string) string {
 func (h *H) WaitState(id, state string) Pane {
 	h.T.Helper()
 	var got Pane
-	h.Eventually(fmt.Sprintf("%s が %s になる", id, state), func() bool {
+	testutil.Eventually(h.T, fmt.Sprintf("%s が %s になる", id, state), func() bool {
 		p, ok := h.Pane(id)
 		got = p
 		return ok && p.State == state
@@ -152,7 +153,7 @@ func (h *H) Events(id string) []fakeagenttest.Event {
 func (h *H) WaitEvents(id, what string, pred func([]fakeagenttest.Event) bool) []fakeagenttest.Event {
 	h.T.Helper()
 	var ev []fakeagenttest.Event
-	h.Eventually(what, func() bool {
+	testutil.Eventually(h.T, what, func() bool {
 		var err error
 		if ev, err = fakeagenttest.ReadLog(h.LogPath(id)); err != nil {
 			return false // 書き込み途中。次の確認で読み直す

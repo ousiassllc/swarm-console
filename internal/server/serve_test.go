@@ -10,6 +10,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/server"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 type fakeAuth struct{}
@@ -73,7 +74,7 @@ func TestGracefulShutdownWaitsForInFlight(t *testing.T) {
 	b := blocking{started: make(chan struct{}), release: make(chan struct{})}
 	_, addr, cancel, done := startServer(t, time.Minute, b)
 	got := asyncPost(addr)
-	<-b.started
+	testutil.Recv(t, b.started, "リクエストがハンドラに届く")
 	cancel()
 	select {
 	case err := <-done:
@@ -81,10 +82,10 @@ func TestGracefulShutdownWaitsForInFlight(t *testing.T) {
 	default:
 	}
 	close(b.release)
-	if r := <-got; r.err != nil || r.body != "done" {
+	if r := testutil.Recv(t, got, "進行中のリクエストの応答"); r.err != nil || r.body != "done" {
 		t.Errorf("進行中のリクエストが完了しませんでした: %+v", r)
 	}
-	if err := <-done; err != nil {
+	if err := testutil.Recv(t, done, "Serve が戻る"); err != nil {
 		t.Errorf("Serve = %v, want nil", err)
 	}
 	// 止まったあとは新しい接続を受け付けない。
@@ -98,13 +99,13 @@ func TestShutdownTimeout(t *testing.T) {
 	b := blocking{started: make(chan struct{}), release: make(chan struct{})}
 	_, addr, cancel, done := startServer(t, 20*time.Millisecond, b)
 	got := asyncPost(addr)
-	<-b.started
+	testutil.Recv(t, b.started, "リクエストがハンドラに届く")
 	cancel()
-	if err := <-done; err == nil {
+	if err := testutil.Recv(t, done, "Serve が戻る"); err == nil {
 		t.Error("上限を超えたのにエラーになりません")
 	}
 	close(b.release)
-	<-got
+	testutil.Recv(t, got, "リクエストの応答")
 }
 
 // tailscale が上がっていない等で待ち受けに失敗したら、エラーで戻る（systemd が再起動する）。
@@ -149,13 +150,9 @@ func TestReadyClosesWhenListening(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- srv.ServeListener(ctx, ln) }()
-	select {
-	case <-srv.Ready():
-	case <-time.After(10 * time.Second):
-		t.Fatal("待ち受けを始めても Ready が閉じません")
-	}
+	testutil.Recv(t, srv.Ready(), "Ready が閉じる")
 	cancel()
-	<-done
+	_ = testutil.Recv(t, done, "ServeListener が戻る")
 }
 
 // 待ち受けに失敗（bind 失敗）したら Ready は閉じない（試運転を確定させない）。

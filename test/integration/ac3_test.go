@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/test/integration/harness"
 )
 
@@ -39,7 +40,7 @@ func TestAC3LayoutChangeKeepsNotes(t *testing.T) {
 	// 増やす: a の左に新しいペイン b を足す → b が T1、a が T2 にずれる。
 	b := strings.TrimSpace(h.TM.Run("split-window", "-hb", "-d", "-P", "-F", "#{pane_id}", "-t", a))
 	var msg string
-	h.Eventually("ペインを増やした警告", func() bool {
+	testutil.Eventually(h.T, "ペインを増やした警告", func() bool {
 		var ok bool
 		msg, ok = layoutWarning(h.StatusOf("main"))
 		return ok
@@ -73,7 +74,7 @@ func TestAC3LayoutChangeKeepsNotes(t *testing.T) {
 
 	// 減らす: b を消す → a が T1 に戻る。メモはそのまま。
 	h.TM.Run("kill-pane", "-t", b)
-	h.Eventually("ペインを減らした警告", func() bool {
+	testutil.Eventually(h.T, "ペインを減らした警告", func() bool {
 		m, ok := layoutWarning(h.StatusOf("main"))
 		msg = m
 		return ok && strings.Contains(m, "削除されました")
@@ -88,7 +89,7 @@ func TestAC3LayoutChangeKeepsNotes(t *testing.T) {
 	// 別のセッションを足す → extra の位置は extra の中で T1 から（接頭辞なし）。layout_changed は extra の応答だけに、
 	// extra の位置で出る。main の応答には出ない（main 自身の警告は main の位置だけ）。
 	extra := h.TM.NewSession("extra", 250, 85, "")
-	h.Eventually("別セッションの警告", func() bool {
+	testutil.Eventually(h.T, "別セッションの警告", func() bool {
 		m, ok := layoutWarning(h.StatusOf("extra"))
 		msg = m
 		return ok && strings.Contains(m, "T1 が追加されました")
@@ -119,6 +120,6 @@ func TestAC3LayoutWarningExpires(t *testing.T) {
 	h.Status() // 基準
 	h.NewWindow("")
 	// 変更を見つけたスナップショットを作るのはこの呼び出し自身なので、最初に出た応答に警告が載る。
-	h.Eventually("警告が出る", func() bool { _, warned := layoutWarning(h.Status()); return warned })
-	h.Eventually("警告が消える", func() bool { _, warned := layoutWarning(h.Status()); return !warned })
+	testutil.Eventually(h.T, "警告が出る", func() bool { _, warned := layoutWarning(h.Status()); return warned })
+	testutil.Eventually(h.T, "警告が消える", func() bool { _, warned := layoutWarning(h.Status()); return !warned })
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // 通信の途中（POST を受け手が受けて、応答する前）で終了しても、その 1 回は送った回数に数えない。
@@ -35,9 +36,9 @@ func TestShutdownMidPostDoesNotBurnAttempt(t *testing.T) {
 		h.observe(agent.StateIdle)
 		close(done)
 	}()
-	<-entered
+	testutil.Recv(t, entered, "POST が受け手に届く")
 	cancel() // 通信の途中で終了
-	<-done
+	testutil.Recv(t, done, "observe が戻る")
 	closeRelease()
 	if strings.Contains(h.logs.String(), `"level":"ERROR"`) {
 		t.Fatalf("中断を失敗として記録しています:\n%s", h.logs.String())

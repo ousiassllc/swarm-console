@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // LANG・LC_ALL・LC_CTYPE が無い環境でも、日本語のペインタイトル・cwd が "_" に化けない（Issue #9）。
@@ -26,7 +26,7 @@ func TestListPanesJapaneseWithoutLocale(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := strings.TrimSpace(srv.Run("new-session", "-d", "-P", "-F", "#{pane_id}", "-s", "ja", "-x", "80", "-y", "24", "-c", dir, sleepCmd))
-	tmuxtest.Eventually(t, id+" の子プロセスが sleep になる", func() bool {
+	testutil.Eventually(t, id+" の子プロセスが sleep になる", func() bool {
 		return strings.TrimSpace(srv.Run("display-message", "-p", "-t", id, "#{pane_current_command}")) == "sleep"
 	})
 

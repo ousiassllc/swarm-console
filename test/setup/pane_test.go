@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 )
 
@@ -118,7 +119,7 @@ func (p *pane) finalText(s string) string {
 	p.tb.Helper()
 	p.exitCode()
 	var screen string
-	tmuxtest.Eventually(p.tb, "終了後の出力: "+s, func() bool {
+	testutil.Eventually(p.tb, "終了後の出力: "+s, func() bool {
 		screen = p.tm.Run("capture-pane", "-p", "-S", "-", "-t", p.id)
 		return strings.Contains(screen, s)
 	})
@@ -154,7 +155,7 @@ func (p *pane) keys(names ...string) {
 func (p *pane) exitCode() int {
 	p.tb.Helper()
 	var code int
-	tmuxtest.Eventually(p.tb, "setup の終了", func() bool {
+	testutil.Eventually(p.tb, "setup の終了", func() bool {
 		b, err := os.ReadFile(p.exitFile)
 		if err != nil || !strings.HasSuffix(string(b), "\n") {
 			return false
