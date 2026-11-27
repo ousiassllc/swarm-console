@@ -19,7 +19,7 @@ func (a *adapter) Clean(lines []string) []string {
 	for i, l := range ls {
 		switch {
 		case i == input, a.P.Border.MatchString(l), a.P.StatusLine.MatchString(l),
-			a.P.Working.MatchString(l), todoRE.MatchString(l):
+			a.P.Working.MatchString(l), a.isSpinnerLine(l), todoRE.MatchString(l):
 		default:
 			if inner, ok := agent.BoxInner(l); ok {
 				l = strings.TrimRightFunc(strings.TrimPrefix(inner, " "), unicode.IsSpace)
@@ -35,7 +35,7 @@ func (a *adapter) StableText(lines []string) string {
 	ls := agent.TrimScreen(lines)
 	body := make([]string, 0, len(ls))
 	for _, l := range ls {
-		if a.P.Working.MatchString(l) || a.P.StatusLine.MatchString(l) {
+		if a.P.Working.MatchString(l) || a.isSpinnerLine(l) || a.P.StatusLine.MatchString(l) {
 			continue
 		}
 		body = append(body, l)

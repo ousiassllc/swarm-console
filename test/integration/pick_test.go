@@ -6,7 +6,7 @@ import (
 	"github.com/ousiassllc/swarm-console/test/integration/harness"
 )
 
-// ask_pick: omp は ↑/↓、claude・codex は数字。キー列が実 tmux 経由で擬似エージェントに届き、選ばれた番号が --log に残る。
+// ask_pick: カーソルが読めるので、omp・claude・codex とも ↑/↓ と Enter。キー列が実 tmux 経由で擬似エージェントに届き、選ばれた番号が --log に残る。
 func TestAskPick(t *testing.T) {
 	h := harness.Start(t, harness.Options{})
 	tests := []struct {
@@ -17,7 +17,7 @@ func TestAskPick(t *testing.T) {
 		{"omp", "ask", 1, "Apple"},
 		{"omp", "ask", 2, "Banana"},
 		{"omp", "ask", 3, "Cherry"},
-		{"claude", "ask", 2, "Yes, and don’t ask again for touch commands in /tmp/sc-probe/wd"},
+		{"claude", "ask", 2, "Yes, and always allow access to /tmp/sc-probe/wd from this project"},
 		{"claude", "ask-custom", 3, "Cherry"},
 	}
 	for _, tt := range tests {

@@ -24,12 +24,20 @@ func approval(cursor int) *agent.Card {
 	}
 }
 
-func TestScreens(t *testing.T) {
-	patch := &agent.Card{
+// 実画面（codex-cli 0.172.0、120×40。Issue #155）。ファイル編集の承認カード。
+func patch(cursor int) *agent.Card {
+	return &agent.Card{
 		Question: "Would you like to make the following edits?",
-		Options:  []agent.Option{{N: 1, Label: "Yes, proceed"}, {N: 2, Label: "No, and tell Codex what to do differently"}},
-		Cursor:   1,
+		Options: []agent.Option{
+			{N: 1, Label: "Yes, proceed"},
+			{N: 2, Label: "Yes, and don't ask again for these files"},
+			{N: 3, Label: "No, and tell Codex what to do differently"},
+		},
+		Cursor: cursor,
 	}
+}
+
+func TestScreens(t *testing.T) {
 	ask := func(f string, c *agent.Card) agenttest.Row {
 		return agenttest.Row{File: f, State: agent.StateAsking, Activity: c.Question, Card: c}
 	}
@@ -46,7 +54,14 @@ func TestScreens(t *testing.T) {
 		ask("approval-1.txt", approval(1)),
 		ask("approval-2.txt", approval(2)),
 		ask("approval-3.txt", approval(3)),
-		ask("patch-1.txt", patch),
+		ask("patch-1.txt", patch(1)),
+		ask("patch-2.txt", patch(2)),
+		ask("patch-3.txt", patch(3)),
+		// codex-cli 0.172.0 の実画面（0.167.0 のサンプルと同じ規則で読めること）。スピナーは `•` と `◦` が交互に出る。
+		{File: "idle-v0172.txt", State: agent.StateIdle},
+		{File: "idle-after-patch-v0172.txt", State: agent.StateIdle},
+		{File: "working-v0172.txt", State: agent.StateWorking, Activity: "Working", Elapsed: "0s"},
+		{File: "working-v0172-b.txt", State: agent.StateWorking, Activity: "Working", Elapsed: "1s"},
 	})
 }
 
@@ -58,7 +73,8 @@ func TestKeys(t *testing.T) {
 		{File: "approval-3.txt", N: 2, Want: []string{"Up"}},
 		{File: "approval-2.txt", N: 3, Want: []string{"Down"}},
 		{File: "approval-1.txt", N: 4, ErrCode: apperr.OptionOutOfRange},
-		{File: "patch-1.txt", N: 3, ErrCode: apperr.OptionOutOfRange},
+		{File: "patch-1.txt", N: 4, ErrCode: apperr.OptionOutOfRange},
+		{File: "patch-1.txt", N: 3, Want: []string{"Down", "Down"}},
 		{File: "approval-1.txt", N: -1, ErrCode: apperr.OptionOutOfRange},
 		{File: "approval-2.txt", N: 0, ErrCode: apperr.CustomNotAllowed},
 	})
@@ -74,7 +90,7 @@ func TestDigitFallbackWhenCursorUnknown(t *testing.T) {
 
 func TestStableText(t *testing.T) {
 	agenttest.CheckStable(t, agenttest.New(t, "codex"), "codex",
-		[][2]string{{"working.txt", "working-b.txt"}},
+		[][2]string{{"working.txt", "working-b.txt"}, {"working-v0172.txt", "working-v0172-b.txt"}},
 		[][2]string{{"idle.txt", "working.txt"}, {"approval-1.txt", "patch-1.txt"}, {"approval-1.txt", "approval-2.txt"}})
 }
 

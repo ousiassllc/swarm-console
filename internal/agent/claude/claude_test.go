@@ -38,8 +38,9 @@ func permission(cursor int) *agent.Card {
 		Question: "Do you want to proceed?",
 		Options: []agent.Option{
 			{N: 1, Label: "Yes"},
-			{N: 2, Label: "Yes, and don’t ask again for touch commands in /tmp/sc-probe/wd"},
-			{N: 3, Label: "No, and tell Claude what to do differently (esc)"},
+			{N: 2, Label: "Yes, and always allow access to /tmp/sc-probe/wd from this project"},
+			{N: 3, Label: "Yes, and switch to auto mode · auto mode handles these prompts for you"},
+			{N: 4, Label: "No"},
 		},
 		Cursor: cursor,
 	}
@@ -47,10 +48,8 @@ func permission(cursor int) *agent.Card {
 
 func question(cursor int) *agent.Card {
 	return &agent.Card{
-		Question: "Pick a fruit?",
-		Options: []agent.Option{
-			{N: 1, Label: "Apple"}, {N: 2, Label: "Banana", Recommended: true}, {N: 3, Label: "Cherry"},
-		},
+		Question:     "Pick a fruit?",
+		Options:      []agent.Option{{N: 1, Label: "Apple"}, {N: 2, Label: "Banana"}, {N: 3, Label: "Cherry"}},
 		Cursor:       cursor,
 		AllowsCustom: true,
 	}
@@ -65,8 +64,10 @@ func TestScreens(t *testing.T) {
 		{File: "idle-bypass.txt", State: agent.StateIdle},
 		// 「Cogitated for 0s · done」は終わった印で、作業中ではない。
 		{File: "idle-after-error.txt", State: agent.StateIdle},
-		{File: "working.txt", State: agent.StateWorking, Activity: "Cogitating…", Elapsed: "12s"},
-		{File: "working-b.txt", State: agent.StateWorking, Activity: "Pondering…", Elapsed: "13s"},
+		{File: "working.txt", State: agent.StateWorking, Activity: "Zesting…", Elapsed: "0s"},
+		{File: "working-b.txt", State: agent.StateWorking, Activity: "Zesting…", Elapsed: "1s"},
+		// 本文を出している間はスピナー行が出ない。作業中の印はステータス行の `esc to interrupt` だけ。
+		{File: "working-stream.txt", State: agent.StateWorking},
 		ask("trust-no.txt", trust(1)),
 		ask("trust-yes.txt", trust(2)),
 		ask("model-menu-2.txt", model(2)),
@@ -74,6 +75,7 @@ func TestScreens(t *testing.T) {
 		ask("permission-1.txt", permission(1)),
 		ask("permission-2.txt", permission(2)),
 		ask("permission-3.txt", permission(3)),
+		ask("permission-4.txt", permission(4)),
 		ask("question-1.txt", question(1)),
 		ask("question-2.txt", question(2)),
 		ask("question-3.txt", question(3)),
@@ -89,11 +91,12 @@ func TestKeys(t *testing.T) {
 		{File: "trust-yes.txt", N: 2, Want: []string{}},
 		{File: "model-menu-2.txt", N: 5, Want: []string{"Down", "Down", "Down"}},
 		{File: "permission-3.txt", N: 1, Want: []string{"Up", "Up"}},
+		{File: "permission-1.txt", N: 4, Want: []string{"Down", "Down", "Down"}},
 		{File: "question-2.txt", N: 0, Want: []string{"Down", "Down"}},
 		{File: "question-4.txt", N: 0, Want: []string{}},
 		{File: "question-4.txt", N: 1, Want: []string{"Up", "Up", "Up"}},
 		{File: "permission-1.txt", N: 0, ErrCode: apperr.CustomNotAllowed},
-		{File: "permission-1.txt", N: 4, ErrCode: apperr.OptionOutOfRange},
+		{File: "permission-1.txt", N: 5, ErrCode: apperr.OptionOutOfRange},
 		{File: "trust-no.txt", N: 0, ErrCode: apperr.CustomNotAllowed},
 	})
 }
@@ -121,7 +124,7 @@ func TestClean(t *testing.T) {
 	a := agenttest.New(t, "claude")
 	drop := []string{"────", "▔▔▔", "esc to interrupt", "shortcuts", "bypass permissions", "Try \""}
 	agenttest.CheckCleanHas(t, a, "claude", "idle.txt", []string{"Claude Code v2.1.316"}, drop)
-	agenttest.CheckCleanHas(t, a, "claude", "working.txt", []string{"Use the Bash tool"}, append(drop, "Cogitating"))
+	agenttest.CheckCleanHas(t, a, "claude", "working.txt", []string{"List the integers"}, append(drop, "Zesting"))
 	agenttest.CheckCleanHas(t, a, "claude", "permission-1.txt", []string{"Bash command", "Do you want to proceed?", "1. Yes"}, drop)
 }
 

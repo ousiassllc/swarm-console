@@ -8,14 +8,14 @@ import (
 // Name はアダプタ名。
 const Name = "claude"
 
-// defaults は組み込みの既定値。idle・信頼確認・/model メニューは実画面、作業中・許可確認・質問は推定（docs/architecture/agent-patterns.md）。
+// defaults は組み込みの既定値。すべて実画面（v2.1.332。docs/architecture/agent-patterns.md）で確かめた。
 var defaults = agent.Spec{
 	Name:  Name,
 	Start: "claude",
 	Exit:  "/exit",
 	Src: agent.PatternSrc{
 		ProcessMatch: []string{`(^|/)claude$`},
-		// 作業中は「(12s · ↓ 340 tokens · esc to interrupt)」付きのスピナー行が出る。
+		// 作業中は、ステータス行（`⏸ manual mode on · esc to interrupt · ← 1 agent`）に出る。スピナー行（`* Zesting… (1s · ↓ 36 tokens · …)`）は考え中だけで、本文を出している間は無い。
 		Working: `esc to interrupt`,
 		// 選択カードの案内文（ここに当たるものがカーソル記号つきの選択肢と一緒にあれば質問）。
 		Ask:          `(?i)\b(?:Esc to cancel|Enter to (?:select|confirm|set)|Do you want to|Would you like to)\b`,
