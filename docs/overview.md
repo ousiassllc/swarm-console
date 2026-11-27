@@ -168,3 +168,4 @@ tmux セッションを分けて（例：セッション `0` は agent-a、`1` �
 | 1.10 | 2026-11-18 | 表示名を「Nefos Hub」（カタカナは「ネフォス」）に変更（Kozue → Nefos）。リポジトリ名・バイナリ名・パス・設定キー・ツール名・API パスは変えない | Issue #107 |
 | 1.11 | 2026-11-22 | ドキュメントマップ：API 仕様（ペイン）の担当ツールに `dir_list` を足す（endpoints-pane.md 冒頭の担当ツールと合わせる）。`session` 引数は `file_get`・`dir_list` が取らないので、その旨に直す | Issue #130 |
 | 1.12 | 2026-11-28 | ドキュメントマップ：`endpoints-pane.md` が 300 行を超えたので `send_text` を `docs/api/endpoints-send.md` に分け、API 仕様（ペイン）の担当ツールから `send_text` を外して新しい行を足す。内容の変更なし | Issue #160・#161 |
+| 1.13 | 2026-11-28 | スコープ：webhook 通知（`pane.idle_report`・`pane.asking`、セッションごとの送り先 `[webhook.sessions."<名>"]`。既定はオフ）の行を足した変更（5247c9f・aa06e4a・68f1a42）を改訂履歴に補う。本文は変えない | Issue #93・#95・#111（記録の補完は Issue #163） |
