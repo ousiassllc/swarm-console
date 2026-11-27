@@ -24,6 +24,8 @@
 
 `text`・`file`・`task` は 1 つだけ指定する（2 つ以上、またはどれも無ければ `invalid_args`）。
 
+`file` は検証のあとに開き、開いた fd の実パスを Linux の `/proc/self/fd` から読んで、検証したパスと比べる（検証のあとに途中のディレクトリがリンクへ差し替えられても、外のファイルを読まない）。実パスが違えば `forbidden_path`（`details.field` は `file`・`reason` は `outside_roots`。何も送らない）。`/proc/self/fd` を読めないときは、確かめられないので `internal` で断る（Linux 以外や `/proc` の無いコンテナでは `file` を使えない。`text`・`task` は影響を受けない）。
+
 ```json
 {"ok": true, "state": "working", "accepted": true, "chars": 412, "sent": "## 追加の指示（…）\n…", "reaction": "acted", "reaction_basis": "user_message"}
 ```
