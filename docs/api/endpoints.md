@@ -5,7 +5,8 @@ Nefos Hub（リポジトリ・バイナリ名は swarm-console）は MCP（Strea
 この文書は 1 ファイル 300 行の上限（Linterly）のため、次のファイルに分けている。節番号は分割前の通し番号のまま、どのファイルでも同じ番号で引く。
 
 - [API 仕様（本書）](endpoints.md)：§1 接続、§2 認証、§3 エラー、§4 共通の決まり
-- [API 仕様：ペインを見る・操作する](endpoints-pane.md)：§5 ツール：§5.1 見る、§5.2 操作する
+- [API 仕様：ペインを見る・操作する](endpoints-pane.md)：§5 ツール：§5.1 見る、§5.2 操作する（`send_text` 以外）
+- [API 仕様：ペインへテキストを送る](endpoints-send.md)：§5 ツール：§5.2 操作する のうち `send_text`
 - [API 仕様：サーバーの状態・メモ](endpoints-state.md)：§5 ツール：§5.3 サーバーの状態、§5.4 メモ
 - [API 仕様：レポート・指示・prompts・上限](endpoints-report.md)：§5 ツール：§5.5 `report`、§5.6 `dispatch`、§6 prompts と resources、§7 上限一覧
 
@@ -72,6 +73,7 @@ sequenceDiagram
 | 未知のパス | 404 | `not_found` |
 | `POST` 以外 | 405 | `method_not_allowed` |
 | 本文が 256 KiB 超 | 413 | `payload_too_large` |
+| 本文を読み取れない（上限超過以外の読み取りの失敗） | 400 | `invalid_args` |
 
 トークンの比較は定数時間。「トークンがない」「違う」「失効済み」で応答を変えない。トークンは `swarm-console token add <名前> --scope ops|report`（サーバー上）で発行し、`token revoke <名前>` で無効にする。
 
@@ -85,7 +87,7 @@ swarm-viewer 向けの接続文字列は `swarm-console pair [--scope report|ops
 
 ### 3.1 形式
 
-HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗（`isError: true`）は同じ本文形式を使う。メッセージは日本語の固定文で、どのクライアントからでも同じになる。
+HTTP レベルの失敗（400・401・403・404・405・413）と、ツールの失敗（`isError: true`）は同じ本文形式を使う。メッセージは日本語の固定文で、どのクライアントからでも同じになる。
 
 ```json
 {"error": {"code": "invalid_state", "message": "このペインは作業中のため操作できません", "details": {"pane": "B4", "state": "working"}}}
@@ -103,7 +105,7 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | `forbidden_scope` | 窓口とスコープが合わない | 全部（HTTP 403） |
 | `not_found` | HTTP では未知のパス（404）。ツールでは `file_get`・`dir_list` の `path` が許可リストの中にあるのに存在しない | HTTP 404・`file_get`・`dir_list` |
 | `unknown_tool` | その窓口に出ていないツール | `/report` で操作系 |
-| `invalid_args` | 引数の型・必須・未知のキー・値の範囲 | 全部 |
+| `invalid_args` | 引数の型・必須・未知のキー・値の範囲。HTTP では本文を読み取れないとき（400。上限超過は 413 `payload_too_large`） | 全部・HTTP 400 |
 | `pane_not_found` | `pane` を、決めたセッションの位置・ID に解決できない（別の許可外セッションのペインに当たるときは `session_forbidden`、許可内の別セッションなら `invalid_args`） | `pane` を取る全部 |
 | `session_required` | `session` を省略できない（許可セッションがちょうど 1 つではない）。メッセージ `session を指定してください`。`details` は `{"allowed_count": <許可セッション数>}`（許可の一覧は出さない） | `session` を取る全部（§4.1） |
 | `session_forbidden` | 許可されていないセッション（指定した `session`、または解決したペインのセッション）。メッセージ `このセッションは許可されていません`。`details` は `{"session": "<名前>"}` | `session` を取る全部（§4.1） |
@@ -203,3 +205,5 @@ HTTP レベルの失敗（401・403・404・405・413）と、ツールの失敗
 | 1.28 | 2026-11-20 | endpoints-pane.md `send_text`：`task`・`profile`・`extra_rules`（`dispatch` と同じ形に組み立てて貼る。見出しだけ「## 追加の指示（…）」。全文を `sent` に返す）と、作業中（`working`・`stalled`）のペインへ送ったときの `reaction`（`acted`・`ignored`・`unverified`）・`reaction_basis` を追加（会話の記録で判断。待つ上限は `start_timeout`〜`accept_timeout` の長いほう。`acted` なら `ok`・`accepted` は `true`）。`text`・`file` の使い方と `idle` のペインへの動きは変えない（decisions.md P-109） | Issue #120 |
 | 1.29 | 2026-11-20 | endpoints-pane.md：`panes_status` の `title` は、omp が tern の画面（TSP）を出しているペインでは `""`。`pane_tail`・`ask_card` はその画面でも会話の記録から読む。`ask_pick` は tern の画面では質問 1 つの番号選択だけ（質問が 2 つ以上は `cursor_mismatch`、`text` は `custom_not_allowed`） | Issue #121 |
 | 1.30 | 2026-11-21 | endpoints-pane.md `pane_start`・endpoints-report.md `dispatch`：任意の `model`・`thinking` を追加（起動コマンドの末尾に ` --model=<値>`、omp は ` --thinking=<値>`、claude は ` --effort=<値>`（`low`〜`max` だけ）。codex の `thinking` は不可）。応答に `model`・`thinking`・`start_command`、メモ・`panes_status`・`report`（json・markdown の列）に `model`・`thinking`。エラーコード `invalid_model`・`invalid_thinking`・`thinking_not_applicable`・`start_options_not_applicable` を追加（decisions.md P-115〜P-121）。endpoints-state.md `note_set`：`model`・`thinking` の検査。指定しない呼び出しの応答・golden は変えない | Issue #124 |
+| 1.31 | 2026-11-28 | endpoints-pane.md が 300 行を超えたので、§5.2 の `send_text`（`task`・`reaction` の節を含む）を endpoints-send.md に分け、冒頭のファイル一覧を更新（endpoints-pane.md には移動先へのリンクを置く。節番号・`file_get`・`dir_list`・`pane_start` の節は動かさない）。内容の変更なし | Issue #160・#161 |
+| 1.32 | 2026-11-28 | §2・§3.1・§3.2：本文を読み取れないとき（256 KiB 超以外の読み取りの失敗）は HTTP 400・`invalid_args` を返すと明記（HTTP レベルの失敗は 400・401・403・404・405・413。実装 `internal/server/handler.go` に仕様書を合わせた。実装は変えない） | Issue #165 |
