@@ -1,4 +1,4 @@
-package config
+package webhooktests
 
 import (
 	"bytes"
@@ -8,11 +8,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ousiassllc/swarm-console/internal/config"
 )
 
-func parseWebhook(t *testing.T, body string) (*Config, error) {
+const minimal = `listen_addr = "100.64.1.2:48120"` + "\n"
+
+func parseWebhook(t *testing.T, body string) (*config.Config, error) {
 	t.Helper()
-	return ParseBytes([]byte(minimal+body), "config.toml")
+	return config.ParseBytes([]byte(minimal+body), "config.toml")
 }
 
 // 書かなければオフ（既定）。URL が空なら Enabled は false。
@@ -107,7 +111,7 @@ func TestSecretNeverPrintsValue(t *testing.T) {
 			t.Errorf("%q が出力に出ています", secret)
 		}
 	}
-	if !strings.Contains(text, redacted) {
+	if !strings.Contains(text, "[redacted]") {
 		t.Error("伏せ字が出ていません")
 	}
 }
