@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -33,23 +32,6 @@ const (
 
 // この束のテストは、実 tmux の専用ソケットに擬似エージェント（omp working）を立て、実際の App（serve と同じ配線）を動かす。
 // 送信先は httptest の実 HTTP サーバー。
-
-type syncBuf struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (s *syncBuf) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.Write(p)
-}
-
-func (s *syncBuf) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.String()
-}
 
 // receiver は webhook の受け手。署名・トークンのヘッダーが付いた POST の本文だけを溜める。
 type receiver struct {
@@ -93,7 +75,7 @@ type rig struct {
 	panes   map[string]string // セッション名 → ペイン ID
 	home    string
 	reports string // report_dir（/tmp/swarm-console の下）
-	logs    *syncBuf
+	logs    *testutil.LockedBuffer
 	cancel  context.CancelFunc
 	done    chan error
 }
@@ -147,7 +129,7 @@ func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...str
 	}
 	pane := panes[sessions[0]]
 
-	logs := &syncBuf{}
+	logs := &testutil.LockedBuffer{}
 	a, err := New(cfgPath, "test", slog.New(slog.NewJSONHandler(logs, nil)))
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +143,7 @@ func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...str
 
 func (g *rig) stop() {
 	g.cancel()
-	<-g.done
+	_ = testutil.Recv(g.t, g.done, "Run が cancel で止まる")
 	g.done <- nil // 2 回目の stop（Cleanup）でも戻れるように
 }
 

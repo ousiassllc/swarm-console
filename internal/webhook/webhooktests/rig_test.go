@@ -1,7 +1,6 @@
 package webhooktests
 
 import (
-	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -22,6 +21,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 )
 
@@ -88,7 +88,7 @@ type rig struct {
 	n      *webhook.Notifier
 	dir    string
 	state  string
-	logs   *bytes.Buffer
+	logs   *testutil.LockedBuffer
 	at     time.Time
 	cancel context.CancelFunc
 	wait   func()
@@ -100,7 +100,7 @@ var noSleep = func(ctx context.Context, _ time.Duration) error { return ctx.Err(
 // bareRig は Notifier をまだ作らない rig（台帳を先に置きたいテスト用）。
 func bareRig(t *testing.T) *rig {
 	t.Helper()
-	g := &rig{t: t, dir: t.TempDir(), logs: &bytes.Buffer{}, at: time.Date(2026, 11, 16, 9, 0, 0, 0, time.UTC)}
+	g := &rig{t: t, dir: t.TempDir(), logs: &testutil.LockedBuffer{}, at: time.Date(2026, 11, 16, 9, 0, 0, 0, time.UTC)}
 	g.state = filepath.Join(g.dir, "webhook-state.json")
 	return g
 }
@@ -117,7 +117,7 @@ func (g *rig) build(cfg config.Webhook) {
 	g.t.Helper()
 	n, err := webhook.New(webhook.Options{
 		Config: cfg, ReportDir: filepath.Join(g.dir, "reports"), StatePath: g.state, Version: "test",
-		Logger: slog.New(slog.NewJSONHandler(&lockedWriter{b: g.logs}, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		Logger: slog.New(slog.NewJSONHandler(g.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Sleep:  noSleep, Unaccepted: g.un,
 	})
 	if err != nil {
@@ -129,22 +129,7 @@ func (g *rig) build(cfg config.Webhook) {
 	g.t.Cleanup(func() { cancel(); g.wait() })
 }
 
-var logMu sync.Mutex
-
-// lockedWriter は、複数の送信の goroutine が同じバッファに書いても競合しないようにする。
-type lockedWriter struct{ b *bytes.Buffer }
-
-func (w *lockedWriter) Write(p []byte) (int, error) {
-	logMu.Lock()
-	defer logMu.Unlock()
-	return w.b.Write(p)
-}
-
-func (g *rig) logText() string {
-	logMu.Lock()
-	defer logMu.Unlock()
-	return g.logs.String()
-}
+func (g *rig) logText() string { return g.logs.String() }
 
 func (g *rig) ledger() string {
 	b, err := os.ReadFile(g.state)
