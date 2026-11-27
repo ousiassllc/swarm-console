@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 func TestRefreshWhileInFlightTakesAnotherSnapshot(t *testing.T) {
@@ -19,16 +20,16 @@ func TestRefreshWhileInFlightTakesAnotherSnapshot(t *testing.T) {
 
 	first := make(chan *Snapshot, 1)
 	go func() { s, _ := r.Refresh(context.Background()); first <- s }()
-	panetest.WaitUntil(t, "1 回目が進行中", func() bool { return env.Tmux.ListCalls() == 1 })
+	testutil.Eventually(t, "1 回目が進行中", func() bool { return env.Tmux.ListCalls() == 1 })
 	second := make(chan *Snapshot, 1)
 	go func() { s, _ := r.Refresh(context.Background()); second <- s }()
-	panetest.WaitUntil(t, "2 回目が待機列に入る", func() bool {
+	testutil.Eventually(t, "2 回目が待機列に入る", func() bool {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		return r.queued != nil
 	})
 	close(gate)
-	s1, s2 := <-first, <-second
+	s1, s2 := testutil.Recv(t, first, "1 回目の Refresh が戻る"), testutil.Recv(t, second, "2 回目の Refresh が戻る")
 	if s1 == s2 || env.Tmux.ListCalls() != 2 {
 		t.Fatalf("進行中の取得は呼び出し前に始まったもの。もう 1 回取る: same=%v calls=%d", s1 == s2, env.Tmux.ListCalls())
 	}

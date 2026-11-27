@@ -12,13 +12,14 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/clock"
 	"github.com/ousiassllc/swarm-console/internal/selfupdate"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 type probeRig struct {
 	t    *testing.T
 	dir  string
 	clk  *clock.Fake
-	logs *lockedBuf
+	logs *testutil.LockedBuffer
 }
 
 func newProbe(t *testing.T) *probeRig {
@@ -27,7 +28,7 @@ func newProbe(t *testing.T) *probeRig {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	p := &probeRig{t: t, dir: dir, clk: clock.NewFake(t0), logs: &lockedBuf{}}
+	p := &probeRig{t: t, dir: dir, clk: clock.NewFake(t0), logs: &testutil.LockedBuffer{}}
 	p.write(binName, "NEW-BINARY")
 	return p
 }
@@ -210,19 +211,14 @@ func TestTrialConfirmsAfter60Seconds(t *testing.T) {
 		t.Fatal("待ち受け前に確定しようとしました")
 	}
 	close(ready)
-	eventually(t, "60 秒の待ちに入る", func() bool { return p.clk.Waiters() == 1 })
+	testutil.Eventually(t, "60 秒の待ちに入る", func() bool { return p.clk.Waiters() == 1 })
 	p.clk.Advance(59 * time.Second)
 	if !p.exists(pendingName) {
 		t.Fatal("59 秒で確定しました")
 	}
 	p.clk.Advance(time.Second)
-	select {
-	case ok := <-done:
-		if !ok {
-			t.Fatal("確定しませんでした")
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("確定しません")
+	if !testutil.Recv(t, done, "試運転が確定する") {
+		t.Fatal("確定しませんでした")
 	}
 	if p.exists(pendingName) {
 		t.Error("マーカーが残っています")
@@ -244,7 +240,7 @@ func TestTrialKeepsMarkerWhenStoppedEarly(t *testing.T) {
 		go func() { done <- d.Trial.Run(ctx, p.clk, ready) }()
 		if stopAfterReady {
 			close(ready)
-			eventually(t, "60 秒の待ちに入る", func() bool { return p.clk.Waiters() == 1 })
+			testutil.Eventually(t, "60 秒の待ちに入る", func() bool { return p.clk.Waiters() == 1 })
 			p.clk.Advance(30 * time.Second)
 		}
 		cancel()

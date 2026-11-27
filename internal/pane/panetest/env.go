@@ -1,8 +1,6 @@
 package panetest
 
 import (
-	"runtime"
-	"testing"
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
@@ -54,16 +52,4 @@ func (e *Env) Pane(id string, pid, top, left int, screen string, argv []string) 
 		e.Host.SetTree(pid, []string{"bash"})
 	}
 	return p
-}
-
-// WaitUntil は cond が true になるまで、上限（5 秒）つきで条件を確かめる。固定の待ちではなく、他の goroutine の進行を待つためのもの。
-func WaitUntil(t testing.TB, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("条件を満たしませんでした: %s", what)
-		}
-		runtime.Gosched()
-	}
 }

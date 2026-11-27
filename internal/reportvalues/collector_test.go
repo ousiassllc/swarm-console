@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/clock"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // scriptRunner は呼ばれたコマンドを記録し、コマンドごとに用意した結果を返す偽の Runner。
@@ -41,18 +42,6 @@ func (r *scriptRunner) count() int {
 	return len(r.calls)
 }
 
-// eventually は上限つきの条件待ち（固定の待ち時間に頼らない）。
-func eventually(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("条件が満たされない: %s", what)
-		}
-		time.Sleep(time.Millisecond)
-	}
-}
-
 type rig struct {
 	c      *Collector
 	run    *scriptRunner
@@ -77,7 +66,7 @@ func startRig(t *testing.T, usage, omp bool) *rig {
 // advance は待機（After）が入るのを待ってから時計を進める。
 func (r *rig) advance(t *testing.T, waiters int, d time.Duration) {
 	t.Helper()
-	eventually(t, "待機に入る", func() bool { return r.clk.Waiters() >= waiters })
+	testutil.Eventually(t, "待機に入る", func() bool { return r.clk.Waiters() >= waiters })
 	r.clk.Advance(d)
 }
 
@@ -107,14 +96,14 @@ func TestCollectorUsageStale(t *testing.T) {
 		t.Fatal("10 秒より前に実行した")
 	}
 	r.clk.Advance(time.Second)
-	eventually(t, "最初の取得", func() bool { return r.c.Usage().Status == StatusOK })
+	testutil.Eventually(t, "最初の取得", func() bool { return r.c.Usage().Status == StatusOK })
 	first := r.c.Usage()
 	if len(first.Claude) != 5 || first.Reason != "" {
 		t.Fatalf("first = %+v", first)
 	}
 	r.run.set(CmdUsage, result{reason: ReasonTimeout})
 	r.advance(t, 1, 5*time.Minute)
-	eventually(t, "stale", func() bool { return r.c.Usage().Status == StatusStale })
+	testutil.Eventually(t, "stale", func() bool { return r.c.Usage().Status == StatusStale })
 	if u := r.c.Usage(); u.Reason != ReasonTimeout || len(u.Claude) != 5 || !u.FetchedAt.Equal(first.FetchedAt) {
 		t.Fatalf("stale は前の成功分を残す: %+v", u)
 	}
@@ -125,10 +114,10 @@ func TestCollectorUsageStale(t *testing.T) {
 	// 壊れた JSON は parse。成功すれば ok に戻る。
 	r.run.set(CmdUsage, result{out: []byte("{")})
 	r.advance(t, 1, 5*time.Minute)
-	eventually(t, "parse", func() bool { return r.c.Usage().Reason == ReasonParse })
+	testutil.Eventually(t, "parse", func() bool { return r.c.Usage().Reason == ReasonParse })
 	r.run.set(CmdUsage, result{out: readFixture(t, "usage_ok.json")})
 	r.advance(t, 1, 5*time.Minute)
-	eventually(t, "回復", func() bool { return r.c.Usage().Status == StatusOK })
+	testutil.Eventually(t, "回復", func() bool { return r.c.Usage().Status == StatusOK })
 	for _, c := range r.run.calls {
 		if c != CmdUsage {
 			t.Fatalf("使用状況の収集が別のコマンドを実行した: %v", c)
@@ -141,7 +130,7 @@ func TestCollectorUsageUnavailable(t *testing.T) {
 	r := startRig(t, true, false)
 	r.run.set(CmdUsage, result{reason: ReasonNotFound})
 	r.advance(t, 1, UsageFirstDelay)
-	eventually(t, "unavailable", func() bool { return r.c.Usage().Status == StatusUnavailable })
+	testutil.Eventually(t, "unavailable", func() bool { return r.c.Usage().Status == StatusUnavailable })
 	if u := r.c.Usage(); u.Reason != ReasonNotFound || u.Claude == nil || len(u.Claude) != 0 || !u.FetchedAt.IsZero() {
 		t.Fatalf("%+v", u)
 	}
@@ -156,13 +145,13 @@ func TestCollectorOmp(t *testing.T) {
 		t.Fatal("90 秒より前に実行した")
 	}
 	r.clk.Advance(time.Second)
-	eventually(t, "update_available", func() bool { return r.c.Omp().Status == OmpUpdateAvailable })
+	testutil.Eventually(t, "update_available", func() bool { return r.c.Omp().Status == OmpUpdateAvailable })
 	if o := r.c.Omp(); o.Current != "18.14.2" || o.Latest != "18.15.0" || o.Reason != "" || !o.CheckedAt.Equal(r.clk.Now()) {
 		t.Fatalf("%+v", o)
 	}
 	r.run.set(CmdUpdateCheck, result{out: []byte("garbage")})
 	r.advance(t, 1, 24*time.Hour)
-	eventually(t, "unknown", func() bool { return r.c.Omp().Status == OmpUnknown })
+	testutil.Eventually(t, "unknown", func() bool { return r.c.Omp().Status == OmpUnknown })
 	if o := r.c.Omp(); o.Reason != ReasonParse || o.Current != "" || o.Latest != "" {
 		t.Fatalf("取れないとき: %+v", o)
 	}

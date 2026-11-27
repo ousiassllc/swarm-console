@@ -9,6 +9,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 type lockFixture struct {
@@ -43,7 +44,7 @@ func TestLockSamePaneWaitsForRelease(t *testing.T) {
 		}
 		got <- u
 	}()
-	panetest.WaitUntil(t, "2 つ目が lock_timeout の待ちに入る", func() bool { return f.env.Clock.Waiters() == 1 })
+	testutil.Eventually(t, "2 つ目が lock_timeout の待ちに入る", func() bool { return f.env.Clock.Waiters() == 1 })
 	select {
 	case <-got:
 		t.Fatal("先頭が解放される前に進んだ")
@@ -51,7 +52,7 @@ func TestLockSamePaneWaitsForRelease(t *testing.T) {
 	}
 	unlock1()
 	unlock1() // 二重解放しても壊れない
-	u2 := <-got
+	u2 := testutil.Recv(t, got, "2 つ目のロックが取れる")
 	u2()
 	// 全員が解放したらエントリは残らない。
 	f.op.locks.mu.Lock()
@@ -68,7 +69,7 @@ func TestLockBusyTimeout(t *testing.T) {
 	defer unlock()
 	errc := make(chan error, 1)
 	go func() { _, err := f.op.Lock(ctx, "%0"); errc <- err }()
-	panetest.WaitUntil(t, "待機に入る", func() bool { return f.env.Clock.Waiters() == 1 })
+	testutil.Eventually(t, "待機に入る", func() bool { return f.env.Clock.Waiters() == 1 })
 	f.env.Clock.Advance(59 * time.Second)
 	select {
 	case err := <-errc:
@@ -76,7 +77,7 @@ func TestLockBusyTimeout(t *testing.T) {
 	default:
 	}
 	f.env.Clock.Advance(time.Second)
-	err := <-errc
+	err := testutil.Recv(t, errc, "lock_timeout で Lock が戻る")
 	var ae *apperr.Error
 	if !errors.As(err, &ae) || ae.Code != apperr.BusyTimeout {
 		t.Fatalf("err = %v", err)
@@ -115,9 +116,9 @@ func TestLockContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errc := make(chan error, 1)
 	go func() { _, err := f.op.Lock(ctx, "%0"); errc <- err }()
-	panetest.WaitUntil(t, "待機に入る", func() bool { return f.env.Clock.Waiters() == 1 })
+	testutil.Eventually(t, "待機に入る", func() bool { return f.env.Clock.Waiters() == 1 })
 	cancel()
-	if err := <-errc; !errors.Is(err, context.Canceled) {
+	if err := testutil.Recv(t, errc, "キャンセルで Lock が戻る"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -141,7 +142,7 @@ func TestLockManyContendersNoDeadlock(t *testing.T) {
 		}()
 	}
 	for range n {
-		<-done
+		testutil.Recv(t, done, "競合した Lock が終わる")
 	}
 	if counter != n {
 		t.Fatalf("counter = %d", counter)

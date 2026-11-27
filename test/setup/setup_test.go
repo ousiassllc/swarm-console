@@ -15,6 +15,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/ousiassllc/swarm-console/internal/config/configtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 )
 
@@ -130,7 +131,7 @@ func serveStarts(t *testing.T, home, cfg, addr string) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
-	tmuxtest.Eventually(t, "serve の待ち受け", func() bool {
+	testutil.Eventually(t, "serve の待ち受け", func() bool {
 		select {
 		case err := <-done:
 			t.Fatalf("serve が先に終了しました: %v\n%s", err, stderr.String())

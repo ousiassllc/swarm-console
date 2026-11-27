@@ -1,7 +1,6 @@
 package selfupdatetests
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,13 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/clock"
 	"github.com/ousiassllc/swarm-console/internal/selfupdate"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck/updatechecktest"
 )
 
@@ -28,23 +27,6 @@ const (
 )
 
 var t0 = time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
-
-type lockedBuf struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (l *lockedBuf) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.Write(p)
-}
-
-func (l *lockedBuf) String() string {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.String()
-}
 
 func sha(s string) string {
 	sum := sha256.Sum256([]byte(s))
@@ -83,7 +65,7 @@ type rig struct {
 	dir    string
 	exe    string
 	origin *updatechecktest.Origin
-	logs   *lockedBuf
+	logs   *testutil.LockedBuffer
 	clk    *clock.Fake
 	exits  atomic.Int32
 	u      *selfupdate.Updater
@@ -101,7 +83,7 @@ func newRig(t *testing.T, mutate ...func(*Options)) *rig {
 	if err := os.WriteFile(exe, []byte(oldContent), 0o755); err != nil { //nolint:gosec // 実行ファイルを模した一時ファイル
 		t.Fatal(err)
 	}
-	g := &rig{t: t, home: home, dir: dir, exe: exe, origin: updatechecktest.New(t), logs: &lockedBuf{}, clk: clock.NewFake(t0)}
+	g := &rig{t: t, home: home, dir: dir, exe: exe, origin: updatechecktest.New(t), logs: &testutil.LockedBuffer{}, clk: clock.NewFake(t0)}
 	g.opts = Options{
 		Home: home, Current: curVersion, GOOS: "linux", GOARCH: "amd64",
 		Executable: func() (string, error) { return exe, nil },
@@ -192,16 +174,5 @@ func (g *rig) wantApply(state State, reason Reason) {
 	g.t.Helper()
 	if a := g.u.Status(); a.State != state || a.Reason != reason {
 		g.t.Fatalf("apply = %+v, want %s/%s", a, state, reason)
-	}
-}
-
-func eventually(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("条件が成り立ちません: %s", what)
-		}
-		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
 	}
 }

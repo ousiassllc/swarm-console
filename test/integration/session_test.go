@@ -13,6 +13,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/test/integration/harness"
 )
 
@@ -49,7 +50,7 @@ func twoSessionHarness(t *testing.T) (h *harness.H, mainIDs, secondIDs []string)
 // waitShells は c から見て、ids のペインがすべて shell になるまで待つ（トークンごとに見えるセッションが違う）。
 func waitShells(t *testing.T, c *harness.Client, args map[string]any, ids []string) {
 	t.Helper()
-	harness.Eventually(t, c.Name+" から ids が shell になる", func() bool {
+	testutil.Eventually(t, c.Name+" から ids が shell になる", func() bool {
 		shells := map[string]bool{}
 		for _, p := range c.Map("panes_status", args)["panes"].([]any) {
 			m := p.(map[string]any)

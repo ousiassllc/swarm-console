@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 )
 
@@ -50,7 +51,7 @@ func TestListPanesCoordinatesAndFields(t *testing.T) {
 	// 前面コマンドが tmux 自身・作業フォルダがサーバーの cwd に見える。子は chdir のあとで exec するので、
 	// 前面コマンドが sleep になれば作業フォルダも -c の値になっている。起動しきるまで上限付きで待つ。
 	for _, id := range []string{id1, id2} {
-		tmuxtest.Eventually(t, id+" の子プロセスが sleep になる", func() bool {
+		testutil.Eventually(t, id+" の子プロセスが sleep になる", func() bool {
 			return strings.TrimSpace(srv.Run("display-message", "-p", "-t", id, "#{pane_current_command}")) == "sleep"
 		})
 	}
@@ -95,7 +96,7 @@ func TestListPanesDead(t *testing.T) {
 	srv.NewSession("keep", 80, 24, sleepCmd)
 	srv.Run("set-option", "-g", "remain-on-exit", "on")
 	srv.NewSession("dead", 80, 24, "exit 0")
-	tmuxtest.Eventually(t, "ペインが dead になる", func() bool {
+	testutil.Eventually(t, "ペインが dead になる", func() bool {
 		ps, err := c.ListPanes(context.Background(), []string{"dead"})
 		return err == nil && len(ps) == 1 && ps[0].Dead
 	})

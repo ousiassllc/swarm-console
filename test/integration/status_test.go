@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/test/integration/harness"
 )
 
@@ -30,7 +31,7 @@ func TestHostStatus(t *testing.T) {
 		len(got.Disk) != 1 || got.Disk[0].Mount != "/" {
 		t.Errorf("host_status = %+v", got)
 	}
-	h.Eventually("agents の数が反映される", func() bool {
+	testutil.Eventually(h.T, "agents の数が反映される", func() bool {
 		h.Report().Must("host_status", nil).Decode(t, &got)
 		return got.Agents["omp"] == 1 && got.Agents["codex"] == 1 && got.Agents["claude"] == 0
 	})

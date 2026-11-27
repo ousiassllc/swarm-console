@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/apperr"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/test/integration/harness"
 )
 
@@ -56,11 +57,11 @@ func TestPaneStartModelThinking(t *testing.T) {
 				t.Errorf("note = %v", note)
 			}
 			// panes_status・report は snapshot_ttl までの写しなので、メモが載るまで待つ。
-			h.Eventually("panes_status に model・thinking が載る", func() bool {
+			testutil.Eventually(h.T, "panes_status に model・thinking が載る", func() bool {
 				p, _ := h.Pane(id)
 				return p.Model == c.model && p.Thinking == c.thinking
 			})
-			h.Eventually("report の表に model が載る", func() bool {
+			testutil.Eventually(h.T, "report の表に model が載る", func() bool {
 				md := h.Report().Call("report", map[string]any{"lang": "en"}).Text
 				return strings.Contains(md, "| Model | Thinking |") && strings.Contains(md, c.model)
 			})

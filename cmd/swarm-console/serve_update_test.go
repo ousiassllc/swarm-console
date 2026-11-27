@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // update_available ＋ update_auto（既定 true）：確認 → ダウンロード → 検証 → 入れ替え → 正常終了（終了コード 0）まで自動（FR-UPD-7・11・16）。
@@ -129,7 +131,7 @@ func TestServeSurvivesHangingGitHubAndStopsPromptly(t *testing.T) {
 	g.start()
 	g.untilWaiting(1)
 	g.clk.Advance(time.Minute)
-	<-started
+	testutil.Recv(t, started, "GitHub への確認が来る")
 	if u := g.hostUpdate(); u["status"] != "pending" {
 		t.Errorf("確認中の update = %v", u)
 	}
@@ -224,14 +226,8 @@ func TestServeSigtermDuringDownloadCleansUp(t *testing.T) {
 	g.start()
 	g.untilWaiting(1)
 	g.clk.Advance(time.Minute)
-	<-partial
-	deadline := time.Now().Add(15 * time.Second)
-	for !g.exists("swarm-console.new") {
-		if time.Now().After(deadline) {
-			t.Fatal(".new が作られません")
-		}
-		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
-	}
+	testutil.Recv(t, partial, "ダウンロードの書きかけが届く")
+	testutil.Eventually(t, ".new が作られる", func() bool { return g.exists("swarm-console.new") })
 	begin := time.Now()
 	g.cancel()
 	if code := g.wait(); code != 0 {

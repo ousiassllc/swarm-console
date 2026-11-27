@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/test/integration/harness"
 )
 
@@ -17,7 +18,7 @@ func TestAskPickCursorMismatchSendsNoEnter(t *testing.T) {
 	if code := res.Code(t); code != "cursor_mismatch" {
 		t.Fatalf("ask_pick = %s", res.Text)
 	}
-	h.Eventually("↑ のキーが届く", func() bool {
+	testutil.Eventually(h.T, "↑ のキーが届く", func() bool {
 		b, _ := os.ReadFile(keys) //nolint:gosec // harness が作った記録ファイル
 		return strings.Contains(string(b), "\x1b")
 	})

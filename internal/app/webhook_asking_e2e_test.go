@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
-	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 )
 
@@ -17,7 +17,7 @@ func TestAppWebhookPostsAskingOnce(t *testing.T) {
 	g := startRigAs(t, webhookCfg(rcv.srv.URL+"/"+e2ePath), "ask")
 
 	g.until(agent.StateAsking)
-	tmuxtest.Eventually(t, "webhook が届く", func() bool { return len(rcv.payloads()) >= 1 })
+	testutil.Eventually(t, "webhook が届く", func() bool { return len(rcv.payloads()) >= 1 })
 	g.settle()
 
 	hits := rcv.payloads()
@@ -27,7 +27,7 @@ func TestAppWebhookPostsAskingOnce(t *testing.T) {
 	if pl := hits[0]; pl.Event != webhook.EventPaneAsking || pl.Session != "0" || pl.Pane != "T1" || pl.PaneID != g.pane || pl.EventID == "" || pl.StateChangedAt == "" {
 		t.Errorf("payload = %+v", pl)
 	}
-	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+	testutil.Eventually(t, "台帳の送信が済む", func() bool {
 		l := g.ledger()
 		return strings.Contains(l, `"asked":{"`+g.pane+`":"`+hits[0].EventID+`"}`) && strings.Contains(l, `"outbox":{}`)
 	})
