@@ -1,8 +1,7 @@
-package opstest
+package pickopstest
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
@@ -10,14 +9,6 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
 )
-
-func code(err error) apperr.Code {
-	var ae *apperr.Error
-	if errors.As(err, &ae) {
-		return ae.Code
-	}
-	return ""
-}
 
 // askFixture は A・B・C の 3 択（自由入力あり）の質問カードのペインを作る。キーに反応する擬似エージェントを仕込む。
 // cursor はカーソル位置（1 始まり）、onEnter は Enter が押されたときの画面を返す。
