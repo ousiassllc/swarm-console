@@ -20,12 +20,23 @@ func (p *Policy) ReadFile(path string) (string, error) {
 	}
 	unreadable := func(cause error) error { return apperr.Wrap(apperr.FileUnreadable, cause, "field", "file") }
 
+	if p.beforeOpen != nil {
+		p.beforeOpen(resolved)
+	}
 	// O_NONBLOCK: 検証後に FIFO などへ差し替えられても open で固まらない。O_NOFOLLOW: 検証後のリンク差し替えを拒否。
 	f, err := os.OpenFile(resolved, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0) //nolint:gosec // CheckFile 済みのパス
 	if err != nil {
 		return "", unreadable(err)
 	}
 	defer func() { _ = f.Close() }()
+	// O_NOFOLLOW は最後の成分しか拒否しない。開いた fd の実パスが検証したパスと違えば（途中のディレクトリの差し替え）断る。
+	// send_text の語彙（forbidden_path）に直す。/proc を読めないときは internal のまま（確かめられないので断る）。
+	if err := CheckOpened(f, resolved); err != nil {
+		if ae := apperr.As(err); ae != nil && ae.Code == apperr.PathForbidden {
+			return "", forbidden("file", "outside_roots")
+		}
+		return "", err
+	}
 	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
 		return "", apperr.New(apperr.FileUnreadable, "field", "file")
 	}

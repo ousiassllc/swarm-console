@@ -18,6 +18,8 @@ type Policy struct {
 	fileRoots    []string
 	// secretPaths は file_get が名前によらず断る、swarm-console 自身の設定・データのファイル（tokens・profiles・notes）。
 	secretPaths []string
+	// beforeOpen はテスト用。ReadFile の CheckFile のあと、open の直前に呼ばれる（途中のディレクトリの差し替えを起こす）。
+	beforeOpen func(resolved string)
 }
 
 // NewPolicy は cfg の allowed_roots・denied_paths・file_roots と、tokens などの場所を写して Policy を作る。
