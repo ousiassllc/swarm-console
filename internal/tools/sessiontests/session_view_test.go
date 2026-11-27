@@ -1,4 +1,4 @@
-package tooltests_test
+package sessiontests_test
 
 import (
 	"context"
