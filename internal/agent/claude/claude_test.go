@@ -1,6 +1,7 @@
 package claude_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
@@ -66,6 +67,7 @@ func TestScreens(t *testing.T) {
 		{File: "idle-after-error.txt", State: agent.StateIdle},
 		{File: "working.txt", State: agent.StateWorking, Activity: "Zesting…", Elapsed: "0s"},
 		{File: "working-b.txt", State: agent.StateWorking, Activity: "Zesting…", Elapsed: "1s"},
+		{File: "working-spinner-b.txt", State: agent.StateWorking, Activity: "Zesting…", Elapsed: "1s"}, // `✽`
 		// 本文を出している間はスピナー行が出ない。作業中の印はステータス行の `esc to interrupt` だけ。
 		{File: "working-stream.txt", State: agent.StateWorking},
 		ask("trust-no.txt", trust(1)),
@@ -116,7 +118,7 @@ func TestDigitFallbackWhenCursorUnknown(t *testing.T) {
 
 func TestStableText(t *testing.T) {
 	agenttest.CheckStable(t, agenttest.New(t, "claude"), "claude",
-		[][2]string{{"working.txt", "working-b.txt"}},
+		[][2]string{{"working.txt", "working-b.txt"}, {"working-b.txt", "working-spinner-b.txt"}},
 		[][2]string{{"idle.txt", "working.txt"}, {"permission-1.txt", "permission-2.txt"}, {"trust-no.txt", "trust-yes.txt"}})
 }
 
@@ -155,5 +157,41 @@ func TestMatchScreen(t *testing.T) {
 	}
 	if a.MatchScreen(agent.NewScreen([]string{"$ ls", "file.txt", "$"})) {
 		t.Error("シェルの画面を Claude Code と判別しました")
+	}
+}
+
+// スピナー行は作業中の桁 0 の行だけを Clean・StableText から除く。返答の本文の `* 項目…` の箇条書きや、
+// 終わった印（`✻ Cooked for 3s · done`）は残す。
+func TestSpinnerLineIsNarrow(t *testing.T) {
+	a := agenttest.New(t, "claude")
+	const rule = "────────────────────────────────────────────────"
+	body := []string{"● 候補は次のとおりです。", "  * 項目… その 1", "✻ Cooked for 3s · done 10:22 PM", rule, "❯ ", rule}
+	for name, tc := range map[string]struct {
+		footer   string
+		spinner  string
+		wantKept bool
+	}{
+		"idle":    {footer: "  ⏸ manual mode on · ? for shortcuts", wantKept: true},
+		"working": {footer: "  ⏸ manual mode on · esc to interrupt", spinner: "* Zesting… (1s · ↓ 36 tokens)", wantKept: true},
+	} {
+		lines := append([]string{}, body...)
+		if tc.spinner != "" {
+			lines = append([]string{tc.spinner}, lines...)
+		}
+		lines = append(lines, tc.footer)
+		clean := strings.Join(a.Clean(lines), "\n")
+		for _, keep := range []string{"  * 項目… その 1", "✻ Cooked for 3s"} {
+			if !strings.Contains(clean, keep) {
+				t.Errorf("%s: Clean が %q を落としました:\n%s", name, keep, clean)
+			}
+		}
+		if tc.spinner != "" && strings.Contains(clean, "Zesting") {
+			t.Errorf("%s: Clean がスピナー行を残しました:\n%s", name, clean)
+		}
+	}
+	// 括弧が出ない瞬間（`✻ Zesting…` だけ）もスピナー行として除く。
+	lines := []string{"✻ Zesting…", rule, "❯ ", rule, "  ⏸ manual mode on · esc to interrupt"}
+	if clean := strings.Join(a.Clean(lines), "\n"); strings.Contains(clean, "Zesting") {
+		t.Errorf("括弧なしのスピナー行が残りました:\n%s", clean)
 	}
 }

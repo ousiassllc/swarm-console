@@ -15,11 +15,12 @@ var todoRE = regexp.MustCompile(`^\s*(?:⎿\s+)?[☐☒◼◻]\s`)
 func (a *adapter) Clean(lines []string) []string {
 	ls := agent.TrimScreen(lines)
 	input := a.inputIndex(ls)
+	working := a.workingIndex(ls) >= 0 // スピナー行は作業中のときだけ除く（本文の `* 項目…` を落とさない）
 	out := make([]string, 0, len(ls))
 	for i, l := range ls {
 		switch {
 		case i == input, a.P.Border.MatchString(l), a.P.StatusLine.MatchString(l),
-			a.P.Working.MatchString(l), a.isSpinnerLine(l), todoRE.MatchString(l):
+			a.P.Working.MatchString(l), working && a.isSpinnerLine(l), todoRE.MatchString(l):
 		default:
 			if inner, ok := agent.BoxInner(l); ok {
 				l = strings.TrimRightFunc(strings.TrimPrefix(inner, " "), unicode.IsSpace)
@@ -34,8 +35,9 @@ func (a *adapter) Clean(lines []string) []string {
 func (a *adapter) StableText(lines []string) string {
 	ls := agent.TrimScreen(lines)
 	body := make([]string, 0, len(ls))
+	working := a.workingIndex(ls) >= 0
 	for _, l := range ls {
-		if a.P.Working.MatchString(l) || a.isSpinnerLine(l) || a.P.StatusLine.MatchString(l) {
+		if a.P.Working.MatchString(l) || (working && a.isSpinnerLine(l)) || a.P.StatusLine.MatchString(l) {
 			continue
 		}
 		body = append(body, l)

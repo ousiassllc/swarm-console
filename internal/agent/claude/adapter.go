@@ -8,7 +8,7 @@ import (
 // Name はアダプタ名。
 const Name = "claude"
 
-// defaults は組み込みの既定値。すべて実画面（v2.1.332。docs/architecture/agent-patterns.md）で確かめた。
+// defaults は組み込みの既定値。実画面（v2.1.332）で確かめたもの。スピナー記号 `✢✳✶✦` と `Not logged in` は推定のまま（docs/architecture/agent-patterns.md）。
 var defaults = agent.Spec{
 	Name:  Name,
 	Start: "claude",

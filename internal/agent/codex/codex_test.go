@@ -62,6 +62,7 @@ func TestScreens(t *testing.T) {
 		{File: "idle-after-patch-v0172.txt", State: agent.StateIdle},
 		{File: "working-v0172.txt", State: agent.StateWorking, Activity: "Working", Elapsed: "0s"},
 		{File: "working-v0172-b.txt", State: agent.StateWorking, Activity: "Working", Elapsed: "1s"},
+		{File: "working-v0172-hollow.txt", State: agent.StateWorking, Activity: "Working", Elapsed: "4s"}, // `◦ Working`
 	})
 }
 

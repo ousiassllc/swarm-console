@@ -3,7 +3,6 @@ package claude
 import (
 	"regexp"
 	"strings"
-	"unicode"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 )
@@ -58,12 +57,12 @@ func (a *adapter) workingIndex(lines []string) int {
 // verbRE はスピナー記号のあとの「<動詞>…」（`Zesting… (1s · ↓ 36 tokens · …)`。経過・トークン数の括弧は出ない瞬間もある）。
 var verbRE = regexp.MustCompile(`^\S+…(?:\s|$)`)
 
-// isSpinnerLine は活動行（`<スピナー記号> <動詞>…`）か。`esc to interrupt` はこの行ではなくステータス行に出る（v2.1.332 の実画面）。
+// isSpinnerLine は活動行（`<スピナー記号> <動詞>…`）か。実画面のスピナー行は桁 0 から始まる（返答の本文は 2 桁字下げされるので、
+// 本文の `  * 項目…` の箇条書きには当たらない）。`esc to interrupt` はこの行ではなくステータス行に出る（v2.1.332 の実画面）。
 // 終わった印の `✻ Cooked for 3s · done 10:22 PM` は「…」がないので当たらない。
 func (a *adapter) isSpinnerLine(l string) bool {
-	t := strings.TrimLeftFunc(l, unicode.IsSpace)
-	r := []rune(t)
-	return len(r) > 1 && r[1] == ' ' && a.P.Spinner.MatchString(string(r[0])) && verbRE.MatchString(string(r[2:]))
+	r := []rune(l)
+	return len(r) > 2 && r[1] == ' ' && a.P.Spinner.MatchString(string(r[0])) && verbRE.MatchString(string(r[2:]))
 }
 
 // spinnerLine は画面の下のほうの活動行を返す。なければ ""。
@@ -71,7 +70,7 @@ func (a *adapter) spinnerLine(lines []string) string {
 	_, base := agent.Tail(lines, tailLines)
 	for i := len(lines) - 1; i >= base; i-- {
 		if a.isSpinnerLine(lines[i]) {
-			return strings.TrimLeftFunc(lines[i], unicode.IsSpace)
+			return lines[i]
 		}
 	}
 	return ""
