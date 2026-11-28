@@ -1,0 +1,40 @@
+
+ ▐▛███▛█   Claude Code v2.1.332
+▝▜██████▀  Haiku 5.5 with low effort · Claude Ultra
+ ▝▝   ▝▝   /tmp/sc-probe/wd
+
+▎ Your Ultra plan includes $200 a month in API credits to power your apps and agents. Claim them at
+▎ https://clau.de/api-credits
+
+❯ Use the Bash tool to run exactly: touch note.txt
+
+  Ran 1 shell command
+
+● touch note.txt を実行しました。出力はなく、エラーも出ていません。作業ディレクトリ（/tmp/sc-probe/wd）に空の note.txt
+  ができているはずです。
+
+✻ Cogitated for 2s · done 10:31 PM
+
+❯ Use the AskUserQuestion tool to ask me: Pick a fruit? with options Apple, Banana, Cherry. Do nothing else.
+
+● Answered Claude's questions:
+  ⎿  · Pick a fruit? → Durian
+
+● 回答は「Durian」でした。提示した Apple / Banana / Cherry
+  の中にはない選択肢ですが、そのまま受け取りました。ほかには何もしていません。
+
+✻ Sautéed for 2s · done 10:31 PM
+
+❯ List the integers 1 to 150, one per line, each followed by its English word spelling. No other text.
+
+
+
+
+
+✽ Zesting… (1s · ↓ 41 tokens · thinking with low effort)
+  ⎿  Tip: For a fast, cheap code review, try /code-review low
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · esc to interrupt · ← 1 agent

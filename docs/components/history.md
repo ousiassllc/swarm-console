@@ -37,3 +37,4 @@
 | 2.20 | 2026-11-21 | `agent` に `StartOptions`（起動時の `model`・`thinking` の検査と起動行の組み立て）・`ValidModel`・`ValidThinking`。§5.2 `Start` に `opts`、`Dispatch` に `args.Start`（`idle` への指定は `start_options_not_applicable`）、`pane.StartResult`・`DispatchResult` に `StartCommand` | Issue #124 |
 | 2.21 | 2026-11-22 | §2 のパッケージ構成に `agent/omp/transcript/`・`testdata/native/`・`testdata/config/` を足し、§4 の任意のインターフェースの列挙に `ReactionProbe` を足す（`internal/agent/agent.go` の Adapter 以外の公開インターフェースと合わせる） | Issue #131 |
 | 2.22 | 2026-11-22 | §3 の `store` に `CheckDir(path, want, uid)`（`report_dir` の持ち主・リンクでないこと・親フォルダの検査。権限だけなら直す）を足し、`auth` に `Add`・`Revoke` が書く前の `<tokens.toml>.lock` の `flock`（`List` はロックしない）を足す | Issue #127・#128・#137・#145 |
+| 2.23 | 2026-11-27 | §4：`QuestionAbove` が `╌╌╌` の区切りでも段落を切る。Claude の `Clean`・`StableText` がスピナー行を除く。数字キーは Claude の質問カードでも押した時点で確定する（許可確認は未確認）ことを注記。擬似エージェント（`test/fakeagent`）の Claude の許可確認を 4 択・数字キーで確定に合わせた（P-22） | Issue #154・#155 |

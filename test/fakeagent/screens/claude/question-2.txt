@@ -1,20 +1,40 @@
-# 実画面ではない（推定）: Claude Code の公開された画面の知識から組んだ。ログイン切れで実画面を採取できなかった
- ▐▛███▛█   Claude Code v2.1.316
-▝▜██████▀  Opus 5.5 · API Usage Billing
+
+ ▐▛███▛█   Claude Code v2.1.332
+▝▜██████▀  Haiku 5.5 with low effort · Claude Ultra
  ▝▝   ▝▝   /tmp/sc-probe/wd
 
-❯ Ask me which fruit I like.
+▎ Your Ultra plan includes $200 a month in API credits to power your apps and agents. Claim them at
+▎ https://clau.de/api-credits
+
+❯ Use the Bash tool to run exactly: touch note.txt
+
+  Ran 1 shell command
+
+● touch note.txt を実行しました。出力はなく、エラーも出ていません。作業ディレクトリ（/tmp/sc-probe/wd）に空の note.txt
+  ができているはずです。
+
+✻ Cogitated for 2s · done 10:31 PM
+
+❯ Use the AskUserQuestion tool to ask me: Pick a fruit? with options Apple, Banana, Cherry. Do nothing else.
+
+
+
+
+
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  ☐ Fruit
 
- Pick a fruit?
+Pick a fruit?
 
-   1. Apple
- ❯ 2. Banana (Recommended)
-   3. Cherry
-   4. Type something.
-   5. Chat about this
-
+  1. Apple
+     りんご
+❯ 2. Banana
+     バナナ
+  3. Cherry
+     さくらんぼ
+  4. Type something.
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
- Enter to select · ↑/↓ to navigate · Esc to cancel
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

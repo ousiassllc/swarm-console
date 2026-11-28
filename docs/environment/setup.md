@@ -107,6 +107,16 @@ make install
 - ハッシュが合わなければ、何も置かずに失敗する。
 - 実際のホームに触れずに試すには、`HOME` を一時ディレクトリにして実行する（`systemctl --user` は実際のユーザーの systemd に届くので、試すときは偽の `systemctl`・`loginctl` を PATH の先頭に置く。`scripts/install_test.sh` がその形でテストしている）。
 
+### MCP クライアントの実接続を確かめる
+
+Claude Code・Codex からの実接続（機能要件 AC-1・AC-2、NFR-TEST-10）は自動テストに載せず、実機で確かめる。**運用中のサーバーと tmux には触れず**、検証用に別のサーバーを立てる（トークンは検証用に発行し、終わったら捨てる。平文をログ・Issue・PR に貼らない）。
+
+1. 検証用の設定（例 `/tmp/<名前>/config.toml`）：`listen_addr = "127.0.0.1:<48120 以外のポート>"`（ループバックはどのポートでも許可）、`tmux_socket = "<一意名>"`（本番の tmux と分ける）、`report_dir = "/tmp/swarm-console/<名前>"`。`report` を 2 回呼んで 1 文字も違わないことを見るときは、同じスナップショットになるよう `snapshot_ttl`・`poll_interval` を長く（例 `"1h"`）する
+2. `swarm-console token add <名前> --scope report|ops --config <上の設定>`。平文は標準出力に 1 度だけ出る。ファイル（`chmod 600`）に受けて、環境変数で渡す
+3. Claude Code は `claude mcp add --transport http … --header 'Authorization: Bearer ${…}'`、Codex は `-c 'mcp_servers.<名前>.url="…"' -c 'mcp_servers.<名前>.bearer_token_env_var="…"'`（`~/.codex/config.toml` に書くのと同じ。検証用の `CODEX_HOME` も使える）。呼び出しは短い指示（`claude -p --model haiku …`・`codex exec --model <安いモデル> …`）にして費用を抑える
+4. ツール数は Claude Code の `--output-format stream-json --verbose` の `init`（`tools` の `mcp__<名前>__…`）、Codex は `codex app-server --listen stdio://` に `mcpServerStatus/list` を送って数える。`curl` で同じ `report` を呼んで内容を比べる
+5. ペインの検証（`pane_start` の `--model`・`--effort`、画面の採取）は、検証用サーバーの `[agents.codex] command = "codex -a on-request -s read-only"` のように承認が出る起動にして、専用ソケットの tmux のペインで行う。`allowed_roots` に検証用の作業フォルダを足す
+
 ### 高負荷ホストでの実行
 
 開発機（example-host）は他の作業で高負荷になりやすい（CPU 数に対し load average が大きく上回る状態が続くことがある）。
@@ -133,3 +143,4 @@ make install
 | 1.11 | 2026-11-02 | setup-ci.md の「最初のリリース」の行を過去形の経緯に直した（「今はタグ・リリースとも無い」を削除） | Issue #63 |
 | 1.12 | 2026-11-02 | `go.mod` の `go` をパッチ版まで最新に保つ決まりと、上げたときの `govulncheck ./...` 確認を追加（setup-ci.md・setup.md）。`go` を 1.26.10 へ更新 | Issue #67 |
 | 1.13 | 2026-11-02 | `make check` の先頭を CI の `Build` ステップと同じ `go build ./...` にした（`make build` は呼ばない。Makefile・setup-quality.md・README も同じ） | Issue #40 |
+| 1.14 | 2026-11-27 | 「MCP クライアントの実接続を確かめる」を追加（検証用サーバーの立て方・Claude Code と Codex の確かめ方） | Issue #151・#152・#153 |

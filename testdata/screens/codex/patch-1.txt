@@ -1,19 +1,40 @@
-# 実画面ではない（推定）: この機に codex が無く実画面を採取できなかった。公開されている Codex CLI の TUI の知識から組んだ
-╭────────────────────────────────────────────╮
-│ >_ OpenAI Codex (v0.0.0)                   │
-│                                            │
-│ model:     gpt-5-codex   /model to change  │
-│ directory: /tmp/sc-probe/wd                │
-╰────────────────────────────────────────────╯
+
+  >_ OpenAI Codex (v0.172.0)
+     /tmp/sc-probe/wd
+
+  To get started, describe a task or try one of these commands:
+
+  /init - create an AGENTS.md file with instructions for Codex
+  /status - show current session configuration
+  /permissions - choose what Codex is allowed to do
+  /model - choose what model and reasoning effort to use
+  /review - review any changes and find issues
+
+
+› Create a file hello.txt in the current directory containing the single line hi. Use apply_patch. Nothing else.
+
+
+• Added hello.txt (+1 -0)
+    1 +hi
+    + Show details
+
+
+
+
+
+
+
+
+
 
   Would you like to make the following edits?
 
-  Reason: add a greeting
+  Description: Apply proposed file edits
+  Destination: /tmp/sc-probe/wd/hello.txt
 
-  README.md (+1 -0)
-  1 +Hello
 
 › 1. Yes, proceed (y)
-  2. No, and tell Codex what to do differently (esc)
+  2. Yes, and don't ask again for these files (a)
+  3. No, and tell Codex what to do differently (esc)
 
   Press enter to confirm or esc to cancel

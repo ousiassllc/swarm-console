@@ -84,7 +84,7 @@ func TestAskCard(t *testing.T) {
 		custom          bool
 	}{
 		{"omp", "ask", "Pick a fruit", 3, 2, true},
-		{"claude", "ask", "Do you want to proceed?", 3, 1, false},
+		{"claude", "ask", "Do you want to proceed?", 4, 1, false},
 		{"claude", "ask-custom", "Pick a fruit?", 3, 2, true},
 		{"codex", "ask", "Would you like to run the following command?", 3, 1, false},
 	}

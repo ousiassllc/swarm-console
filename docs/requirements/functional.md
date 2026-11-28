@@ -141,8 +141,8 @@ stateDiagram-v2
 | 起動 | `omp` | `claude` | `codex` |
 | 終了 | `/exit` | `/exit` | `/quit` |
 | 中断 | Esc | Esc | Esc |
-| 質問カード | Ask カード（↑/↓ と Enter） | 選択肢つきの確認（↑/↓ または番号と Enter） | 承認の確認（番号と Enter） |
-| 作業中の目印 | スピナーと経過時間 | スピナーと `esc to interrupt` | スピナーと `esc to interrupt` |
+| 質問カード | Ask カード（↑/↓ と Enter） | 選択肢つきの確認（カーソルが読めれば ↑/↓ の差分、読めないときだけ数字キー 1 つ。Enter は別に送る。数字キーは押した時点で確定する画面がある） | 承認の確認（カーソルが読めれば ↑/↓ の差分、読めないときだけ数字キー 1 つ。Enter は別に送る。数字キーは押した時点で確定する） |
+| 作業中の目印 | スピナーと経過時間 | ステータス行の `esc to interrupt`（スピナー行は考え中だけ） | スピナーと `esc to interrupt` |
 
 | ID | 要件 |
 |----|------|
@@ -288,3 +288,4 @@ box 側のウォッチャーだけでは、ペインが終わってレポート�
 | 1.39 | 2026-11-21 | FR-O4・FR-O6：`pane_start`・`dispatch`（`shell` から）に任意の `model`・`thinking` を追加（起動コマンドの末尾に旗を足す。`idle` のペインへの指定は `start_options_not_applicable`）。functional-note.md FR-NOTE-2・3：メモに `model`・`thinking`。functional-report.md FR-REP-2・FR-REP-20：ペインの表に「モデル」「思考」の列（どれかのペインに値があるときだけ）。non-functional.md NFR-SEC-19 | Issue #124 |
 | 1.40 | 2026-11-22 | functional-note.md §11.1：`setup` が聞かず手書きだけに残すキーの列挙に `update_check`・`update_auto`・`usage_check` を足し、期間のキーは個数をやめて 9 つ全部（`update_check_interval`・`usage_interval` を含む）を挙げる（`internal/config/load.go` の全キーと合わせる） | Issue #132 |
 | 1.41 | 2026-11-22 | functional-report.md §6.1：`ask_pick` の flowchart に複数選択の Space（チェックを付け、付かなければ `cursor_mismatch`）を足し、戻りを `ok`・`state`（取り直した値）・`card_closed` に直す。コード・設定は変えない | Issue #142 |
+| 1.42 | 2026-11-27 | §エージェント差分の表：Claude Code の作業中の目印（ステータス行の `esc to interrupt`。スピナー行は考え中だけ）と、質問カードの操作（数字キーは押した時点で確定する画面がある）を実機の結果に合わせた | Issue #154・#155 |

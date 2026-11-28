@@ -42,9 +42,8 @@ func TestAskArrowsAndEnter(t *testing.T) {
 		{"omp は上端で止まる", "omp", "ask", []string{up, up, up}, 1, nil, modeAsk},
 		{"omp Enter で 2 を記録して working", "omp", "ask", []string{enter}, 2, []event{{kind: "PICK", n: 2}}, modeWorking},
 		{"omp は数字キーを無視", "omp", "ask", []string{"3"}, 2, nil, modeAsk},
-		{"claude 許可確認は 3 で止まる", "claude", "ask", []string{down, down, down}, 3, nil, modeAsk},
-		{"claude 数字キーはカーソルを動かすだけ", "claude", "ask", []string{"3"}, 3, nil, modeAsk},
-		{"claude 数字 → Enter で確定", "claude", "ask", []string{"3", enter}, 3, []event{{kind: "PICK", n: 3}}, modeWorking},
+		{"claude 許可確認は 4 で止まる", "claude", "ask", []string{down, down, down, down}, 4, nil, modeAsk},
+		{"claude 数字キーは押した時点で確定する", "claude", "ask", []string{"3"}, 3, []event{{kind: "PICK", n: 3}}, modeWorking},
 		{"codex 数字 9 は範囲外で無視", "codex", "ask", []string{"9"}, 1, nil, modeAsk},
 		{"codex 数字 2 は押した時点で確定する（実画面）", "codex", "ask", []string{"2"}, 2, []event{{kind: "PICK", n: 2}}, modeWorking},
 		{"codex 数字で確定したあとの Enter は何も記録しない", "codex", "ask", []string{"2", enter}, 2, []event{{kind: "PICK", n: 2}}, modeWorking},
@@ -103,8 +102,8 @@ func TestCustomInputClaudeInline(t *testing.T) {
 	if m.mode != modeAsk || len(*got) != 0 {
 		t.Errorf("離れたあとの本文は捨てる: mode=%d events=%v", m.mode, *got)
 	}
-	if _, got := run3(t, "claude", "ask", down, down, down, enter); len(got) != 1 || got[0].n != 3 {
-		t.Errorf("自由入力の項がない許可確認では 3 番を選ぶだけ: %v", got)
+	if _, got := run3(t, "claude", "ask", down, down, down, down, enter); len(got) != 1 || got[0].n != 4 {
+		t.Errorf("自由入力の項がない許可確認では 4 番（最後）で止まって選ぶだけ: %v", got)
 	}
 }
 

@@ -201,7 +201,7 @@ MCP（Streamable HTTP）の URL とトークンをクライアントに設定し
 
 - 定期レポートのように見るだけでよいクライアントは、`report` のトークンで `/report` につなぎます。`report` のトークンで `/ops` を呼ぶと 403（`forbidden_scope`）です
 - `POST` のみ受け付けます（ステートレス運用）。トークンなし・不一致は 401 です
-- tailnet の外からはつながりません。ユーザースペースの tailscale を使うクライアントは、SOCKS5 経由で呼びます
+- tailnet の外からはつながりません。ユーザースペースの tailscale を使うクライアントは、SOCKS5 経由で呼びます（curl の場合。Claude Code・Codex は下の「プロキシ越しにつなぐ」を参照）
 - `file_get`（`/ops` だけ）は、ompが撮ったスクショ・動画をサーバーから取るためのツールです。`path` を 1 つ渡すと、png・jpg・jpeg・webp・gif・mp4 の中身を base64 で返します（`mime`・`size`・`sha256` つき）。取れるのは、触れるセッションのペインの cwd の下・レポート置き場・`config.toml` の `file_get_roots` の下だけ（ペインの cwd が `/` やホームそのものなら、その cwd は許可に入れません。取りたい場所は `file_get_roots` に書きます）で、`..`・シンボリックリンクでの外し抜け・秘密のファイル（`.env`・`*.pem`・`*.key`・`id_*`・設定ファイル）・中身が画像／動画でないもの・上限（`file_get_max_bytes`、既定 20 MiB）超えは断ります（[API 仕様 §5.2](docs/api/endpoints-pane.md#file_getops-のみ)）
 
 curl での呼び出し例（トークンは環境変数 `SWARM_CONSOLE_TOKEN` から読み、ログに出さない）：
@@ -215,6 +215,46 @@ curl --socks5-hostname localhost:<port> -sS "http://<tailnet-ip>:48120/ops" \
 ```
 
 （tailscale に直接つながる環境では `--socks5-hostname localhost:<port>` は要りません。）窓口・認証・エラー・全ツールの入出力は [API 仕様](docs/api/endpoints.md) を参照してください。
+
+### Claude Code
+
+`claude mcp add --transport http` に、`--header` でトークンを渡します。**`--header` が要ります**（付けないと Claude Code は OAuth の登録を探しに行き、Nefos Hub には無いので `Dynamic Client Registration rejected (HTTP 404)` で接続に失敗します）。トークンは環境変数から読ませ、設定ファイルにもコマンド履歴にも平文を残しません。
+
+```sh
+read -rs SWARM_CONSOLE_TOKEN && export SWARM_CONSOLE_TOKEN    # bash・zsh。入力は画面にも履歴にも出ない。claude を起動するシェルで設定しておく
+claude mcp add --transport http swarm-console http://<tailnet-ip>:48120/ops \
+  --header 'Authorization: Bearer ${SWARM_CONSOLE_TOKEN}'     # 単引用符のまま。${…} は Claude Code が接続のときに展開する
+claude mcp list                                               # swarm-console … ✔ Connected
+```
+
+- `${SWARM_CONSOLE_TOKEN}` は展開されないまま `~/.claude.json` に保存されます（`claude mcp get swarm-console` でも `Bearer ${SWARM_CONSOLE_TOKEN}` と出ます）。トークンの実値を `--header` に直接書かないでください
+- 見るだけなら URL を `/report` にし、`report` か `ops` のトークンを使います。`ops` の窓口（`/ops`）には `ops` のトークンが要ります。`report` のトークンで `/ops` につなぐと `Failed to connect — Server rejected the configured Authorization header (HTTP 403) … forbidden_scope` になります
+- つながると、`/report` は 10 ツール、`/ops` は 20 ツールが見えます。`--header` を付けたときは、Claude Code は `GET`・`DELETE`・`/.well-known/*` を送らず（サーバーのログに 405・404 が出ない）、警告も出ません
+- 確かめた版：Claude Code 2.1.330・2.1.332（`claude mcp add`・`claude mcp list`・`claude -p` からの `report`・`panes_status` の呼び出し）
+
+### Codex
+
+`~/.codex/config.toml` に `[mcp_servers.<名前>]` を書きます。トークンは `bearer_token_env_var` で環境変数の名前だけを書きます（値は書きません）。名前は英数字と `_` にします。
+
+```toml
+[mcp_servers.swarm_console]
+url = "http://<tailnet-ip>:48120/ops"          # 見るだけなら /report
+bearer_token_env_var = "SWARM_CONSOLE_TOKEN"   # codex を起動するシェルで export しておく
+```
+
+- つながると、`/report` は 10 ツール、`/ops` は 20 ツールが見えます。`report` のトークンで `/ops` につなぐと 403 になり、ツールは 0 件のままです。Codex も `GET`・`DELETE` を送りません（405 がログに出ない）
+- **`codex exec`（承認ポリシーが `never`）からツールを呼ぶと、そのままでは `MCP tool call requires approval, but approval policy is never` で失敗します。** 呼ぶサーバーの表に `default_tools_approval_mode = "approve"` を足すと通ります。**承認なしでそのサーバーの全ツールを呼べる**ので、`/ops`（ペインへの送信・起動・終了ができる）に付けるのは、そうしてよい自動実行のときだけにしてください。対話の `codex` での承認の出方は確かめていません
+- 固定のヘッダーでも通ります（`http_headers = { Authorization = "Bearer <トークン>" }`）が、トークンの平文が設定ファイルに残るので勧めません。環境変数から渡すなら `env_http_headers = { Authorization = "<環境変数名>" }`（その環境変数の値を `Bearer <トークン>` の形にする）で通ります
+- 確かめた版：codex-cli 0.172.0（`codex exec` からの `report`・`panes_status` の呼び出し、`codex app-server` の `mcpServerStatus/list` でのツール数）
+
+### プロキシ越しにつなぐ（ユーザースペースの tailscale など）
+
+Claude Code と Codex は、MCP の接続で **SOCKS5 の `ALL_PROXY` を使えません**。Claude Code は `ALL_PROXY=socks5h://…` を黙って無視して直接つなぎ、Codex は同じ値を HTTP プロキシとして扱って（SOCKS5 の握手ではなく `CONNECT` を送って）失敗します。**HTTP プロキシ**を `HTTP_PROXY`（Claude Code は `HTTPS_PROXY` でも可）で渡すと、どちらも `http://<tailnet-ip>:48120/…` への `POST` がそのプロキシ経由で通りました（確かめたのは手元の簡易な HTTP 転送プロキシ。実際の tailscale のプロキシ越しは未確認です）。注意：
+
+- このとき、ほかの通信（Claude Code の `api.anthropic.com`、Codex の `chatgpt.com`）も同じプロキシを通ります
+- ユーザースペースの tailscale が HTTP プロキシを出せるか（`tailscaled --outbound-http-proxy-listen`）は未確認です。curl は SOCKS5 のままで通ります（上の例）
+
+実接続の確かめ方（検証用の別サーバーを立てる手順）は [環境構築](docs/environment/setup.md#mcp-クライアントの実接続を確かめる) を参照してください。
 
 ## 開発者向け
 

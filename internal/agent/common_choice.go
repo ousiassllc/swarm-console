@@ -140,7 +140,7 @@ func QuestionAbove(lines []string, start int) string {
 	}
 	for i := start - 1; i >= max(0, start-12); i-- {
 		t := strings.Trim(lines[i], " \u00a0│")
-		if t == "" || strings.Contains(t, "──") || strings.HasPrefix(t, "▔▔▔") {
+		if t == "" || strings.Contains(t, "──") || strings.HasPrefix(t, "▔▔▔") || strings.HasPrefix(t, "╌╌╌") {
 			flush()
 			continue
 		}
