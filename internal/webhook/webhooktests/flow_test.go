@@ -45,9 +45,15 @@ func (g *rig) see(session string, state agent.State) {
 // 件を作ったなら、戻った直後の台帳の outbox は空でない。
 func (g *rig) settle() {
 	g.t.Helper()
+	var last string
+	defer func() {
+		if g.t.Failed() {
+			g.t.Logf("送信が終わりません:\n%s", last)
+		}
+	}()
 	testutil.Eventually(g.t, "進行中の送信が終わる（台帳の outbox が空になる）", func() bool {
-		l := g.ledger()
-		return l == "" || strings.Contains(l, `"outbox":{}`)
+		last = g.ledger()
+		return last == "" || strings.Contains(last, `"outbox":{}`)
 	})
 }
 

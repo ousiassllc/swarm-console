@@ -45,10 +45,19 @@ func (g *serveRig) paneStates() map[string]string {
 	return states
 }
 
-// untilPaneState は panes_status が id を state と答えるまで、上限つきで繰り返す。
+// untilPaneState は panes_status が id を state と答えるまで待つ。
 func (g *serveRig) untilPaneState(id, state string) {
 	g.t.Helper()
-	testutil.Eventually(g.t, fmt.Sprintf("ペイン %s が %s になる", id, state), func() bool { return g.paneStates()[id] == state })
+	var last map[string]string
+	defer func() {
+		if g.t.Failed() {
+			g.t.Logf("最後の観測: %v", last)
+		}
+	}()
+	testutil.Eventually(g.t, fmt.Sprintf("ペイン %s が %s になる", id, state), func() bool {
+		last = g.paneStates()
+		return last[id] == state
+	})
 }
 
 // working のペインがあっても、自己更新は待たず・見送らずに入れ替えて終了コード 0 で終わる（FR-UPD-16・P-54・NFR-TEST-16）。
