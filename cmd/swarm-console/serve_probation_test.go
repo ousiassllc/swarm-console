@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 const pendingFile = "swarm-console.update-pending"
@@ -47,20 +49,9 @@ func TestServeProbationConfirmsAfter60Seconds(t *testing.T) {
 		t.Fatal("59 秒で確定しました")
 	}
 	g.clk.Advance(time.Second)
-	deadline := time.Now().Add(15 * time.Second)
-	for g.exists(pendingFile) {
-		if time.Now().After(deadline) {
-			t.Fatal("60 秒生きてもマーカーが消えません")
-		}
-		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
-	}
+	testutil.Eventually(t, "60 秒生きたあとにマーカーが消える", func() bool { return !g.exists(pendingFile) })
 	// 確定後は、update_check = false なので off（試運転中だけは設定によらず probation を見せる）。
-	for g.apply(g.hostUpdate())["state"] != "off" {
-		if time.Now().After(deadline) {
-			t.Fatalf("確定後の apply が probation のままです")
-		}
-		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
-	}
+	testutil.Eventually(t, "確定後の apply が off になる", func() bool { return g.apply(g.hostUpdate())["state"] == "off" })
 	if g.read("swarm-console.old") != oldBin {
 		t.Error(".old は確定のあとも 1 世代残す")
 	}
@@ -85,13 +76,7 @@ func TestServeProbationApplyStateWithAutoOn(t *testing.T) {
 	}
 	g.untilWaiting(2) // 確認の待ち（1 分）と試運転の待ち（60 秒）
 	g.clk.Advance(time.Minute)
-	deadline := time.Now().Add(15 * time.Second)
-	for g.apply(g.hostUpdate())["state"] != "idle" {
-		if time.Now().After(deadline) {
-			t.Fatal("確定しても apply が idle になりません")
-		}
-		time.Sleep(10 * time.Millisecond) // 上限つきのポーリング間隔
-	}
+	testutil.Eventually(t, "確定後の apply が idle になる", func() bool { return g.apply(g.hostUpdate())["state"] == "idle" })
 	g.cancel()
 	g.wait()
 }

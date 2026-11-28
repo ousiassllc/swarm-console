@@ -170,21 +170,15 @@ func Start(t *testing.T, o Options) *H {
 // waitReady は POST /ops（認証なし）に応答が返るまで、上限つきで繰り返す。
 func (h *H) waitReady() {
 	h.T.Helper()
-	deadline := time.Now().Add(30 * time.Second)
-	for {
+	testutil.Eventually(h.T, "サーバーが POST /ops に応答する", func() bool {
 		select {
 		case <-h.done:
 			h.T.Fatalf("サーバーが先に終了しました: %v", h.runErr)
 		default:
 		}
-		if _, _, err := h.post("/ops", "", "{}"); err == nil {
-			return
-		}
-		if time.Now().After(deadline) {
-			h.T.Fatal("サーバーが待ち受けを始めません")
-		}
-		time.Sleep(10 * time.Millisecond) // 上限つきのポーリング間隔
-	}
+		_, _, err := h.post("/ops", "", "{}")
+		return err == nil
+	})
 }
 
 // Stop は ctx をキャンセルして Run（Serve）が戻るのを待ち、その戻り値を返す。2 回目以降も同じ値を返す。

@@ -14,6 +14,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/clock"
 	"github.com/ousiassllc/swarm-console/internal/reportvalues"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // valuesRig は serve の収集器が呼ぶ omp の代わり。呼ばれたコマンドを記録し、用意した出力を返す。
@@ -64,23 +65,23 @@ func (g *serveRig) callReport(args map[string]any) string {
 	return res.Content[0].(*mcp.TextContent).Text
 }
 
-// reportUntil は snapshot_ttl 後の report が cond を満たすまで、上限つきで繰り返す。
+// reportJSONUntil は snapshot_ttl 後の report が cond を満たすまで待つ。
 func (g *serveRig) reportJSONUntil(what string, cond func(map[string]any) bool) map[string]any {
 	g.t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for {
-		var out map[string]any
+	var out map[string]any
+	defer func() {
+		if g.t.Failed() {
+			g.t.Logf("最後の観測: %v", out)
+		}
+	}()
+	testutil.Eventually(g.t, what, func() bool {
+		out = nil
 		if err := json.Unmarshal([]byte(g.callReport(map[string]any{"format": "json", "lang": "en"})), &out); err != nil {
 			g.t.Fatal(err)
 		}
-		if cond(out) {
-			return out
-		}
-		if time.Now().After(deadline) {
-			g.t.Fatalf("%s にならない: %v", what, out)
-		}
-		time.Sleep(20 * time.Millisecond) // 上限つきのポーリング間隔（スナップショットの更新待ち）
-	}
+		return cond(out)
+	})
+	return out
 }
 
 // serve の配線：収集器が引数固定の 2 コマンドだけを決まった間隔で実行し、結果が report（json・markdown）に入る。

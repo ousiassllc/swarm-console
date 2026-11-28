@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -110,11 +111,7 @@ func TestServeChecksEveryConfiguredInterval(t *testing.T) {
 			t.Fatalf("%v の前に通信しました（%d 件）", every, n)
 		}
 		g.clk.Advance(time.Second)
-		for deadline := time.Now().Add(15 * time.Second); len(g.origin.Requests()) < 2; time.Sleep(time.Millisecond) { // 上限つきのポーリング
-			if time.Now().After(deadline) {
-				t.Fatalf("%v 後に再確認しません", every)
-			}
-		}
+		testutil.Eventually(t, fmt.Sprintf("%v 後に再確認する", every), func() bool { return len(g.origin.Requests()) >= 2 })
 		g.cancel()
 		g.wait()
 	}
@@ -178,18 +175,16 @@ func TestServeApplyFailureKeepsServing(t *testing.T) {
 	g.start()
 	g.untilWaiting(1)
 	g.clk.Advance(time.Minute)
-	deadline := time.Now().Add(15 * time.Second)
 	var a map[string]any
-	for {
+	defer func() {
+		if t.Failed() {
+			t.Logf("最後の観測: %v", a)
+		}
+	}()
+	testutil.Eventually(t, "apply が failed になる", func() bool {
 		a = g.apply(g.hostUpdate())
-		if a["state"] == "failed" {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("apply が failed になりません: %v", a)
-		}
-		time.Sleep(10 * time.Millisecond) // 上限つきのポーリング間隔
-	}
+		return a["state"] == "failed"
+	})
 	if a["reason"] != "asset_missing" || a["at"] == nil {
 		t.Errorf("apply = %v", a)
 	}

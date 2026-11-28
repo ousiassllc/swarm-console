@@ -187,20 +187,20 @@ func (g *serveRig) apply(u map[string]any) map[string]any {
 	return a
 }
 
-// untilUpdate は host_status.update の status が want になるまで、上限つきで繰り返す。
+// untilUpdate は host_status.update の status が want になるまで待つ。
 func (g *serveRig) untilUpdate(want string) map[string]any {
 	g.t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for {
-		u := g.hostUpdate()
-		if u["status"] == want {
-			return u
+	var u map[string]any
+	defer func() {
+		if g.t.Failed() {
+			g.t.Logf("最後の観測: %v", u)
 		}
-		if time.Now().After(deadline) {
-			g.t.Fatalf("update.status が %s になりません: %v", want, u)
-		}
-		time.Sleep(10 * time.Millisecond) // 上限つきのポーリング間隔
-	}
+	}()
+	testutil.Eventually(g.t, "update.status が "+want+" になる", func() bool {
+		u = g.hostUpdate()
+		return u["status"] == want
+	})
+	return u
 }
 
 // untilWaiting は確認の goroutine が clock の待ちに入るまで待つ（Advance の取りこぼしを防ぐ）。
@@ -209,16 +209,15 @@ func (g *serveRig) untilWaiting(n int) {
 	untilClockWaiting(g.t, g.clk, n)
 }
 
-// untilClockWaiting は clk の待ちが n 件になるまで待つ。上限つき（15 秒）。
+// untilClockWaiting は clk の待ちが n 件になるまで待つ。
 func untilClockWaiting(t *testing.T, clk *clock.Fake, n int) {
 	t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for clk.Waiters() < n {
-		if time.Now().After(deadline) {
-			t.Fatalf("clock の待ちが %d になりません（%d）", n, clk.Waiters())
+	defer func() {
+		if t.Failed() {
+			t.Logf("最後の観測: clock の待ち = %d 件", clk.Waiters())
 		}
-		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
-	}
+	}()
+	testutil.Eventually(t, fmt.Sprintf("clock の待ちが %d 件になる", n), func() bool { return clk.Waiters() >= n })
 }
 
 // ctxCancel はテスト終了で止まる ctx。

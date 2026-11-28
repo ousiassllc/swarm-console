@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +16,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/config"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 )
 
@@ -63,14 +63,10 @@ func newHookRig(t *testing.T, lines int) *hookRig {
 // sent は作った項目がすべて送り終わる（台帳の outbox が空になる）まで、上限つきで待つ。
 func (h *hookRig) sent(t *testing.T) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if b, err := os.ReadFile(h.ledger); err == nil && strings.Contains(string(b), `"outbox":{}`) {
-			return
-		}
-		runtime.Gosched()
-	}
-	t.Fatal("送信が終わりません")
+	testutil.Eventually(t, "作った項目がすべて送り終わる（台帳の outbox が空になる）", func() bool {
+		b, err := os.ReadFile(h.ledger)
+		return err == nil && strings.Contains(string(b), `"outbox":{}`)
+	})
 }
 
 // posted は送信が終わるのを待って、届いた POST の event の一覧を返す。

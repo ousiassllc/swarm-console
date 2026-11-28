@@ -11,6 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ousiassllc/swarm-console/internal/auth"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // bearerTransport は全リクエストに Authorization: Bearer を付ける。
@@ -26,26 +27,23 @@ func (b bearerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 func (g *rig) connectOps(ctx context.Context, token string) *mcp.ClientSession {
 	g.t.Helper()
 	var cs *mcp.ClientSession
-	deadline := time.Now().Add(10 * time.Second)
-	for {
+	var lastErr error
+	defer func() {
+		if g.t.Failed() {
+			g.t.Logf("最後の接続エラー: %v", lastErr)
+		}
+	}()
+	testutil.Eventually(g.t, "/ops に MCP 接続できる（待ち受けの開始待ち）", func() bool {
 		c := mcp.NewClient(&mcp.Implementation{Name: "webhook-e2e", Version: "1"}, nil)
-		var err error
-		cs, err = c.Connect(ctx, &mcp.StreamableClientTransport{
+		cs, lastErr = c.Connect(ctx, &mcp.StreamableClientTransport{
 			Endpoint: "http://" + g.app.Cfg.ListenAddr + "/ops", HTTPClient: &http.Client{Transport: bearerTransport{token}},
 			DisableStandaloneSSE: true, MaxRetries: -1,
 		}, nil)
-		if err == nil {
-			break
+		if lastErr != nil && ctx.Err() != nil {
+			g.t.Fatalf("接続できません: %v (最後の接続エラー: %v)", ctx.Err(), lastErr)
 		}
-		if time.Now().After(deadline) {
-			g.t.Fatalf("接続できません: %v", err)
-		}
-		select { // 待ち受けの開始待ち（上限つきの再試行）
-		case <-ctx.Done():
-			g.t.Fatalf("接続できません: %v", ctx.Err())
-		case <-time.After(20 * time.Millisecond):
-		}
-	}
+		return lastErr == nil
+	})
 	g.t.Cleanup(func() { _ = cs.Close() })
 	return cs
 }
