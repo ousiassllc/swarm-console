@@ -178,13 +178,9 @@ func (g *rig) idleRound(sessions ...string) {
 // drain は進行中の送信が終わるまで待つ（終了処理を呼び、同じ台帳で作り直す）。
 func (g *rig) drain() {
 	g.t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !strings.Contains(g.ledger(), `"outbox":{}`) {
-		if time.Now().After(deadline) {
-			g.t.Fatalf("送信が終わりません:\n%s", g.ledger())
-		}
-		time.Sleep(10 * time.Millisecond) // 上限つきのポーリング間隔
-	}
+	testutil.Eventually(g.t, "進行中の送信が終わる（台帳の outbox が空になる）", func() bool {
+		return strings.Contains(g.ledger(), `"outbox":{}`)
+	})
 	g.cancel()
 	g.wait()
 }

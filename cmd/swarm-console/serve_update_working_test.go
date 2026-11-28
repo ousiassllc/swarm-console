@@ -11,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 	"github.com/ousiassllc/swarm-console/test/fakeagent/fakeagenttest"
 )
@@ -47,17 +48,7 @@ func (g *serveRig) paneStates() map[string]string {
 // untilPaneState は panes_status が id を state と答えるまで、上限つきで繰り返す。
 func (g *serveRig) untilPaneState(id, state string) {
 	g.t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for {
-		got := g.paneStates()
-		if got[id] == state {
-			return
-		}
-		if time.Now().After(deadline) {
-			g.t.Fatalf("ペイン %s が %s になりません: %v", id, state, got)
-		}
-		time.Sleep(20 * time.Millisecond) // 上限つきのポーリング間隔（スナップショットの更新待ち）
-	}
+	testutil.Eventually(g.t, fmt.Sprintf("ペイン %s が %s になる", id, state), func() bool { return g.paneStates()[id] == state })
 }
 
 // working のペインがあっても、自己更新は待たず・見送らずに入れ替えて終了コード 0 で終わる（FR-UPD-16・P-54・NFR-TEST-16）。

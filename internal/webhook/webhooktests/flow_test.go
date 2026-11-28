@@ -10,6 +10,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // 1 つのペイン（セッション 0・T2・%3）の状態を 1 つずつ渡して、送信が終わるまで待つ補助。
@@ -44,14 +45,10 @@ func (g *rig) see(session string, state agent.State) {
 // 件を作ったなら、戻った直後の台帳の outbox は空でない。
 func (g *rig) settle() {
 	g.t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		if l := g.ledger(); l == "" || strings.Contains(l, `"outbox":{}`) {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	g.t.Fatalf("送信が終わりません:\n%s", g.ledger())
+	testutil.Eventually(g.t, "進行中の送信が終わる（台帳の outbox が空になる）", func() bool {
+		l := g.ledger()
+		return l == "" || strings.Contains(l, `"outbox":{}`)
+	})
 }
 
 // report は session の最終報告ファイルを書く。body の長さが変わると「更新された」と見える。

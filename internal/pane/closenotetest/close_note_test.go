@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/ops"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // archiveFails は Archive だけが失敗するメモ置き場。
@@ -72,25 +72,22 @@ func (f *fixture) close(t *testing.T) pane.CloseResult {
 		res, err := f.op.Close(context.Background(), f.ref)
 		ch <- result{res, err}
 	}()
-	deadline := time.Now().Add(10 * time.Second)
-	for {
+	var r result
+	testutil.Eventually(t, "pane_close が終わる", func() bool {
 		select {
-		case r := <-ch:
-			if r.err != nil {
-				t.Fatal(r.err)
-			}
-			return r.res
+		case r = <-ch:
+			return true
 		default:
 		}
 		if f.env.Clock.Waiters() > 0 {
 			f.env.Clock.Advance(100 * time.Millisecond)
-		} else {
-			runtime.Gosched()
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("pane_close が終わりません")
-		}
+		return false
+	})
+	if r.err != nil {
+		t.Fatal(r.err)
 	}
+	return r.res
 }
 
 // メモのあるペインを閉じると true。同じペインへの 2 回目は、メモがもう履歴に移っているので ok: true でも false。
