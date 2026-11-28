@@ -1,4 +1,5 @@
-package tooltests_test
+// Package sessiontests は /ops・/view ツールのセッション分離（トークンごとの許可セッション、sessions_list、session 引数）のテスト。
+package sessiontests_test
 
 import (
 	"context"

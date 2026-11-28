@@ -1,7 +1,6 @@
 package server_test
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"log/slog"
@@ -10,7 +9,6 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -19,33 +17,16 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/clock"
 	"github.com/ousiassllc/swarm-console/internal/mcpapi"
 	"github.com/ousiassllc/swarm-console/internal/server"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tools/toolstest"
 )
-
-// syncBuffer はログの出力先（並行に書かれるので排他する）。
-type syncBuffer struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (s *syncBuffer) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.Write(p)
-}
-
-func (s *syncBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.String()
-}
 
 // env は 1 テストぶんのサーバー一式。
 type env struct {
 	f       *toolstest.Fixture
 	srv     *server.Server
 	ts      *httptest.Server
-	logs    *syncBuffer
+	logs    *testutil.LockedBuffer
 	tokens  map[string]string // 名前 → 平文
 	tokPath string
 }
@@ -53,7 +34,7 @@ type env struct {
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	f := toolstest.New(t)
-	logs := &syncBuffer{}
+	logs := &testutil.LockedBuffer{}
 	logger := slog.New(slog.NewJSONHandler(logs, nil))
 	tokPath := filepath.Join(t.TempDir(), "tokens.toml")
 	e := &env{f: f, logs: logs, tokens: map[string]string{}, tokPath: tokPath}

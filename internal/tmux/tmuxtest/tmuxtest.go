@@ -121,23 +121,6 @@ func (s *Server) WaitForText(id, substr string) string {
 	return s.WaitFor(id, func(screen string) bool { return strings.Contains(screen, substr) })
 }
 
-// Eventually は cond が true になるまで上限（WaitTimeout）付きで繰り返す。固定時間の待ちには使わない。
-func Eventually(tb testing.TB, what string, cond func() bool) {
-	tb.Helper()
-	deadline := time.NewTimer(WaitTimeout)
-	defer deadline.Stop()
-	tick := time.NewTicker(10 * time.Millisecond)
-	defer tick.Stop()
-	for !cond() {
-		select {
-		case <-deadline.C:
-			tb.Fatalf("条件待ちがタイムアウト: %s", what)
-			return
-		case <-tick.C:
-		}
-	}
-}
-
 // close は専用サーバーを止め、残ったソケットファイルを消す（既定ソケットは対象外）。
 func (s *Server) close() {
 	path, _ := s.run("display-message", "-p", "#{socket_path}")

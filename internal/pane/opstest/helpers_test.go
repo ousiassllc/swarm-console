@@ -3,11 +3,13 @@ package opstest
 
 import (
 	"bytes"
+	"errors"
 	"log/slog"
 	"runtime"
 	"testing"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/apperr"
 	"github.com/ousiassllc/swarm-console/internal/clock"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/ops"
@@ -92,6 +94,14 @@ func run[T any](t *testing.T, clk *clock.Fake, fn func() (T, error)) (T, error) 
 			t.Fatal("操作が終わりません")
 		}
 	}
+}
+
+func code(err error) apperr.Code {
+	var ae *apperr.Error
+	if errors.As(err, &ae) {
+		return ae.Code
+	}
+	return ""
 }
 
 func opStrings(f *fixture) []string { return f.env.Tmux.OpStrings() }

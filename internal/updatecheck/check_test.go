@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck/updatechecktest"
 )
@@ -243,15 +244,10 @@ func TestCheckCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan updatecheck.Result, 1)
 	go func() { done <- c.Check(ctx) }()
-	<-started
+	testutil.Recv(t, started, "確認が GitHub へ来る")
 	cancel()
-	select {
-	case got := <-done:
-		if got.Status != updatecheck.Unknown {
-			t.Errorf("Check = %+v", got)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("cancel で確認が戻りません")
+	if got := testutil.Recv(t, done, "cancel で確認が戻る"); got.Status != updatecheck.Unknown {
+		t.Errorf("Check = %+v", got)
 	}
 }
 

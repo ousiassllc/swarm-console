@@ -1,7 +1,6 @@
 package updatecheck_test
 
 import (
-	"bytes"
 	"context"
 	"log/slog"
 	"net/http"
@@ -12,40 +11,12 @@ import (
 	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/clock"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck/updatechecktest"
 )
 
 var t0 = time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
-
-type lockedBuf struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (l *lockedBuf) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.Write(p)
-}
-
-func (l *lockedBuf) String() string {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.String()
-}
-
-// eventually は条件が成り立つまで、上限つきで繰り返し確かめる（固定時間の待ちに頼らない）。
-func eventually(t *testing.T, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.Now().Add(10 * time.Second)
-	for !cond() {
-		if time.Now().After(deadline) {
-			t.Fatalf("条件が成り立ちません: %s", what)
-		}
-		time.Sleep(time.Millisecond) // 上限つきのポーリング間隔
-	}
-}
 
 // script は呼ばれるたびに次の応答を返す。使い切ったら最後の応答を返す。
 type script struct {
@@ -74,7 +45,7 @@ func (s *script) calls() int {
 
 type rig struct {
 	clk    *clock.Fake
-	logs   *lockedBuf
+	logs   *testutil.LockedBuffer
 	script *script
 	runner *updatecheck.Runner
 	done   <-chan struct{}
@@ -87,7 +58,7 @@ func startRunner(t *testing.T, current string, interval time.Duration, onResult 
 	sc := &script{steps: steps}
 	o.HandleFunc("api.github.com", sc.handler)
 	clk := clock.NewFake(t0)
-	logs := &lockedBuf{}
+	logs := &testutil.LockedBuffer{}
 	r := updatecheck.NewRunner(updatecheck.RunnerOptions{
 		Checker: updatecheck.New(updatecheck.Options{Current: current, Transport: o.Transport(), Timeout: 5 * time.Second}),
 		Current: current, Interval: interval, Clock: clk, Logger: slog.New(slog.NewJSONHandler(logs, nil)), OnResult: onResult,
@@ -97,9 +68,9 @@ func startRunner(t *testing.T, current string, interval time.Duration, onResult 
 	g.done = r.Start(ctx)
 	t.Cleanup(func() {
 		cancel()
-		<-g.done
+		testutil.Recv(t, g.done, "確認の goroutine が止まる")
 	})
-	eventually(t, "最初の待ちに入る", func() bool { return clk.Waiters() == 1 })
+	testutil.Eventually(t, "最初の待ちに入る", func() bool { return clk.Waiters() == 1 })
 	return g
 }
 
@@ -114,18 +85,18 @@ func TestRunnerSchedule(t *testing.T) {
 		t.Fatalf("1 分前に通信しました（%d 回）", n)
 	}
 	g.clk.Advance(time.Second)
-	eventually(t, "最初の確認", func() bool { return g.runner.Snapshot().Status == updatecheck.UpToDate })
+	testutil.Eventually(t, "最初の確認", func() bool { return g.runner.Snapshot().Status == updatecheck.UpToDate })
 	s := g.runner.Snapshot()
 	if s.Latest != "v0.1.4" || !s.CheckedAt.Equal(t0.Add(time.Minute)) {
 		t.Errorf("結果 = %+v", s)
 	}
-	eventually(t, "次の周期の待ちに入る", func() bool { return g.clk.Waiters() == 1 })
+	testutil.Eventually(t, "次の周期の待ちに入る", func() bool { return g.clk.Waiters() == 1 })
 	g.clk.Advance(6*time.Hour - time.Second)
 	if n := g.script.calls(); n != 1 {
 		t.Fatalf("周期の前に通信しました（%d 回）", n)
 	}
 	g.clk.Advance(time.Second)
-	eventually(t, "2 回目の確認", func() bool { return g.script.calls() == 2 })
+	testutil.Eventually(t, "2 回目の確認", func() bool { return g.script.calls() == 2 })
 }
 
 // 失敗しても止まらず、次の周期で再び確認する。前回成功した latest は残り、失敗の reason だけ変わる（FR-UPD-8）。
@@ -135,11 +106,11 @@ func TestRunnerSurvivesFailuresAndKeepsLatest(t *testing.T) {
 	step := func(wantCalls int) updatecheck.Snapshot {
 		t.Helper()
 		g.clk.Advance(time.Hour)
-		eventually(t, "確認が終わる", func() bool { return g.script.calls() == wantCalls && g.clk.Waiters() == 1 })
+		testutil.Eventually(t, "確認が終わる", func() bool { return g.script.calls() == wantCalls && g.clk.Waiters() == 1 })
 		return g.runner.Snapshot()
 	}
 	g.clk.Advance(time.Minute)
-	eventually(t, "1 回目", func() bool { return g.script.calls() == 1 && g.clk.Waiters() == 1 })
+	testutil.Eventually(t, "1 回目", func() bool { return g.script.calls() == 1 && g.clk.Waiters() == 1 })
 	if s := g.runner.Snapshot(); s.Status != updatecheck.UpdateAvailable || s.Latest != "v0.1.5" {
 		t.Fatalf("1 回目 = %+v", s)
 	}
@@ -172,10 +143,10 @@ func TestRunnerSurvivesFailuresAndKeepsLatest(t *testing.T) {
 func TestRunnerRepeatedFailureWarnsOnce(t *testing.T) {
 	g := startRunner(t, "v0.1.4", time.Hour, nil, status(503))
 	g.clk.Advance(time.Minute)
-	eventually(t, "1 回目", func() bool { return g.script.calls() == 1 && g.clk.Waiters() == 1 })
+	testutil.Eventually(t, "1 回目", func() bool { return g.script.calls() == 1 && g.clk.Waiters() == 1 })
 	for i := 2; i <= 3; i++ {
 		g.clk.Advance(time.Hour)
-		eventually(t, "続きの確認", func() bool { return g.script.calls() == i && g.clk.Waiters() == 1 })
+		testutil.Eventually(t, "続きの確認", func() bool { return g.script.calls() == i && g.clk.Waiters() == 1 })
 	}
 	if n := strings.Count(g.logs.String(), "確認できませんでした"); n != 1 {
 		t.Errorf("警告 %d 回, want 1\n%s", n, g.logs.String())
@@ -192,7 +163,7 @@ func TestRunnerOnResult(t *testing.T) {
 		mu.Unlock()
 	}, release("v0.1.5"))
 	g.clk.Advance(time.Minute)
-	eventually(t, "OnResult", func() bool { mu.Lock(); defer mu.Unlock(); return len(got) == 1 })
+	testutil.Eventually(t, "OnResult", func() bool { mu.Lock(); defer mu.Unlock(); return len(got) == 1 })
 	if got[0].Status != updatecheck.UpdateAvailable || got[0].Latest != "v0.1.5" {
 		t.Errorf("OnResult = %+v", got[0])
 	}
@@ -206,13 +177,9 @@ func TestRunnerStopsDuringHungCheck(t *testing.T) {
 		<-r.Context().Done()
 	})
 	g.clk.Advance(time.Minute)
-	eventually(t, "確認が始まる", started.Load)
+	testutil.Eventually(t, "確認が始まる", started.Load)
 	g.cancel()
-	select {
-	case <-g.done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("ctx を止めても確認の goroutine が終わりません")
-	}
+	testutil.Recv(t, g.done, "ctx を止めて確認の goroutine が終わる")
 	if s := g.runner.Snapshot(); s.Status != updatecheck.Pending {
 		t.Errorf("中断した確認の結果が残っています: %+v", s)
 	}
@@ -222,11 +189,7 @@ func TestRunnerStopsDuringHungCheck(t *testing.T) {
 func TestRunnerStopsWhileWaiting(t *testing.T) {
 	g := startRunner(t, "v0.1.4", time.Hour, nil, release("v0.1.4"))
 	g.cancel()
-	select {
-	case <-g.done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("待ちの途中で止まりません")
-	}
+	testutil.Recv(t, g.done, "待ちの途中で止めて goroutine が終わる")
 	if n := g.script.calls(); n != 0 {
 		t.Errorf("止めたのに通信しました（%d 回）", n)
 	}
@@ -240,11 +203,7 @@ func TestRunnerDisabled(t *testing.T) {
 		Checker: updatecheck.New(updatecheck.Options{Current: "v0.1.4", Transport: o.Transport()}),
 		Current: "v0.1.4", Disabled: true, Interval: time.Hour, Clock: clk,
 	})
-	select {
-	case <-r.Start(context.Background()):
-	case <-time.After(10 * time.Second):
-		t.Fatal("無効の Runner が終わりません")
-	}
+	testutil.Recv(t, r.Start(context.Background()), "無効の Runner が終わる")
 	if s := r.Snapshot(); s.Status != updatecheck.Disabled || s.Current != "v0.1.4" {
 		t.Errorf("Snapshot = %+v", s)
 	}
@@ -257,7 +216,7 @@ func TestRunnerDisabled(t *testing.T) {
 func TestRunnerDevBuild(t *testing.T) {
 	g := startRunner(t, "dev", time.Hour, nil, release("v9.9.9"))
 	g.clk.Advance(time.Minute)
-	eventually(t, "結果", func() bool { return g.runner.Snapshot().Status == updatecheck.Unknown })
+	testutil.Eventually(t, "結果", func() bool { return g.runner.Snapshot().Status == updatecheck.Unknown })
 	if s := g.runner.Snapshot(); s.Reason != updatecheck.ReasonDevBuild || s.Latest != "" {
 		t.Errorf("Snapshot = %+v", s)
 	}

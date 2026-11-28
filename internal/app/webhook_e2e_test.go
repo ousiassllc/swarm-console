@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
 	"github.com/ousiassllc/swarm-console/internal/config/configtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 	"github.com/ousiassllc/swarm-console/internal/webhook"
 	"github.com/ousiassllc/swarm-console/test/fakeagent/fakeagenttest"
@@ -32,23 +32,6 @@ const (
 
 // この束のテストは、実 tmux の専用ソケットに擬似エージェント（omp working）を立て、実際の App（serve と同じ配線）を動かす。
 // 送信先は httptest の実 HTTP サーバー。
-
-type syncBuf struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (s *syncBuf) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.Write(p)
-}
-
-func (s *syncBuf) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.b.String()
-}
 
 // receiver は webhook の受け手。署名・トークンのヘッダーが付いた POST の本文だけを溜める。
 type receiver struct {
@@ -92,7 +75,7 @@ type rig struct {
 	panes   map[string]string // セッション名 → ペイン ID
 	home    string
 	reports string // report_dir（/tmp/swarm-console の下）
-	logs    *syncBuf
+	logs    *testutil.LockedBuffer
 	cancel  context.CancelFunc
 	done    chan error
 }
@@ -146,7 +129,7 @@ func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...str
 	}
 	pane := panes[sessions[0]]
 
-	logs := &syncBuf{}
+	logs := &testutil.LockedBuffer{}
 	a, err := New(cfgPath, "test", slog.New(slog.NewJSONHandler(logs, nil)))
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +143,7 @@ func startRigScenario(t *testing.T, webhookCfg, scenario string, sessions ...str
 
 func (g *rig) stop() {
 	g.cancel()
-	<-g.done
+	_ = testutil.Recv(g.t, g.done, "Run が cancel で止まる")
 	g.done <- nil // 2 回目の stop（Cleanup）でも戻れるように
 }
 
@@ -180,7 +163,7 @@ func (g *rig) state() agent.State {
 
 func (g *rig) until(want agent.State) {
 	g.t.Helper()
-	tmuxtest.Eventually(g.t, "ペインが "+string(want)+" になる", func() bool { return g.state() == want })
+	testutil.Eventually(g.t, "ペインが "+string(want)+" になる", func() bool { return g.state() == want })
 }
 
 // idleRound は serve が working と見たあと、最終報告を書いて Esc で idle にする。
@@ -230,7 +213,7 @@ func TestAppWebhookPostsOnceAndKeepsSecretsOutOfLogs(t *testing.T) {
 	g := startRig(t, webhookCfg(rcv.srv.URL+"/"+e2ePath))
 
 	g.idleRound()
-	tmuxtest.Eventually(t, "webhook が届く", func() bool { return len(rcv.payloads()) >= 1 })
+	testutil.Eventually(t, "webhook が届く", func() bool { return len(rcv.payloads()) >= 1 })
 	g.settle()
 
 	hits := rcv.payloads()
@@ -243,7 +226,7 @@ func TestAppWebhookPostsOnceAndKeepsSecretsOutOfLogs(t *testing.T) {
 		t.Errorf("payload = %+v", pl)
 	}
 	// 送り終えた項目は outbox から消え、回は done になる（再起動しても二重に送らない）。
-	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+	testutil.Eventually(t, "台帳の送信が済む", func() bool {
 		l := g.ledger()
 		return strings.Contains(l, `"phase":"done"`) && strings.Contains(l, `"outbox":{}`)
 	})
@@ -258,7 +241,7 @@ func TestAppWebhookFailureIsLoggedWithoutSecrets(t *testing.T) {
 	g := startRig(t, webhookCfg(down.srv.URL+"/"+e2ePath))
 
 	g.idleRound()
-	tmuxtest.Eventually(t, "送れなかったことがログに出る", func() bool { return strings.Contains(g.logs.String(), `"msg":"webhook を送れませんでした"`) })
+	testutil.Eventually(t, "送れなかったことがログに出る", func() bool { return strings.Contains(g.logs.String(), `"msg":"webhook を送れませんでした"`) })
 	g.stop()
 	logs := g.logs.String()
 	assertNoSecrets(t, "ログ", logs)
@@ -266,7 +249,7 @@ func TestAppWebhookFailureIsLoggedWithoutSecrets(t *testing.T) {
 		t.Errorf("回数がログにありません:\n%s", logs)
 	}
 	// 諦めた項目は outbox から消え、回は done のまま残る（二度と送らない）。
-	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+	testutil.Eventually(t, "台帳の送信が済む", func() bool {
 		l := g.ledger()
 		return strings.Contains(l, `"phase":"done"`) && strings.Contains(l, `"outbox":{}`)
 	})

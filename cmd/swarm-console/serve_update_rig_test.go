@@ -20,6 +20,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/clock"
 	"github.com/ousiassllc/swarm-console/internal/config/configtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/updatecheck/updatechecktest"
 )
 
@@ -41,7 +42,7 @@ type serveRig struct {
 	token  string
 	origin *updatechecktest.Origin
 	clk    *clock.Fake
-	stderr *lockedBuffer
+	stderr *testutil.LockedBuffer
 	cancel context.CancelFunc
 	done   chan int
 	ctx    context.Context
@@ -65,7 +66,7 @@ func newServeRigOnSocket(t *testing.T, current, extraConfig, socket string) *ser
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	g := &serveRig{t: t, home: home, binDir: filepath.Join(home, "bin", "swarm-console"), addr: freeAddr(t),
-		cfg: filepath.Join(home, "config.toml"), origin: updatechecktest.New(t), clk: clock.NewFake(clkStart), stderr: &lockedBuffer{}}
+		cfg: filepath.Join(home, "config.toml"), origin: updatechecktest.New(t), clk: clock.NewFake(clkStart), stderr: &testutil.LockedBuffer{}}
 	if err := os.MkdirAll(g.binDir, 0o700); err != nil {
 		t.Fatal(err)
 	}

@@ -155,3 +155,4 @@
 | 1.28 | 2026-11-21 | NFR-SEC-19：起動時の `model`・`thinking` の検査と、起動行をログに残さないことを追加 | Issue #124 |
 | 1.29 | 2026-11-22 | NFR-OPS-8：`setup` が書くファイルに、`tokens.toml` のロックファイル `tokens.toml.lock`（発行時に作る。権限 600・中身なし）を加える。ほかは変えない | Issue #141 |
 | 1.30 | 2026-11-22 | NFR-SEC-14：`report_dir` も `/tmp/swarm-console` の下だけと明記（Issue #136）。NFR-SEC-20（`report_dir` の起動時検査。親フォルダのグループ書き込みは gid == uid のときだけ許す。Issue #128・#137・#143）、NFR-AVL-11（`tokens.toml` のプロセス間ロック。Issue #127・#138）、NFR-TEST-20（両方の確かめ方）を追加（Issue #144） | Issue #136・#143・#144 |
+| 1.31 | 2026-11-28 | NFR-OPS-10：`update_check_interval` の既定を `24h` から `6h` にした変更（1f45e3a）を改訂履歴に補う（`1h` 以上は同じ）。本文は変えない | Issue #79（記録の補完は Issue #163） |

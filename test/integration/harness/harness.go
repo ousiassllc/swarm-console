@@ -1,7 +1,6 @@
 package harness
 
 import (
-	"bytes"
 	"context"
 	"log/slog"
 	"net"
@@ -17,6 +16,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/app"
 	"github.com/ousiassllc/swarm-console/internal/auth"
 	"github.com/ousiassllc/swarm-console/internal/config/configtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
 )
 
@@ -54,7 +54,7 @@ type H struct {
 	App     *app.App
 
 	tokens map[string]string
-	buf    *lockedBuffer
+	buf    *testutil.LockedBuffer
 	cancel context.CancelFunc
 	done   chan struct{} // Run（Serve）が戻ったら閉じる
 
@@ -62,23 +62,6 @@ type H struct {
 	clients map[string]*Client // Ops など使い回す接続
 	all     []*Client          // 張った接続すべて（停止時に閉じる）
 	runErr  error              // done が閉じたあとに読む
-}
-
-type lockedBuffer struct {
-	mu sync.Mutex
-	b  bytes.Buffer
-}
-
-func (l *lockedBuffer) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.Write(p)
-}
-
-func (l *lockedBuffer) String() string {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.b.String()
 }
 
 // Token 名。ops の 2 つと report の 2 つは、別々のクライアント接続（別トークン）として使う。
@@ -118,7 +101,7 @@ func Prepare(t *testing.T, o Options) *H {
 		T: t, Dir: dir, Work: filepath.Join(dir, "work"), Files: filepath.Join(dir, "files"),
 		Outside: filepath.Join(dir, "outside"), Reports: configtest.ReportDir(t), Logs: filepath.Join(dir, "logs"),
 		Addr: FreeAddr(t), Config: filepath.Join(dir, "config.toml"),
-		tokens: map[string]string{}, buf: &lockedBuffer{}, clients: map[string]*Client{},
+		tokens: map[string]string{}, buf: &testutil.LockedBuffer{}, clients: map[string]*Client{},
 	}
 	for _, d := range []string{h.Work, h.Files, h.Outside, h.Logs} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
@@ -261,28 +244,5 @@ func (h *H) WriteFile(path, body string) {
 	}
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		h.T.Fatal(err)
-	}
-}
-
-// Eventually は cond が true になるまで、上限（30 秒）つきで繰り返す。固定時間の待ちには使わない。
-func (h *H) Eventually(what string, cond func() bool) {
-	h.T.Helper()
-	Eventually(h.T, what, cond)
-}
-
-// Eventually は cond が true になるまで上限つきで繰り返す。
-func Eventually(t testing.TB, what string, cond func() bool) {
-	t.Helper()
-	deadline := time.NewTimer(30 * time.Second)
-	defer deadline.Stop()
-	tick := time.NewTicker(20 * time.Millisecond)
-	defer tick.Stop()
-	for !cond() {
-		select {
-		case <-deadline.C:
-			t.Fatalf("条件待ちがタイムアウト: %s", what)
-			return
-		case <-tick.C:
-		}
 	}
 }

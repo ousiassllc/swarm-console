@@ -1,10 +1,11 @@
-package pane
+package namingtest
 
 import (
 	"reflect"
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/config"
+	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/tmux"
 )
 
@@ -51,7 +52,7 @@ func TestNamePositions(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := NamePositions(tc.panes, tc.cfg); !reflect.DeepEqual(got, tc.want) {
+			if got := pane.NamePositions(tc.panes, tc.cfg); !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("got %v\nwant %v", got, tc.want)
 			}
 		})
@@ -69,7 +70,7 @@ func TestNamePositionsFixedNames(t *testing.T) {
 		{ID: "%7", Session: "work", Window: 0, PaneIndex: 0, Top: 0, Left: 0},
 	}
 	want := map[string]string{"%0": "T1", "%1": "review", "%7": "ci"}
-	if got := NamePositions(panes, cfg); !reflect.DeepEqual(got, want) {
+	if got := pane.NamePositions(panes, cfg); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v want %v", got, want)
 	}
 }
@@ -77,7 +78,7 @@ func TestNamePositionsFixedNames(t *testing.T) {
 func TestNamePositionsDefaultSessionOmitted(t *testing.T) {
 	// default_session が空でセッションが 1 つだけなら、それが既定。
 	cfg := &config.Config{Sessions: []string{"solo"}}
-	got := NamePositions([]tmux.PaneInfo{{ID: "%0", Session: "solo"}}, cfg)
+	got := pane.NamePositions([]tmux.PaneInfo{{ID: "%0", Session: "solo"}}, cfg)
 	if got["%0"] != "T1" {
 		t.Fatalf("got %v", got)
 	}
@@ -91,22 +92,22 @@ func TestComputeLayout(t *testing.T) {
 		pi("%3", "0", 0, 20, 0), pi("%4", "0", 0, 20, 40),
 		pi("%5", "0", 1, 0, 0),
 	}
-	got := ComputeLayout(panes, cfg)
-	if want := (Layout{Rows: 2, Cols: []int{3, 2}}); !reflect.DeepEqual(got, want) {
+	got := pane.ComputeLayout(panes, cfg)
+	if want := (pane.Layout{Rows: 2, Cols: []int{3, 2}}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v want %+v", got, want)
 	}
 	// 既定セッションにペインが無ければセッション順で最初のセッション。
-	got = ComputeLayout([]tmux.PaneInfo{pi("%7", "work", 2, 0, 0), pi("%8", "work", 2, 0, 9)}, cfg)
-	if want := (Layout{Rows: 1, Cols: []int{2}}); !reflect.DeepEqual(got, want) {
+	got = pane.ComputeLayout([]tmux.PaneInfo{pi("%7", "work", 2, 0, 0), pi("%8", "work", 2, 0, 9)}, cfg)
+	if want := (pane.Layout{Rows: 1, Cols: []int{2}}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v want %+v", got, want)
 	}
-	if got := ComputeLayout(nil, cfg); got.Rows != 0 || len(got.Cols) != 0 || got.Cols == nil {
+	if got := pane.ComputeLayout(nil, cfg); got.Rows != 0 || len(got.Cols) != 0 || got.Cols == nil {
 		t.Fatalf("empty: %+v", got)
 	}
 }
 
 func TestFindCaseInsensitive(t *testing.T) {
-	s := &Snapshot{Panes: []PaneState{{ID: "%1", Pos: "work:B2"}, {ID: "%2", Pos: "T1"}}}
+	s := &pane.Snapshot{Panes: []pane.PaneState{{ID: "%1", Pos: "work:B2"}, {ID: "%2", Pos: "T1"}}}
 	for _, arg := range []string{"work:b2", "WORK:B2", "%1"} {
 		if p, ok := s.Find(arg); !ok || p.ID != "%1" {
 			t.Errorf("Find(%q) = %v %v", arg, p, ok)
@@ -125,16 +126,16 @@ func TestNameLocalPositionsOmitsSessionPrefix(t *testing.T) {
 		pi("%7", "1", 0, 0, 0), pi("%8", "1", 0, 0, 50), pi("%9", "1", 0, 20, 0),
 	}
 	want := map[string]string{"%0": "T1", "%1": "B1", "%7": "T1", "%8": "T2", "%9": "B1"}
-	if got := NameLocalPositions(panes, cfg); !reflect.DeepEqual(got, want) {
+	if got := pane.NameLocalPositions(panes, cfg); !reflect.DeepEqual(got, want) {
 		t.Fatalf("local = %v, want %v", got, want)
 	}
 	// 接頭辞つきの名前は従来どおり。
-	if got := NamePositions(panes, cfg); got["%7"] != "1:T1" || got["%9"] != "1:B1" || got["%0"] != "T1" {
+	if got := pane.NamePositions(panes, cfg); got["%7"] != "1:T1" || got["%9"] != "1:B1" || got["%0"] != "T1" {
 		t.Fatalf("global = %v", got)
 	}
 	// ウィンドウが複数のセッションでは、セッション内でも w<index>. は付く。
 	multi := []tmux.PaneInfo{pi("%0", "1", 0, 0, 0), pi("%1", "1", 1, 0, 0)}
-	if got := NameLocalPositions(multi, cfg); got["%0"] != "w0.T1" || got["%1"] != "w1.T1" {
+	if got := pane.NameLocalPositions(multi, cfg); got["%0"] != "w0.T1" || got["%1"] != "w1.T1" {
 		t.Fatalf("multi window = %v", got)
 	}
 }

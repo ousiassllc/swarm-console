@@ -12,6 +12,7 @@ import (
 	"github.com/ousiassllc/swarm-console/internal/notes"
 	"github.com/ousiassllc/swarm-console/internal/pane"
 	"github.com/ousiassllc/swarm-console/internal/pane/panetest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 func TestCurrentCachesWithinTTLAndRefetchesAfter(t *testing.T) {
@@ -52,7 +53,7 @@ func TestCurrentSingleflight(t *testing.T) {
 			got[i], _ = r.Current(context.Background())
 		}()
 	}
-	panetest.WaitUntil(t, "list-panes が呼ばれる", func() bool { return env.Tmux.ListCalls() >= 1 })
+	testutil.Eventually(t, "list-panes が呼ばれる", func() bool { return env.Tmux.ListCalls() >= 1 })
 	close(gate)
 	wg.Wait()
 	if c := env.Tmux.ListCalls(); c != 1 {
@@ -74,7 +75,7 @@ func TestFetchHonoursContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errc := make(chan error, 1)
 	go func() { _, err := r.Current(ctx); errc <- err }()
-	panetest.WaitUntil(t, "進行中", func() bool { return env.Tmux.ListCalls() == 1 })
+	testutil.Eventually(t, "進行中", func() bool { return env.Tmux.ListCalls() == 1 })
 	cancel()
 	if err := <-errc; !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v", err)
@@ -266,13 +267,13 @@ func TestRunSamplesEveryPollInterval(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- r.Run(ctx) }()
 
-	panetest.WaitUntil(t, "最初の取得", func() bool { return env.Tmux.ListCalls() == 1 && env.Clock.Waiters() == 1 })
+	testutil.Eventually(t, "最初の取得", func() bool { return env.Tmux.ListCalls() == 1 && env.Clock.Waiters() == 1 })
 	env.Clock.Advance(4 * time.Second)
 	if env.Tmux.ListCalls() != 1 {
 		t.Fatal("poll_interval 前に取得した")
 	}
 	env.Clock.Advance(time.Second)
-	panetest.WaitUntil(t, "2 回目の取得", func() bool { return env.Tmux.ListCalls() == 2 })
+	testutil.Eventually(t, "2 回目の取得", func() bool { return env.Tmux.ListCalls() == 2 })
 	cancel()
 	if err := <-done; !errors.Is(err, context.Canceled) {
 		t.Fatalf("Run = %v", err)

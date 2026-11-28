@@ -9,9 +9,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ousiassllc/swarm-console/internal/selfupdate"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // 入れ替えない条件（FR-UPD-12）：置き場・プラットフォーム。通信もしない。
@@ -203,19 +203,14 @@ func TestApplyAbortOnCancelCleansUp(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- g.u.Apply(ctx, newVersion) }()
-	<-partial
-	eventually(t, ".new に書きかけが入る", func() bool {
+	testutil.Recv(t, partial, "ダウンロードの書きかけが届く")
+	testutil.Eventually(t, ".new に書きかけが入る", func() bool {
 		b, err := os.ReadFile(filepath.Join(g.dir, newName))
 		return err == nil && strings.HasPrefix(string(b), "partial-data")
 	})
 	cancel()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("err = %v, want context.Canceled", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("cancel で Apply が戻りません")
+	if err := testutil.Recv(t, done, "cancel で Apply が戻る"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
 	}
 	g.assertUntouched()
 	g.wantApply(selfupdate.StateIdle, "")

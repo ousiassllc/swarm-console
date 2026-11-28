@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-console/internal/agent"
-	"github.com/ousiassllc/swarm-console/internal/tmux/tmuxtest"
+	"github.com/ousiassllc/swarm-console/internal/testutil"
 )
 
 // Issue #95：セッションごとの送り先。webhook_e2e_test.go の rig（実 tmux のセッションごとの擬似エージェント）を使う。
@@ -35,7 +35,7 @@ func (g *rig) idleRoundAll(sessions ...string) {
 
 func (g *rig) untilPane(id string, want agent.State) {
 	g.t.Helper()
-	tmuxtest.Eventually(g.t, id+" が "+string(want)+" になる", func() bool {
+	testutil.Eventually(g.t, id+" が "+string(want)+" になる", func() bool {
 		snap, err := g.app.Registry.Refresh(context.Background())
 		if err != nil {
 			g.t.Fatal(err)
@@ -87,7 +87,7 @@ func TestAppWebhookSessionsPostOnceToTheirOwnURLs(t *testing.T) {
 	g := startRigSessions(t, sessionWebhookCfg(r0.srv.URL+"/"+e2ePath, r1.srv.URL+"/"+e2ePath1), "0", "1")
 
 	g.idleRoundAll("0", "1")
-	tmuxtest.Eventually(t, "2 つのセッションの webhook が届く", func() bool { return len(r0.payloads()) >= 1 && len(r1.payloads()) >= 1 })
+	testutil.Eventually(t, "2 つのセッションの webhook が届く", func() bool { return len(r0.payloads()) >= 1 && len(r1.payloads()) >= 1 })
 	g.settle()
 	g.settle()
 
@@ -104,7 +104,7 @@ func TestAppWebhookSessionsPostOnceToTheirOwnURLs(t *testing.T) {
 	if want := filepath.Join(g.reports, "1_T1.md"); h1[0].ReportPath != want {
 		t.Errorf("セッション 1 の report_path = %s, want %s", h1[0].ReportPath, want)
 	}
-	tmuxtest.Eventually(t, "台帳の送信が済む", func() bool {
+	testutil.Eventually(t, "台帳の送信が済む", func() bool {
 		l := g.ledger()
 		return strings.Count(l, `"phase":"done"`) == 2 && strings.Contains(l, `"outbox":{}`)
 	})
@@ -121,7 +121,7 @@ func TestAppWebhookSessionWithoutTableUsesDefaultWebhook(t *testing.T) {
 	g := startRigSessions(t, cfg, "0", "1")
 
 	g.idleRoundAll("0", "1")
-	tmuxtest.Eventually(t, "2 つのセッションの webhook が届く", func() bool { return len(def.payloads()) >= 1 && len(own.payloads()) >= 1 })
+	testutil.Eventually(t, "2 つのセッションの webhook が届く", func() bool { return len(def.payloads()) >= 1 && len(own.payloads()) >= 1 })
 	g.settle()
 
 	hd, ho := def.payloads(), own.payloads()
@@ -140,7 +140,7 @@ func TestAppWebhookSessionWithNoTargetSendsNothing(t *testing.T) {
 	g := startRigSessions(t, cfg, "0", "1")
 
 	g.idleRoundAll("0", "1")
-	tmuxtest.Eventually(t, "セッション 1 の webhook が届く", func() bool { return len(r1.payloads()) >= 1 })
+	testutil.Eventually(t, "セッション 1 の webhook が届く", func() bool { return len(r1.payloads()) >= 1 })
 	g.settle()
 	g.stop()
 
@@ -164,7 +164,7 @@ func TestAppWebhookOnlyConfigWithTwoSessionsStillWorks(t *testing.T) {
 	g := startRigSessions(t, webhookCfg(rcv.srv.URL+"/"+e2ePath), "0", "1")
 
 	g.idleRoundAll("0", "1")
-	tmuxtest.Eventually(t, "2 件が届く", func() bool { return len(rcv.payloads()) >= 2 })
+	testutil.Eventually(t, "2 件が届く", func() bool { return len(rcv.payloads()) >= 2 })
 	g.settle()
 	g.stop()
 
