@@ -65,10 +65,15 @@ func (g *serveRig) callReport(args map[string]any) string {
 	return res.Content[0].(*mcp.TextContent).Text
 }
 
-// reportUntil は snapshot_ttl 後の report が cond を満たすまで、上限つきで繰り返す。
+// reportJSONUntil は snapshot_ttl 後の report が cond を満たすまで待つ。
 func (g *serveRig) reportJSONUntil(what string, cond func(map[string]any) bool) map[string]any {
 	g.t.Helper()
 	var out map[string]any
+	defer func() {
+		if g.t.Failed() {
+			g.t.Logf("最後の観測: %v", out)
+		}
+	}()
 	testutil.Eventually(g.t, what, func() bool {
 		out = nil
 		if err := json.Unmarshal([]byte(g.callReport(map[string]any{"format": "json", "lang": "en"})), &out); err != nil {

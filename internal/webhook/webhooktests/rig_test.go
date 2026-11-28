@@ -178,8 +178,15 @@ func (g *rig) idleRound(sessions ...string) {
 // drain は進行中の送信が終わるまで待つ（終了処理を呼び、同じ台帳で作り直す）。
 func (g *rig) drain() {
 	g.t.Helper()
+	var last string
+	defer func() {
+		if g.t.Failed() {
+			g.t.Logf("送信が終わりません:\n%s", last)
+		}
+	}()
 	testutil.Eventually(g.t, "進行中の送信が終わる（台帳の outbox が空になる）", func() bool {
-		return strings.Contains(g.ledger(), `"outbox":{}`)
+		last = g.ledger()
+		return strings.Contains(last, `"outbox":{}`)
 	})
 	g.cancel()
 	g.wait()

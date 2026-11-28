@@ -176,6 +176,11 @@ func TestServeApplyFailureKeepsServing(t *testing.T) {
 	g.untilWaiting(1)
 	g.clk.Advance(time.Minute)
 	var a map[string]any
+	defer func() {
+		if t.Failed() {
+			t.Logf("最後の観測: %v", a)
+		}
+	}()
 	testutil.Eventually(t, "apply が failed になる", func() bool {
 		a = g.apply(g.hostUpdate())
 		return a["state"] == "failed"
